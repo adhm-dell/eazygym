@@ -9,14 +9,18 @@ export type ToastType = "success" | "error" | "warning" | "info";
 export interface ToastItem {
   id: string;
   title?: string;
-  message: string;
-  type: ToastType;
+  message?: string;
+  description?: string;
+  type?: ToastType;
+  variant?: ToastType;
   duration?: number;
 }
 
+export type ToastOptions = Omit<ToastItem, "id">;
+
 interface ToastContextType {
   toasts: ToastItem[];
-  toast: (options: Omit<ToastItem, "id">) => void;
+  toast: (options: ToastOptions) => void;
   success: (message: string, title?: string) => void;
   error: (message: string, title?: string) => void;
   warning: (message: string, title?: string) => void;
@@ -34,9 +38,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    ({ title, message, type = "info", duration = 4000 }: Omit<ToastItem, "id">) => {
+    ({ title, message, description, type, variant, duration = 4000 }: ToastOptions) => {
       const id = Math.random().toString(36).substring(2, 9);
-      setToasts((prev) => [...prev, { id, title, message, type, duration }]);
+      const resolvedMessage = message || description || "";
+      const resolvedType: ToastType = type || variant || "info";
+
+      setToasts((prev) => [
+        ...prev,
+        {
+          id,
+          title,
+          message: resolvedMessage,
+          description: resolvedMessage,
+          type: resolvedType,
+          variant: resolvedType,
+          duration,
+        },
+      ]);
 
       if (duration > 0) {
         setTimeout(() => {
@@ -94,24 +112,27 @@ export function ToastContainer({
   return (
     <div className="fixed bottom-4 end-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none p-4">
       {toasts.map((t) => {
-        const Icon = icons[t.type];
+        const itemType = t.type || t.variant || "info";
+        const Icon = icons[itemType];
+        const displayMessage = t.message || t.description;
+
         return (
           <div
             key={t.id}
             className={cn(
               "pointer-events-auto flex items-start gap-3 rounded-lg border p-4 shadow-modal transition-all animate-in slide-in-from-bottom-5 duration-200 text-start",
-              borderStyles[t.type]
+              borderStyles[itemType]
             )}
           >
             <Icon className="h-5 w-5 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               {t.title && <h5 className="font-semibold text-foreground text-sm">{t.title}</h5>}
-              <p className="text-xs text-muted-foreground mt-0.5">{t.message}</p>
+              {displayMessage && <p className="text-xs text-muted-foreground mt-0.5">{displayMessage}</p>}
             </div>
             <button
               type="button"
               onClick={() => onDismiss(t.id)}
-              className="text-muted-foreground hover:text-foreground p-1 shrink-0 -mt-1 -me-1"
+              className="text-muted-foreground hover:text-foreground p-1 shrink-0 -mt-1 -me-1 cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>

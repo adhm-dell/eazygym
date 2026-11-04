@@ -4,60 +4,61 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    /* Exact EazyGym Reference Mockup Palette */
+    --background: 100 11% 95%; /* #F2F4F1 */
+    --foreground: 218 22% 10%; /* #14181F */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 218 22% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 24 95% 50%;
+    --popover-foreground: 218 22% 10%;
+    --primary: 218 22% 10%; /* #14181F Charcoal */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 20% 92%;
-    --secondary-foreground: 222 47% 15%;
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 24 95% 95%;
-    --accent-foreground: 24 95% 40%;
-    --destructive: 0 84% 60%;
+    --secondary: 100 10% 89%; /* #E1E5DF */
+    --secondary-foreground: 218 22% 10%;
+    --muted: 100 10% 91%;
+    --muted-foreground: 214 10% 40%; /* #5B6470 */
+    --accent: 76 86% 63%; /* #C6F24E Volt Lime */
+    --accent-foreground: 218 22% 10%;
+    --destructive: 3 71% 41%; /* #B3261E */
     --destructive-foreground: 0 0% 100%;
-    --success: 142 72% 38%;
+    --success: 149 65% 30%; /* #1B7F4B */
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 39 100% 27%; /* #8A5A00 */
     --warning-foreground: 0 0% 100%;
-    --info: 199 89% 48%;
+    --info: 214 10% 40%;
     --info-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 88%;
-    --ring: 24 95% 50%;
-    --radius: 0.5rem;
+    --border: 100 10% 89%; /* #E1E5DF */
+    --input: 100 10% 86%;
+    --ring: 76 86% 63%;
+    --radius: 0.625rem; /* 10px */
   }
 
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 24 95% 18%;
-    --accent-foreground: 24 95% 65%;
-    --destructive: 0 72% 51%;
+    --background: 218 22% 8%;
+    --foreground: 0 0% 98%;
+    --card: 218 22% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 218 22% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 76 86% 63%; /* #C6F24E Volt Lime in Dark Mode */
+    --primary-foreground: 218 22% 10%;
+    --secondary: 218 22% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 218 22% 16%;
+    --muted-foreground: 214 15% 65%;
+    --accent: 76 86% 63%;
+    --accent-foreground: 218 22% 10%;
+    --destructive: 3 71% 55%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 70% 45%;
+    --success: 149 65% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 39 100% 50%;
+    --warning-foreground: 218 22% 10%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
-    --border: 217 33% 18%;
-    --input: 217 33% 20%;
-    --ring: 24 95% 53%;
+    --border: 218 22% 18%;
+    --input: 218 22% 20%;
+    --ring: 76 86% 63%;
   }
 
   * {
@@ -67,7 +68,6 @@
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: var(--font-ibm), "IBM Plex Sans Arabic", system-ui, sans-serif;
   }
 }
-

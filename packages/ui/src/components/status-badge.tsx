@@ -40,6 +40,7 @@ export interface StatusBadgeProps {
   locale?: "ar" | "en";
   className?: string;
   size?: "sm" | "md";
+  showIcon?: boolean;
 }
 
 interface StatusConfig {
@@ -53,8 +54,8 @@ const statusConfigs: Record<string, StatusConfig> = {
   ACTIVE: {
     variant: "success",
     icon: CheckCircle2,
-    labelAr: "نشط / ساري",
-    labelEn: "Active",
+    labelAr: "ACTIVE",
+    labelEn: "ACTIVE",
   },
   EXPIRING_SOON: {
     variant: "warning",
@@ -65,7 +66,7 @@ const statusConfigs: Record<string, StatusConfig> = {
   EXPIRED: {
     variant: "destructive",
     icon: XCircle,
-    labelAr: "منتهي",
+    labelAr: "الاشتراك منتهي",
     labelEn: "Expired",
   },
   FROZEN: {
@@ -83,8 +84,8 @@ const statusConfigs: Record<string, StatusConfig> = {
   SUSPENDED_UNPAID: {
     variant: "destructive",
     icon: AlertTriangle,
-    labelAr: "معلق (رصيد مستحق)",
-    labelEn: "Overdue Balance",
+    labelAr: "متوقف لوجود متبقي مستحق",
+    labelEn: "Suspended (Unpaid)",
   },
   PAYMENT_OVERDUE: {
     variant: "destructive",
@@ -131,8 +132,8 @@ const statusConfigs: Record<string, StatusConfig> = {
   CLASS_NOT_STARTED: {
     variant: "warning",
     icon: Clock,
-    labelAr: "لم تبدأ الحصة بعد",
-    labelEn: "Class Not Started",
+    labelAr: "لم تبدأ",
+    labelEn: "Not Started",
   },
   OPEN: {
     variant: "success",
@@ -166,6 +167,7 @@ export function StatusBadge({
   locale = "ar",
   className,
   size = "md",
+  showIcon = false,
 }: StatusBadgeProps) {
   const config = statusConfigs[status] || {
     variant: "muted",
@@ -178,28 +180,28 @@ export function StatusBadge({
   const displayLabel = label || (locale === "ar" ? config.labelAr : config.labelEn);
 
   const variantStyles = {
-    success: "bg-success/15 text-success border-success/30",
-    warning: "bg-warning/15 text-warning border-warning/30",
-    destructive: "bg-destructive/15 text-destructive border-destructive/30",
-    info: "bg-info/15 text-info border-info/30",
-    muted: "bg-muted text-muted-foreground border-border",
+    success: "bg-[#E3F5EA] text-[#1B7F4B]",
+    warning: "bg-[#FFF1D6] text-[#8A5A00]",
+    destructive: "bg-[#FDE7E4] text-[#B3261E]",
+    info: "bg-[#E1E5DF] text-[#14181F]",
+    muted: "bg-[#E1E5DF]/70 text-[#5B6470]",
   };
 
   const sizeStyles = {
     sm: "px-2 py-0.5 text-xs gap-1",
-    md: "px-2.5 py-1 text-xs font-medium gap-1.5",
+    md: "px-2.5 py-1 text-xs font-bold gap-1.5",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border select-none transition-colors",
+        "inline-flex items-center justify-center rounded-full select-none leading-normal font-bold",
         variantStyles[config.variant],
         sizeStyles[size],
         className
       )}
     >
-      <Icon className={cn("shrink-0", size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5")} />
+      {showIcon && <Icon className={cn("shrink-0", size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5")} />}
       <span>{displayLabel}</span>
     </span>
   );

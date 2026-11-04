@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 100 11% 95%; /* #F2F4F1 */
+    --foreground: 218 22% 10%; /* #14181F */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 218 22% 10%;
+    --primary: 218 22% 10%;
+    --accent: 76 86% 63%; /* #C6F24E */
+    --border: 100 10% 89%; /* #E1E5DF */
+    --muted: 214 10% 40%; /* #5B6470 */
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #F2F4F1;
+    color: #14181F;
+    font-family: "IBM Plex Sans Arabic", system-ui, -apple-system, sans-serif;
+    margin: 0;
+  }
+}

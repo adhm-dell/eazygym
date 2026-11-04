@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import {
   Button,
+  Badge,
+  Chip,
+  Card,
   Input,
   Select,
   Combobox,
@@ -25,6 +28,7 @@ import {
   useToast,
   type ColumnDef,
 } from "@gym/ui";
+import Link from "next/link";
 import {
   MOCK_MEMBERS,
   MOCK_PLANS,
@@ -171,6 +175,80 @@ export default function DesignSystemPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 pt-8 space-y-12">
+        {/* 0. EazyGym Reference Mockups & Core Tokens Showcase */}
+        <section className="bg-white border border-[#E1E5DF] rounded-[18px] p-6 shadow-sm space-y-6 text-start">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E1E5DF]">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-[#C6F24E]" />
+                <h2 className="text-xl font-bold text-[#14181F]">
+                  شاشات ومكونات الهوية المعتمدة (EazyGym Mockup UI)
+                </h2>
+              </div>
+              <p className="text-xs text-[#5B6470] mt-1">
+                تطابق تام ومحكم مع ملفات الـ Mockup المرفقة بالقيم والألوان والخط (IBM Plex Sans Arabic)
+              </p>
+            </div>
+            <Chip>
+              <span>EazyGym · التصميم المعتمد</span>
+            </Chip>
+          </div>
+
+          {/* Quick links to implemented reference screens */}
+          <div>
+            <h3 className="text-xs font-bold text-[#5B6470] uppercase tracking-wider mb-3">
+              استعراض الشاشات المنفذة طبق الأصل:
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <Link href="/" className="no-underline">
+                <div className="p-4 rounded-[12px] border border-[#E1E5DF] bg-[#F2F4F1] hover:border-[#14181F] transition-all flex flex-col gap-1">
+                  <b className="text-[15px] text-[#14181F]">1. مسح الدخول (الريسبشن)</b>
+                  <span className="text-xs text-[#5B6470]">3 أعمدة: سايدبار + نتيجة الفحص + حصص اليوم</span>
+                </div>
+              </Link>
+              <Link href="/pos" className="no-underline">
+                <div className="p-4 rounded-[12px] border border-[#E1E5DF] bg-[#F2F4F1] hover:border-[#14181F] transition-all flex flex-col gap-1">
+                  <b className="text-[15px] text-[#14181F]">2. نقطة البيع (الكاشير والبار)</b>
+                  <span className="text-xs text-[#5B6470]">شبكة منتجات 4 أعمدة + سلة الفاتورة والخصم</span>
+                </div>
+              </Link>
+              <Link href="/admin" className="no-underline">
+                <div className="p-4 rounded-[12px] border border-[#E1E5DF] bg-[#F2F4F1] hover:border-[#14181F] transition-all flex flex-col gap-1">
+                  <b className="text-[15px] text-[#14181F]">3. لوحة التحكم (الأدمن)</b>
+                  <span className="text-xs text-[#5B6470]">بطاقات الإحصاءات + إغلاق الورديات + العمولات</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* Core Tokens & Badges */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-[#E1E5DF]">
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-[#5B6470] uppercase tracking-wider">
+                الأزرار الأساسية (Buttons)
+              </h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button variant="default">.btn (الافتراضي الداكن)</Button>
+                <Button variant="lime">.btn.l (الزر الليموني المميز)</Button>
+                <Button variant="outline">زر محدد (Outline)</Button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-[#5B6470] uppercase tracking-wider">
+                الشارات المعتمدة (Pill Badges & Chips)
+              </h3>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Badge variant="g">ACTIVE (.g)</Badge>
+                <Badge variant="w">ينتهي قريباً (.w)</Badge>
+                <Badge variant="r">الاشتراك منتهي (.r)</Badge>
+                <Badge variant="lime">50% عمولة</Badge>
+                <Chip>وردية سارة مفتوحة منذ 09:00</Chip>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* 1. Stat Cards */}
         <section className="space-y-4 text-start">
           <h2 className="text-lg font-bold flex items-center gap-2">
@@ -214,6 +292,7 @@ export default function DesignSystemPage() {
           <div className="rounded-lg border border-border bg-card p-6 space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <Button variant="default">Primary Default</Button>
+              <Button variant="lime">Lime Accent (.btn.l)</Button>
               <Button variant="secondary">Secondary</Button>
               <Button variant="success">Success Action</Button>
               <Button variant="destructive">Destructive</Button>

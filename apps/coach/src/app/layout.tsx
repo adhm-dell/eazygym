@@ -1,4 +1,5 @@
 import React from "react";
+import "./globals.css";
 
 export const metadata = {
   title: "EazyGym - Coach Portal",
@@ -7,11 +8,10 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className="dark">
-      <body className="min-h-screen bg-slate-900 text-slate-100 font-sans">
+    <html lang="ar" dir="rtl">
+      <body className="min-h-screen bg-[#F2F4F1] text-[#14181F] font-sans antialiased">
         {children}
       </body>
     </html>
   );
 }
-
