@@ -8,3 +8,4 @@ export * from "./shift";
 export * from "./notifications";
 export * from "./class-session";
 export * from "./promotions";
+export * from "./coach-ops";

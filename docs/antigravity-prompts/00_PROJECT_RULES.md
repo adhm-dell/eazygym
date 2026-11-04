@@ -6,8 +6,12 @@ You are building the **front-end only** of a gym management system for Egyptian 
 - `prisma/schema.prisma`: the only data model. Use its field names and enums exactly in mock data and types. Do not invent fields.
 - `src/domain/`: tested pure business rules (access decision, payments, freeze, promotions, commission, shifts). **Call these functions; never re-implement a rule inside a component.**
 
+## Sources of truth for behavior
+- Backend behavior, endpoints, error codes and acceptance numbers: `docs/backend-specs/B00..B09`. Until the API exists, the mock client in `packages/mock-data` must expose the SAME endpoints, shapes and error codes (`{statusCode, code, message}`), so switching to the real API (phase 11) changes nothing in components.
+- Errors are shown by `code` through the i18n dictionary (Arabic/English); never display raw server text.
+
 ## Fixed decisions
-- Monorepo: `apps/staff`, `apps/coach`, `apps/member`, `packages/ui`, `packages/mock-data`, `packages/domain` (copy of `src/domain`).
+- Monorepo already created by `P00_project_structure.md`: `apps/api`, `apps/staff`, `apps/coach`, `apps/member`, `packages/{domain,db,contracts,ui,i18n,mock-data,config}`. Frontends NEVER import `@gym/db` or Prisma.
 - Stack: Next.js (App Router) + TypeScript + Tailwind + shadcn/ui + TanStack Table + React Hook Form + Zod.
 - **Arabic first, RTL**, English toggle (LTR). Use logical CSS properties only (`ms-`, `me-`, `ps-`, `pe-`, `start`, `end`). Western digits. Light + dark mode.
 - Money is integer piasters everywhere; one shared formatter shows `1,250.00 ج.م`. No floats for math.

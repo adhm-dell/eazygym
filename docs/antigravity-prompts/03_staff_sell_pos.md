@@ -9,8 +9,9 @@ One **Sell** screen that produces one Invoice with any mix of: subscriptions, se
 3. **Payment panel:** several payment rows (cash / instapay / card / wallet) summing to the amount; wallet is auto-suggested up to the balance (`planWalletUse`); anything paid above the total is credited to the wallet with a clear message (`settleTender`).
 4. **Activation rules:** `activationDecision` against the plan's (or gym's) min upfront percent. If not met, show the shortfall and block activation. Show `balanceDueDate` when a balance remains and explain that unpaid subscriptions get suspended after it.
 5. **Collect balance** on an existing invoice, **Receipt voucher (سند قبض)** and **Disbursement voucher (سند صرف)** (optionally credited to / paid out from the wallet). All need an open shift.
-6. Invoice view and print layout (80mm receipt and A4).
-7. Mock data additions: Service, Product, Promotion (active, expired, code-only, limited, per-member), Wallet transactions, vouchers.
+6. **Manual discounts above the gym limit** by non-admins create the invoice flagged "pending approval"; admin sees them on the dashboard and approves (`POST /invoices/:id/approve-discount`). **Void / refund** (admin only, reason required) with the reversal preview (cash out of the drawer, wallet refund, commission voided).
+7. Invoice view and print layout (80mm receipt and A4).
+8. Mock data additions: Service, Product, Promotion (active, expired, code-only, limited, per-member), Wallet transactions, vouchers.
 
 ## Acceptance
 - Sell a 3-month PT subscription with a promotion, paying part cash + part wallet, leaving a balance: totals, wallet balance and remaining amount are all correct.

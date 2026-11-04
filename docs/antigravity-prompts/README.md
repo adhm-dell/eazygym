@@ -1,10 +1,14 @@
-# How to use these prompts
+# Prompts index (run IN ORDER, one per conversation; each ends with STOP)
 
-1. Put `schema.prisma` and `src/domain/` in the project first.
-2. Give `00_PROJECT_RULES.md` to Antigravity as project rules (and attach it again if you open a fresh session).
-3. Run the phases IN ORDER, one per session/conversation: `01` ... `09`. Paste the phase file as the prompt.
-4. Do not start the next phase until the acceptance list of the current one passes. Review it yourself in the browser first.
-5. Anything Antigravity reports under "missing from the schema" comes back to me, so I update the schema and the domain code and re-test before continuing.
+Keep `00_PROJECT_RULES.md` (UI) and `backend/B00_BACKEND_RULES.md` (API) as project rules.
+Attach `schema.prisma` and `src/domain/` (in gym-system.zip) to the first prompt; later prompts read them from the repo.
 
-Order: 01 design system -> 02 scan + classes -> 03 sell -> 04 shifts -> 05 members -> 06 admin config -> 07 commission/payroll/reports -> 08 coach -> 09 member.
-Phases 02-04 decide whether the product feels right, so review them with your reception staff before building the rest.
+| Step | File | What it builds |
+|---|---|---|
+| 0 | `P00_project_structure.md` | monorepo skeleton, dependency rules |
+| API | `backend/B01..B09` | the NestJS backend, module by module, with endpoints, transactions, jobs, error codes and numeric acceptance tests |
+| UI | `01..10` | the three apps against the mock client (same endpoints as the real API) |
+| Join | `11_integration_real_api.md` | swap mock for the real API |
+
+Suggested order: P00 -> B01 -> B02 -> B03 -> B04 -> B05 -> B06 -> (UI 01-04 can run in parallel with the backend) -> B07 -> B08 -> B09 -> UI 05-10 -> 11.
+Anything reported as "missing from schema/domain" comes back to the owner so the schema/domain are updated and re-tested first.
