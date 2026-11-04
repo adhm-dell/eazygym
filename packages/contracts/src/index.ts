@@ -143,6 +143,75 @@ export const ShiftDtoSchema = z.object({
 export type ShiftDto = z.infer<typeof ShiftDtoSchema>;
 
 // ---------------------------------------------------------------------------
+// POS & Invoicing DTOs
+// ---------------------------------------------------------------------------
+
+export const InvoiceItemKindSchema = z.enum(["SUBSCRIPTION", "SERVICE", "PRODUCT"]);
+export type InvoiceItemKind = z.infer<typeof InvoiceItemKindSchema>;
+
+export const CreateInvoiceItemSchema = z.object({
+  kind: InvoiceItemKindSchema,
+  planId: z.string().optional(),
+  serviceId: z.string().optional(),
+  productId: z.string().optional(),
+  quantity: z.number().int().min(1),
+  unitPrice: z.number().int().min(0).optional(),
+  subscription: z
+    .object({
+      startDate: z.string().optional(),
+      coachId: z.string().optional(),
+      classSlotIds: z.array(z.string()).optional(),
+      freezeMaxCount: z.number().int().min(0).optional(),
+      freezeMaxTotalDays: z.number().int().min(0).optional(),
+    })
+    .optional(),
+});
+export type CreateInvoiceItemDto = z.infer<typeof CreateInvoiceItemSchema>;
+
+export const PaymentRowSchema = z.object({
+  method: PaymentMethodSchema,
+  amount: z.number().int().min(1),
+  reference: z.string().optional().nullable(),
+});
+export type PaymentRowDto = z.infer<typeof PaymentRowSchema>;
+
+export const CreateInvoiceSchema = z.object({
+  memberId: z.string().optional().nullable(),
+  items: z.array(CreateInvoiceItemSchema).min(1),
+  promotionCode: z.string().optional().nullable(),
+  promotionId: z.string().optional().nullable(),
+  manualDiscount: z
+    .object({
+      amount: z.number().int().min(0),
+      note: z.string(),
+    })
+    .optional()
+    .nullable(),
+  payments: z.array(PaymentRowSchema).default([]),
+  useWallet: z.boolean().default(true),
+  note: z.string().optional().nullable(),
+});
+export type CreateInvoiceDto = z.infer<typeof CreateInvoiceSchema>;
+
+export const CollectPaymentSchema = z.object({
+  payments: z.array(PaymentRowSchema).min(1),
+});
+export type CollectPaymentDto = z.infer<typeof CollectPaymentSchema>;
+
+export const VoucherTypeSchema = z.enum(["RECEIPT", "DISBURSEMENT"]);
+export type VoucherType = z.infer<typeof VoucherTypeSchema>;
+
+export const CreateVoucherSchema = z.object({
+  type: VoucherTypeSchema,
+  memberId: z.string().optional().nullable(),
+  method: z.enum(["CASH", "INSTAPAY", "CARD"]),
+  amount: z.number().int().min(1),
+  reason: z.string().min(1),
+  creditToWallet: z.boolean().optional(),
+});
+export type CreateVoucherDto = z.infer<typeof CreateVoucherSchema>;
+
+// ---------------------------------------------------------------------------
 // Common DTOs
 // ---------------------------------------------------------------------------
 

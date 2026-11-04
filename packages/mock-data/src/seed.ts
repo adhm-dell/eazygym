@@ -5,6 +5,7 @@ import type {
   Plan,
   Subscription,
   Invoice,
+  InvoiceItem,
   Payment,
   Wallet,
   Shift,
@@ -13,6 +14,10 @@ import type {
   ClassScheduleException,
   ClassSession,
   SubscriptionClassSlot,
+  Service,
+  Product,
+  Promotion,
+  CashVoucher,
 } from "./types";
 
 export const MOCK_GYM: Gym = {
@@ -86,6 +91,28 @@ export const MOCK_STAFF: Staff[] = [
     baseSalary: 800000,
     isActive: true,
     lastLoginAt: "2026-11-04T05:45:00.000Z",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "staff_coach_tarek",
+    gymId: "gym_cairo_01",
+    name: "كابتن طارق الديب (كمال أجسام وقوة)",
+    email: "coach.tarek@powercore.gym",
+    role: "COACH",
+    baseSalary: 850000,
+    isActive: true,
+    lastLoginAt: "2026-11-04T07:00:00.000Z",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "staff_coach_mona",
+    gymId: "gym_cairo_01",
+    name: "كابتن منى زكي (فتنس وتغذية رياضية)",
+    email: "coach.mona@powercore.gym",
+    role: "COACH",
+    baseSalary: 750000,
+    isActive: true,
+    lastLoginAt: "2026-11-04T07:30:00.000Z",
     createdAt: "2026-01-01T00:00:00.000Z",
   },
 ];
@@ -171,6 +198,27 @@ export const MOCK_PLANS: Plan[] = [
     dueAfterPercent: 30,
     commissionable: true,
     commissionMilestones: 2,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "plan_pt_3m",
+    gymId: "gym_cairo_01",
+    name: "تدريب شخصي 3 أشهر (36 جلسة PT)",
+    kind: "PT",
+    price: 600000, // 6,000.00 EGP
+    durationDays: 90,
+    grantsFloorAccess: true,
+    totalSessions: 36,
+    sessionsPerWeek: 3,
+    freezeMaxCount: 2,
+    freezeMaxTotalDays: 21,
+    minUpfrontPercent: 50, // 50% minimum upfront
+    dueAfterDays: 30,
+    dueAfterPercent: 30,
+    commissionable: true,
+    commissionMilestones: 3,
     isActive: true,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -1108,6 +1156,29 @@ export const MOCK_INVOICES: Invoice[] = [
   },
 ];
 
+export const MOCK_INVOICE_ITEMS: InvoiceItem[] = [
+  {
+    id: "item_01",
+    invoiceId: "inv_01",
+    kind: "SUBSCRIPTION",
+    description: "اشتراك جيم 90 يوم (Quarterly)",
+    quantity: 1,
+    unitPrice: 240000,
+    total: 240000,
+    planId: "plan_gym_3m",
+  },
+  {
+    id: "item_02",
+    invoiceId: "inv_02",
+    kind: "SUBSCRIPTION",
+    description: "اشتراك جيم شهري (Monthly Regular)",
+    quantity: 1,
+    unitPrice: 90000,
+    total: 90000,
+    planId: "plan_gym_1m",
+  },
+];
+
 export const MOCK_PAYMENTS: Payment[] = [
   {
     id: "pay_01",
@@ -1146,11 +1217,226 @@ export const MOCK_WALLETS: Wallet[] = [
     updatedAt: "2026-11-01T10:00:00.000Z",
   },
   {
+    id: "wallet_1001",
+    gymId: "gym_cairo_01",
+    memberId: "mem_1001",
+    balance: 50000, // 500.00 EGP
+    updatedAt: "2026-11-01T10:00:00.000Z",
+  },
+  {
+    id: "wallet_1002",
+    gymId: "gym_cairo_01",
+    memberId: "mem_1002",
+    balance: 15000, // 150.00 EGP
+    updatedAt: "2026-11-01T10:00:00.000Z",
+  },
+  {
     id: "wallet_01",
     gymId: "gym_cairo_01",
     memberId: "mem_01",
     balance: 45000,
     updatedAt: "2026-10-01T10:00:00.000Z",
+  },
+];
+
+export const MOCK_SERVICES: Service[] = [
+  {
+    id: "srv_inbody",
+    gymId: "gym_cairo_01",
+    name: "قياس وتحليل InBody متكامل",
+    price: 10000, // 100.00 EGP
+    sellableAtPos: true,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "srv_locker",
+    gymId: "gym_cairo_01",
+    name: "إيجار لوكر خاص (شهري)",
+    price: 25000, // 250.00 EGP
+    sellableAtPos: true,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "srv_sauna",
+    gymId: "gym_cairo_01",
+    name: "جلسة ساونا وجاكوزي وبخار منفردة",
+    price: 6000, // 60.00 EGP
+    sellableAtPos: true,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "srv_diet",
+    gymId: "gym_cairo_01",
+    name: "استشارة وتصميم نظام غذائي مخصص",
+    price: 30000, // 300.00 EGP
+    sellableAtPos: true,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+export const MOCK_PRODUCTS: Product[] = [
+  {
+    id: "prod_water",
+    gymId: "gym_cairo_01",
+    name: "مياه معدنية طبيعية 500 مل",
+    price: 1500, // 15.00 EGP
+    stock: 85,
+    barcode: "62210001",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "prod_whey_shake",
+    gymId: "gym_cairo_01",
+    name: "واي بروتين شيك (شوكولاتة / فانيلا)",
+    price: 7500, // 75.00 EGP
+    stock: 32,
+    barcode: "62210002",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "prod_energy_drink",
+    gymId: "gym_cairo_01",
+    name: "مشروب طاقة رياضي خالٍ من السكر",
+    price: 4500, // 45.00 EGP
+    stock: 40,
+    barcode: "62210003",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "prod_protein_bar",
+    gymId: "gym_cairo_01",
+    name: "بروتين بار كرانشي شوكولاتة",
+    price: 3500, // 35.00 EGP
+    stock: 60,
+    barcode: "62210004",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "prod_creatine",
+    gymId: "gym_cairo_01",
+    name: "ميكرونايزد كرياتين مونوهيدرات 300 جم",
+    price: 42000, // 420.00 EGP
+    stock: 12,
+    barcode: "62210005",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "prod_bcaa",
+    gymId: "gym_cairo_01",
+    name: "مكمل BCAA فواكه استوائية (30 سكوب)",
+    price: 38000, // 380.00 EGP
+    stock: 18,
+    barcode: "62210006",
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+export const MOCK_PROMOTIONS: Promotion[] = [
+  {
+    id: "promo_welcome10",
+    gymId: "gym_cairo_01",
+    name: "خصم 10% على الاشتراكات (WELCOME10)",
+    code: "WELCOME10",
+    type: "PERCENT",
+    value: 10,
+    maxDiscount: 50000, // max 500.00 EGP
+    minSubtotal: 50000, // min 500.00 EGP
+    itemKinds: ["SUBSCRIPTION"],
+    maxUses: 100,
+    usedCount: 14,
+    perMemberLimit: 1,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "promo_summer25",
+    gymId: "gym_cairo_01",
+    name: "عروض الصيف 25% على التدريب الشخصي (SUMMER25)",
+    code: "SUMMER25",
+    type: "PERCENT",
+    value: 25,
+    maxDiscount: 100000, // max 1,000.00 EGP
+    minSubtotal: 100000,
+    itemKinds: ["SUBSCRIPTION"],
+    planIds: ["plan_pt_12", "plan_pt_3m"],
+    maxUses: 50,
+    usedCount: 5,
+    perMemberLimit: 1,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "promo_flat200",
+    gymId: "gym_cairo_01",
+    name: "خصم فوري 200 ج.م على الاشتراكات (FLAT200)",
+    code: "FLAT200",
+    type: "FIXED",
+    value: 20000, // 200.00 EGP
+    minSubtotal: 150000, // min 1,500.00 EGP
+    itemKinds: ["SUBSCRIPTION"],
+    maxUses: 30,
+    usedCount: 8,
+    perMemberLimit: 1,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "promo_staff_special",
+    gymId: "gym_cairo_01",
+    name: "خصم الاستقبال المباشر 5% (بدون كود)",
+    code: null,
+    type: "PERCENT",
+    value: 5,
+    maxDiscount: 30000,
+    minSubtotal: 20000,
+    itemKinds: ["SUBSCRIPTION", "SERVICE", "PRODUCT"],
+    maxUses: 500,
+    usedCount: 42,
+    perMemberLimit: null,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "promo_expired",
+    gymId: "gym_cairo_01",
+    name: "عرض بداية العام المنتهي (EXPIRED26)",
+    code: "EXPIRED26",
+    type: "PERCENT",
+    value: 30,
+    startsAt: "2026-01-01T00:00:00.000Z",
+    endsAt: "2026-03-31T23:59:59.000Z", // Expired
+    itemKinds: ["SUBSCRIPTION"],
+    maxUses: 50,
+    usedCount: 50,
+    perMemberLimit: 1,
+    isActive: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
+export const MOCK_VOUCHERS: CashVoucher[] = [
+  {
+    id: "vch_01",
+    gymId: "gym_cairo_01",
+    type: "RECEIPT",
+    memberId: "mem_mock_main",
+    method: "CASH",
+    amount: 25000,
+    reason: "إيداع رصيد بالمحفظة نقداً",
+    shiftId: "shift_mock_01",
+    createdById: "staff_reception",
+    createdAt: "2026-11-01T10:00:00.000Z",
+    walletTxId: "wtx_01",
   },
 ];
 

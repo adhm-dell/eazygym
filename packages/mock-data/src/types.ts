@@ -246,4 +246,140 @@ export interface ClassScheduleWithDetails extends ClassSchedule {
   status: "NOT_STARTED" | "IN_PROGRESS" | "ENDED" | "CANCELLED";
 }
 
+// ---------------------------------------------------------------------------
+// POS, Catalog, Promotions & Vouchers
+// ---------------------------------------------------------------------------
+
+export interface Service {
+  id: string;
+  gymId: string;
+  name: string;
+  price: Minor;
+  sellableAtPos: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Product {
+  id: string;
+  gymId: string;
+  name: string;
+  price: Minor;
+  stock: number;
+  barcode?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface Promotion {
+  id: string;
+  gymId: string;
+  name: string;
+  code: string | null;
+  type: "PERCENT" | "FIXED";
+  value: Minor; // percent (0-100) or fixed minor units
+  maxDiscount?: Minor | null;
+  minSubtotal?: Minor | null;
+  itemKinds: ("SUBSCRIPTION" | "SERVICE" | "PRODUCT")[];
+  planIds?: string[];
+  startsAt?: string | null;
+  endsAt?: string | null;
+  maxUses?: number | null;
+  usedCount: number;
+  perMemberLimit?: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type VoucherType = "RECEIPT" | "DISBURSEMENT";
+
+export interface CashVoucher {
+  id: string;
+  gymId: string;
+  type: VoucherType;
+  memberId: string | null;
+  method: "CASH" | "INSTAPAY" | "CARD";
+  amount: Minor;
+  reason: string;
+  shiftId: string;
+  createdById: string;
+  createdAt: string;
+  walletTxId?: string | null;
+}
+
+export interface PaymentAllocation {
+  id: string;
+  gymId: string;
+  paymentId: string;
+  invoiceItemId: string;
+  amount: Minor;
+  coachId: string | null;
+  createdAt: string;
+}
+
+export interface CreateInvoiceItemDto {
+  kind: "SUBSCRIPTION" | "SERVICE" | "PRODUCT";
+  planId?: string;
+  serviceId?: string;
+  productId?: string;
+  quantity: number;
+  unitPrice?: Minor;
+  subscription?: {
+    startDate?: string;
+    coachId?: string;
+    classSlotIds?: string[];
+    freezeMaxCount?: number;
+    freezeMaxTotalDays?: number;
+  };
+}
+
+export interface CreateInvoiceDto {
+  memberId?: string | null;
+  items: CreateInvoiceItemDto[];
+  promotionCode?: string | null;
+  promotionId?: string | null;
+  manualDiscount?: {
+    amount: Minor;
+    note: string;
+  } | null;
+  payments: {
+    method: PaymentMethod;
+    amount: Minor;
+    reference?: string | null;
+  }[];
+  useWallet?: boolean;
+  note?: string | null;
+}
+
+export interface CollectPaymentDto {
+  payments: {
+    method: PaymentMethod;
+    amount: Minor;
+    reference?: string | null;
+  }[];
+}
+
+export interface CreateVoucherDto {
+  type: VoucherType;
+  memberId?: string | null;
+  method: "CASH" | "INSTAPAY" | "CARD";
+  amount: Minor;
+  reason: string;
+  creditToWallet?: boolean;
+}
+
+export interface InvoiceDetail extends Invoice {
+  items: InvoiceItem[];
+  payments: Payment[];
+  collectedAmount: Minor;
+  remainingAmount: Minor;
+  member?: Member | null;
+  isOverdue?: boolean;
+  balanceDueDate?: string | null;
+  canActivate?: boolean;
+  activationShortfall?: Minor;
+  createdByName?: string;
+  pendingApproval?: boolean;
+}
+
 
