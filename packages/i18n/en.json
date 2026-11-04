@@ -9,7 +9,7 @@
     "status": "Status",
     "actions": "Actions",
     "loading": "Loading...",
-    "empty": "No data found",
+    "empty": "No data available",
     "error": "An unexpected error occurred",
     "egp": "EGP",
     "active": "Active",
@@ -19,17 +19,17 @@
     "all": "All"
   },
   "auth": {
-    "login": "Sign In",
-    "logout": "Sign Out",
-    "email": "Email Address",
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
     "password": "Password",
-    "role": "Staff Role"
+    "role": "Role"
   },
   "nav": {
-    "staff": "Staff & Admin Portal",
+    "staff": "Staff Portal",
     "coach": "Coach Portal",
     "member": "Member Portal",
-    "design": "Design System Guide"
+    "design": "Design System & Components"
   },
   "theme": {
     "light": "Light",
@@ -37,21 +37,85 @@
     "toggle": "Toggle Theme"
   },
   "lang": {
-    "ar": "Arabic",
+    "ar": "العربية",
     "en": "English",
-    "toggle": "Change Language"
+    "toggle": "Switch Language"
+  },
+  "scan": {
+    "title": "Member Check-in",
+    "inputLabel": "Scan barcode or enter name/phone",
+    "inputPlaceholder": "Type member code or phone...",
+    "recentScans": "Recent Check-ins",
+    "memberCode": "Member Code",
+    "daysLeft": "{days} days left",
+    "sessionsLeft": "{sessions} sessions left",
+    "pressEnterToDismiss": "Press Enter to proceed or Esc to close",
+    "expiringSoonWarning": "Subscription expires soon (within 3 days). Offer renewal.",
+    "keyboardOnlyHint": "Fast hands-free keyboard and barcode scanning"
+  },
+  "accessReasons": {
+    "ACTIVE": "Access Granted",
+    "BLOCKED": "Member Blocked",
+    "NO_SUBSCRIPTION": "No Subscription",
+    "PENDING_PAYMENT": "Pending Upfront Payment",
+    "PAYMENT_OVERDUE": "Payment Overdue (Balance Due)",
+    "FROZEN": "Subscription Frozen",
+    "EXPIRED": "Subscription Expired",
+    "PT_EXPIRED": "PT Subscription Expired",
+    "NOT_STARTED": "Subscription Not Started",
+    "CANCELLED": "Subscription Cancelled",
+    "NO_SESSIONS_LEFT": "No Sessions Remaining",
+    "NO_FLOOR_ACCESS": "No Floor Access",
+    "CLASS_NOT_TODAY": "Class Not Scheduled Today",
+    "CLASS_NOT_STARTED": "Class Not Started Yet",
+    "CLASS_ENDED": "Class Ended",
+    "CLASS_CANCELLED": "Class Cancelled Today",
+    "CLASS_OUT_OF_TIME": "Out of Class Time"
+  },
+  "nextActions": {
+    "none": "Close",
+    "viewReason": "View Reason",
+    "sellSubscription": "Sell Subscription",
+    "collectPayment": "Collect Payment",
+    "collectBalance": "Collect Balance",
+    "unfreeze": "Unfreeze",
+    "renew": "Renew Subscription",
+    "renewPt": "Renew PT",
+    "showStartDate": "Show Start Date",
+    "sellGymSubscription": "Buy Gym Subscription",
+    "showClassDays": "Show Class Days",
+    "startClass": "Start Class Now",
+    "showTimes": "Show Class Times"
+  },
+  "classes": {
+    "todayClasses": "Today's Classes",
+    "startClass": "Start Class",
+    "endClass": "End Class",
+    "registered": "registered",
+    "notStarted": "Not Started",
+    "inProgress": "In Progress",
+    "ended": "Ended",
+    "cancelled": "Cancelled"
+  },
+  "shift": {
+    "openShift": "Open Shift",
+    "openingCash": "Opening Cash (EGP)",
+    "currentShift": "Current Shift",
+    "noOpenShift": "No shift currently open. Please open a shift to continue.",
+    "expectedCash": "Expected Cash",
+    "openShiftTitle": "Open New Reception Shift"
   },
   "design": {
-    "title": "Design System & Component Library",
-    "subtitle": "Shared UI components for EazyGym with full RTL/LTR and Light/Dark support",
+    "title": "Design System & Components",
+    "subtitle": "EazyGym shared component guide with RTL/LTR, Light & Dark themes",
     "buttons": "Buttons",
     "inputs": "Inputs & Selects",
-    "money": "Money Handling (Display & Input)",
+    "money": "Money Handling (Integer Piasters)",
     "badges": "Status Badges & Access Reasons",
     "statCards": "Stat Cards",
     "table": "DataTable",
     "dialogs": "Dialogs & Sheets",
-    "fullScreen": "Full Screen Check-In Result",
+    "fullScreen": "Full Screen Result Modal",
     "tabs": "Tabs"
   }
 }

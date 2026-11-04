@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useToast, Button, Chip, Badge } from "@gym/ui";
-import { ShoppingBag, CheckCircle2 } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 
 interface Product {
   id: string;
@@ -265,3 +265,4 @@ export default function PosCashierPage() {
     </div>
   );
 }
+

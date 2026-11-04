@@ -182,3 +182,68 @@ export interface Shift {
   note: string | null;
 }
 
+export interface AccessLog {
+  id: string;
+  gymId: string;
+  memberId: string | null;
+  subscriptionId: string | null;
+  allowed: boolean;
+  reason: string;
+  scannedAt: string;
+  scannedById: string | null;
+  memberName?: string;
+  planName?: string;
+}
+
+export interface ClassSchedule {
+  id: string;
+  gymId: string;
+  name: string;
+  coachId: string;
+  dayOfWeek: number; // 0 = Sunday .. 6 = Saturday
+  startTime: string; // "18:00"
+  endTime: string; // "19:00"
+  capacity: number;
+  isActive: boolean;
+}
+
+export interface ClassScheduleException {
+  id: string;
+  classScheduleId: string;
+  date: string;
+  isCancelled: boolean;
+  newStartTime?: string | null;
+  newEndTime?: string | null;
+  substituteCoachId?: string | null;
+}
+
+export interface ClassSession {
+  id: string;
+  gymId: string;
+  classScheduleId: string;
+  date: string;
+  startedAt: string;
+  startedById: string;
+  endedAt: string | null;
+  endedById: string | null;
+  actualCoachId: string | null;
+  note: string | null;
+}
+
+export interface SubscriptionClassSlot {
+  id: string;
+  subscriptionId: string;
+  classScheduleId: string;
+}
+
+export interface ClassScheduleWithDetails extends ClassSchedule {
+  coachName: string;
+  enrolledMembersCount: number;
+  todaySession: ClassSession | null;
+  isCancelledToday: boolean;
+  effectiveStartTime: string;
+  effectiveEndTime: string;
+  status: "NOT_STARTED" | "IN_PROGRESS" | "ENDED" | "CANCELLED";
+}
+
+
