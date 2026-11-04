@@ -108,3 +108,4 @@ export function useShift(): ShiftContextType {
   }
   return context;
 }
+
