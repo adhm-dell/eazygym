@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   ShoppingBag,
   Plus,
@@ -14,25 +14,14 @@ import {
   AlertTriangle,
   Receipt,
   Printer,
-  X,
   CreditCard,
   Banknote,
   Smartphone,
-  Calendar,
-  Clock,
-  ShieldAlert,
-  ArrowRight,
-  FileText,
   RotateCcw,
-  Sparkles,
-  Info,
 } from "lucide-react";
 import {
   useToast,
   Button,
-  Chip,
-  Badge,
-  Card,
   Dialog,
 } from "@gym/ui";
 import {
@@ -62,7 +51,6 @@ import type {
   Staff,
   ClassScheduleWithDetails,
   InvoiceDetail,
-  CashVoucher,
 } from "@gym/mock-data";
 
 interface CartLine {
@@ -106,7 +94,6 @@ export default function PosSellPage() {
   // Customer selection
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberWallet, setMemberWallet] = useState<Wallet | null>(null);
-  const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [isWalkIn, setIsWalkIn] = useState(false);
 
   // Cart
@@ -147,7 +134,6 @@ export default function PosSellPage() {
   // Collect balance & Vouchers & Recent invoices
   const [collectBalanceModalOpen, setCollectBalanceModalOpen] = useState(false);
   const [vouchersModalOpen, setVouchersModalOpen] = useState(false);
-  const [recentInvoicesModalOpen, setRecentInvoicesModalOpen] = useState(false);
   const [recentInvoicesList, setRecentInvoicesList] = useState<InvoiceDetail[]>([]);
 
   // Collect Balance state
@@ -206,7 +192,6 @@ export default function PosSellPage() {
   const handleSelectMember = async (member: Member | null) => {
     setSelectedMember(member);
     setIsWalkIn(false);
-    setMemberSearchQuery("");
     if (member) {
       try {
         const wallet = await sellApi.getMemberWallet(member.id);
@@ -614,10 +599,23 @@ export default function PosSellPage() {
     }
 
     if (manualDiscountActive) {
-      if (!manualDiscountNote.trim()) {
+      const valResult = validateManualDiscount({
+        subtotal,
+        discount: discount,
+        note: manualDiscountNote,
+      });
+      if (valResult === "NOTE_REQUIRED") {
         toast({
           title: "سبب الخصم اليدوي مطلوب",
           description: "يجب إدخال سبب/ملاحظة واضحة للخصم اليدوي",
+          variant: "error",
+        });
+        return;
+      }
+      if (valResult === "EXCEEDS_SUBTOTAL") {
+        toast({
+          title: "قيمة الخصم غير صالحة",
+          description: "قيمة الخصم تتجاوز إجمالي الفاتورة",
           variant: "error",
         });
         return;
@@ -1020,6 +1018,11 @@ export default function PosSellPage() {
 
           {/* Catalog Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {loading && (
+              <div className="col-span-full py-12 text-center text-[#5B6470] text-[14px] font-bold">
+                جاري تحميل الكتالوج والبيانات...
+              </div>
+            )}
             {/* PLANS TAB */}
             {activeTab === "plans" &&
               plans
@@ -1433,6 +1436,28 @@ export default function PosSellPage() {
                     onChange={(e) => setCardAmountStr(e.target.value)}
                     placeholder="0"
                     className="w-full px-2.5 py-1.5 bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl text-[13px] font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Optional reference / notes */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <div>
+                  <input
+                    type="text"
+                    value={instapayRef}
+                    onChange={(e) => setInstapayRef(e.target.value)}
+                    placeholder="مرجع / رقم عملية إنستاباي"
+                    className="w-full px-2.5 py-1.5 bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl text-[12px]"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={invoiceNote}
+                    onChange={(e) => setInvoiceNote(e.target.value)}
+                    placeholder="ملاحظات الفاتورة (اختياري)"
+                    className="w-full px-2.5 py-1.5 bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl text-[12px]"
                   />
                 </div>
               </div>
