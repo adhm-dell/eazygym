@@ -1,0 +1,57 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search...",
+    "status": "Status",
+    "actions": "Actions",
+    "loading": "Loading...",
+    "empty": "No data found",
+    "error": "An unexpected error occurred",
+    "egp": "EGP",
+    "active": "Active",
+    "inactive": "Inactive",
+    "retry": "Retry",
+    "close": "Close",
+    "all": "All"
+  },
+  "auth": {
+    "login": "Sign In",
+    "logout": "Sign Out",
+    "email": "Email Address",
+    "password": "Password",
+    "role": "Staff Role"
+  },
+  "nav": {
+    "staff": "Staff & Admin Portal",
+    "coach": "Coach Portal",
+    "member": "Member Portal",
+    "design": "Design System Guide"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "toggle": "Toggle Theme"
+  },
+  "lang": {
+    "ar": "Arabic",
+    "en": "English",
+    "toggle": "Change Language"
+  },
+  "design": {
+    "title": "Design System & Component Library",
+    "subtitle": "Shared UI components for EazyGym with full RTL/LTR and Light/Dark support",
+    "buttons": "Buttons",
+    "inputs": "Inputs & Selects",
+    "money": "Money Handling (Display & Input)",
+    "badges": "Status Badges & Access Reasons",
+    "statCards": "Stat Cards",
+    "table": "DataTable",
+    "dialogs": "Dialogs & Sheets",
+    "fullScreen": "Full Screen Check-In Result",
+    "tabs": "Tabs"
+  }
+}

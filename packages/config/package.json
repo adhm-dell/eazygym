@@ -1,0 +1,13 @@
+{
+  "name": "@gym/config",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./index.js",
+  "files": [
+    "eslint-base.js",
+    "eslint-frontend.js",
+    "tailwind-preset.js",
+    "tsconfig.base.json"
+  ]
+}
+

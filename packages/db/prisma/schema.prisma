@@ -1,0 +1,873 @@
+// ============================================================================
+// Gym System - Prisma schema (PostgreSQL)
+//
+// Principles
+//  1. Everything is multi-tenant: every business table carries gymId.
+//  2. Money is Decimal(12,2). The domain layer (src/domain) works in integer
+//     minor units (piasters) and converts at the boundary.
+//  3. ONE Invoice model for everything sold (subscriptions, services, bar
+//     products). No JSON "items" column, no separate sales table.
+//  4. Money movement is append-only: Payment, WalletTransaction, CashVoucher,
+//     Expense are never edited; mistakes are fixed with a reversing record.
+//  5. Every cash-affecting record has a shiftId (required).
+//  6. Commission is a milestone schedule generated at sale time and settled in
+//     the monthly payroll run.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum StaffRole {
+  SUPER_ADMIN
+  GYM_ADMIN
+  RECEPTION
+  BAR_CASHIER
+  COACH
+}
+
+enum PlanKind {
+  GYM
+  PT
+  CLASS
+}
+
+enum SubscriptionStatus {
+  PENDING_PAYMENT // sold but the minimum upfront was not collected
+  ACTIVE
+  FROZEN
+  SUSPENDED_UNPAID // balance overdue
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  INSTAPAY
+  CARD
+  WALLET // member's internal balance
+}
+
+enum InvoiceStatus {
+  OPEN // not fully paid (partial or nothing)
+  PAID
+  VOID
+}
+
+enum InvoiceItemKind {
+  SUBSCRIPTION
+  SERVICE
+  PRODUCT
+}
+
+enum WalletTxType {
+  TOPUP // receipt voucher: member pays extra, credited to wallet
+  OVERPAYMENT // excess over an invoice, credited to wallet
+  PURCHASE // wallet used to pay an invoice
+  REFUND // credited back after a void/refund
+  PAYOUT // disbursement voucher: gym pays the balance out
+  ADJUSTMENT // admin correction (needs a note)
+}
+
+enum VoucherType {
+  RECEIPT // سند قبض
+  DISBURSEMENT // سند صرف
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum CommissionEntryStatus {
+  PENDING // due date not reached
+  EARNED // due date reached, amount still moves with collections until payroll closes
+  PAID // settled in a closed payroll run
+  VOID // cancelled (refund / full transfer)
+}
+
+enum PayrollStatus {
+  DRAFT
+  CLOSED
+}
+
+enum PayrollLineKind {
+  BASE_SALARY
+  COMMISSION
+  ADJUSTMENT // late payments / refunds after a month was closed
+  BONUS
+  DEDUCTION
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum ClassEntryMode {
+  RECEPTION_STARTS // reception starts the class; members enter only after that
+  SCHEDULED // fixed timetable window
+}
+
+enum NotificationRecipientType {
+  MEMBER
+  STAFF
+}
+
+// ---------------------------------------------------------------------------
+// Tenant + people
+// ---------------------------------------------------------------------------
+
+model Gym {
+  id       String @id @default(uuid())
+  name     String
+  slug     String @unique
+  timezone String @default("Africa/Cairo")
+  currency String @default("EGP")
+
+  // Defaults used when a plan does not override them
+  defaultMinUpfrontPercent  Decimal @default(0) @db.Decimal(5, 2) // 0..100
+  defaultDueAfterDays       Int? // null = no overdue suspension
+  defaultDueAfterPercent    Decimal? @db.Decimal(5, 2) // % of the subscription duration
+  classEntryMode            ClassEntryMode @default(RECEPTION_STARTS)
+  classCheckinEarlyMinutes  Int      @default(0) // SCHEDULED mode only
+  expiryNotifyDays          Int[]    @default([7, 3, 1])
+  isActive                  Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  staff             Staff[]
+  members           Member[]
+  plans             Plan[]
+  services          Service[]
+  products          Product[]
+  invoices          Invoice[]
+  subscriptions     Subscription[]
+  shifts            Shift[]
+  expenses          Expense[]
+  commissionTiers   CommissionTier[]
+  payrollRuns       PayrollRun[]
+  classSchedules    ClassSchedule[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  promotions        Promotion[]
+}
+
+model Staff {
+  id           String    @id @default(uuid())
+  gymId        String?
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         StaffRole @default(RECEPTION)
+  baseSalary   Decimal   @default(0) @db.Decimal(12, 2)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  gym Gym? @relation(fields: [gymId], references: [id])
+
+  shifts            Shift[]            @relation("ShiftOwner")
+  shiftsClosedBy    Shift[]            @relation("ShiftClosedBy")
+  payments          Payment[]
+  expenses          Expense[]
+  vouchers          CashVoucher[]
+  coachAssignments  CoachAssignment[]
+  commissionEntries CommissionEntry[]
+  commissionTiers   CommissionTier[]
+  payrollLines      PayrollLine[]
+  classSchedules    ClassSchedule[]
+  invoicesCreated   Invoice[]
+  classSessionsStarted ClassSession[] @relation("ClassSessionStartedBy")
+
+  @@index([gymId, role])
+}
+
+model Member {
+  id         String    @id @default(uuid())
+  gymId      String
+  code       String // printed on the card / QR / barcode
+  name       String
+  phone      String
+  email      String?
+  birthDate  DateTime?
+  gender     String?
+  notes      String?
+  isBlocked  Boolean   @default(false)
+  blockedReason String?
+  // Portal login (member app)
+  passwordHash String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  gym           Gym                @relation(fields: [gymId], references: [id])
+  wallet        Wallet?
+  invoices      Invoice[]
+  subscriptions Subscription[]
+  vouchers      CashVoucher[]
+  serviceUsages ServiceUsage[]
+  accessLogs    AccessLog[]
+  redemptions   PromotionRedemption[]
+
+  @@unique([gymId, code])
+  @@unique([gymId, phone])
+  @@index([gymId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Wallet (member's internal balance)
+// ---------------------------------------------------------------------------
+
+model Wallet {
+  id        String   @id @default(uuid())
+  gymId     String
+  memberId  String   @unique
+  balance   Decimal  @default(0) @db.Decimal(12, 2) // never negative (checked in domain + CHECK constraint)
+  updatedAt DateTime @updatedAt
+
+  member       Member              @relation(fields: [memberId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id           String       @id @default(uuid())
+  gymId        String
+  walletId     String
+  type         WalletTxType
+  amount       Decimal      @db.Decimal(12, 2) // signed: + credit, - debit
+  balanceAfter Decimal      @db.Decimal(12, 2)
+  paymentId    String?      @unique
+  voucherId    String?      @unique
+  note         String?
+  createdById  String?
+  createdAt    DateTime     @default(now())
+
+  wallet  Wallet       @relation(fields: [walletId], references: [id])
+  payment Payment?     @relation(fields: [paymentId], references: [id])
+  voucher CashVoucher? @relation(fields: [voucherId], references: [id])
+
+  @@index([walletId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+model Plan {
+  id          String   @id @default(uuid())
+  gymId       String
+  name        String
+  kind        PlanKind
+  price       Decimal  @db.Decimal(12, 2)
+  durationDays Int
+  isActive    Boolean  @default(true)
+
+  // Door access: GYM=true, CLASS=true (class window rules still apply), PT=false by default
+  grantsFloorAccess Boolean @default(true)
+
+  // Sessions (PT / limited plans). null = unlimited
+  totalSessions   Int?
+  sessionsPerWeek Int? // CLASS plans (informational + slot picking)
+
+  // Freeze policy (the admin can override per subscription when selling it)
+  freezeMaxCount     Int @default(0)
+  freezeMaxTotalDays Int @default(0)
+
+  // Payment policy (null = fall back to gym defaults)
+  minUpfrontPercent Decimal? @db.Decimal(5, 2)
+  dueAfterDays      Int?
+  dueAfterPercent   Decimal? @db.Decimal(5, 2)
+
+  // Commission
+  commissionable    Boolean @default(false) // PT plans
+  commissionMilestones Int  @default(1) // payout checkpoints (3 months => 3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gym           Gym            @relation(fields: [gymId], references: [id])
+  includedServices PlanService[]
+  subscriptions Subscription[]
+  promotionPlans PromotionPlan[]
+
+  @@index([gymId, kind, isActive])
+}
+
+// Dynamic services: entrance-only, sauna, single session, etc.
+model Service {
+  id        String   @id @default(uuid())
+  gymId     String
+  name      String
+  price     Decimal  @default(0) @db.Decimal(12, 2)
+  sellableAtPos Boolean @default(true)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  gym           Gym            @relation(fields: [gymId], references: [id])
+  planServices  PlanService[]
+  usages        ServiceUsage[]
+  invoiceItems  InvoiceItem[]
+
+  @@unique([gymId, name])
+}
+
+// Services included in a plan (e.g. 2 sauna visits per subscription)
+model PlanService {
+  planId    String
+  serviceId String
+  quantity  Int? // null = unlimited
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id])
+
+  @@id([planId, serviceId])
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  gymId     String
+  name      String
+  price     Decimal  @db.Decimal(12, 2)
+  stock     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  gym          Gym           @relation(fields: [gymId], references: [id])
+  invoiceItems InvoiceItem[]
+
+  @@unique([gymId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Promotions (discount applied directly on the invoice, one per invoice)
+// ---------------------------------------------------------------------------
+
+model Promotion {
+  id            String          @id @default(uuid())
+  gymId         String
+  name          String
+  code          String? // null = applied by staff without a code
+  type          DiscountType
+  value         Decimal         @db.Decimal(12, 2) // percent (0-100) or fixed amount
+  maxDiscount   Decimal?        @db.Decimal(12, 2) // cap for PERCENT promotions
+  minSubtotal   Decimal?        @db.Decimal(12, 2) // eligible items must total at least this
+  itemKinds     InvoiceItemKind[] // which kinds of items it discounts (empty = all)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  maxUses       Int? // total redemptions across all members
+  perMemberLimit Int? // e.g. 1 = once per member
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+
+  gym         Gym                   @relation(fields: [gymId], references: [id])
+  plans       PromotionPlan[] // empty = every plan
+  invoices    Invoice[]
+  redemptions PromotionRedemption[]
+
+  @@unique([gymId, code])
+  @@index([gymId, isActive])
+}
+
+model PromotionPlan {
+  promotionId String
+  planId      String
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  plan      Plan      @relation(fields: [planId], references: [id])
+
+  @@id([promotionId, planId])
+}
+
+// Counts usage for maxUses / perMemberLimit. Removed (or voided) with the invoice.
+model PromotionRedemption {
+  id          String   @id @default(uuid())
+  gymId       String
+  promotionId String
+  invoiceId   String   @unique
+  memberId    String?
+  amount      Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+  invoice   Invoice   @relation(fields: [invoiceId], references: [id])
+  member    Member?   @relation(fields: [memberId], references: [id])
+
+  @@index([promotionId, memberId])
+}
+
+// ---------------------------------------------------------------------------
+// Sales: invoice + items + payments
+// ---------------------------------------------------------------------------
+
+model Invoice {
+  id          String        @id @default(uuid())
+  gymId       String
+  number      Int // per-gym running number (assigned in a transaction)
+  memberId    String? // null = walk-in
+  status      InvoiceStatus @default(OPEN)
+  subtotal    Decimal       @db.Decimal(12, 2)
+  discount    Decimal       @default(0) @db.Decimal(12, 2)
+  promotionId String? // the promotion that produced `discount` (null = manual or none)
+  discountNote String? // required when the discount is manual
+  discountApprovedById String? // manual discounts need an admin / permitted staff
+  total       Decimal       @db.Decimal(12, 2)
+  note        String?
+  createdById String
+  shiftId     String
+  createdAt   DateTime      @default(now())
+  voidedAt    DateTime?
+
+  gym       Gym           @relation(fields: [gymId], references: [id])
+  member    Member?       @relation(fields: [memberId], references: [id])
+  createdBy Staff         @relation(fields: [createdById], references: [id])
+  shift     Shift         @relation(fields: [shiftId], references: [id])
+  items     InvoiceItem[]
+  payments  Payment[]
+  promotion Promotion? @relation(fields: [promotionId], references: [id])
+  redemption PromotionRedemption?
+
+  @@unique([gymId, number])
+  @@index([gymId, memberId])
+  @@index([shiftId])
+}
+
+model InvoiceItem {
+  id          String          @id @default(uuid())
+  invoiceId   String
+  kind        InvoiceItemKind
+  description String
+  quantity    Int             @default(1)
+  unitPrice   Decimal         @db.Decimal(12, 2)
+  total       Decimal         @db.Decimal(12, 2) // after discount share
+  planId      String?
+  serviceId   String?
+  productId   String?
+
+  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service      Service?      @relation(fields: [serviceId], references: [id])
+  product      Product?      @relation(fields: [productId], references: [id])
+  subscription Subscription?
+  usage        ServiceUsage?
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  gymId            String
+  invoiceId        String
+  method           PaymentMethod
+  amount           Decimal       @db.Decimal(12, 2) // > 0. Refunds are separate negative-amount rows
+  shiftId          String // required: which drawer/session took it
+  receivedById     String
+  // Snapshot of the coach credited with this money (for tier revenue). null for non-PT.
+  attributedCoachId String?
+  reference        String? // instapay ref / card slip
+  note             String?
+  createdAt        DateTime      @default(now())
+
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  shift     Shift    @relation(fields: [shiftId], references: [id])
+  receivedBy Staff   @relation(fields: [receivedById], references: [id])
+  walletTx  WalletTransaction?
+
+  @@index([gymId, createdAt])
+  @@index([shiftId, method])
+  @@index([attributedCoachId, createdAt])
+}
+
+// سند قبض / سند صرف
+model CashVoucher {
+  id          String      @id @default(uuid())
+  gymId       String
+  type        VoucherType
+  memberId    String?
+  method      PaymentMethod // WALLET not allowed here; wallet side is a WalletTransaction
+  amount      Decimal     @db.Decimal(12, 2)
+  reason      String
+  shiftId     String
+  createdById String
+  createdAt   DateTime    @default(now())
+
+  member   Member?            @relation(fields: [memberId], references: [id])
+  shift    Shift              @relation(fields: [shiftId], references: [id])
+  createdBy Staff             @relation(fields: [createdById], references: [id])
+  walletTx WalletTransaction?
+
+  @@index([shiftId])
+}
+
+// ---------------------------------------------------------------------------
+// Subscriptions
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id            String             @id @default(uuid())
+  gymId         String
+  memberId      String
+  planId        String
+  invoiceItemId String?            @unique
+  bundleId      String? // groups e.g. GYM + PT sold together
+  kind          PlanKind
+  status        SubscriptionStatus @default(PENDING_PAYMENT)
+
+  // Net price of THIS subscription (after discount share). Commission base.
+  price        Decimal @db.Decimal(12, 2)
+  durationDays Int
+
+  startDate       DateTime
+  endDate         DateTime // moves forward when a freeze ends; never for unpaid suspension
+  originalEndDate DateTime
+  activatedAt     DateTime?
+  cancelledAt     DateTime?
+
+  // Sessions
+  totalSessions Int?
+  usedSessions  Int  @default(0)
+
+  // Snapshot of policies at sale time (admin may override when selling)
+  freezeMaxCount     Int
+  freezeMaxTotalDays Int
+  freezeUsedCount    Int @default(0)
+  freezeUsedDays     Int @default(0)
+  minUpfrontPercent  Decimal  @db.Decimal(5, 2)
+  dueAfterDays       Int?
+  dueAfterPercent    Decimal? @db.Decimal(5, 2)
+
+  commissionMilestones Int @default(1)
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  gym         Gym                     @relation(fields: [gymId], references: [id])
+  member      Member                  @relation(fields: [memberId], references: [id])
+  plan        Plan                    @relation(fields: [planId], references: [id])
+  invoiceItem InvoiceItem?            @relation(fields: [invoiceItemId], references: [id])
+  freezes     SubscriptionFreeze[]
+  assignments CoachAssignment[]
+  commissions CommissionEntry[]
+  classSlots  SubscriptionClassSlot[]
+  usages      ServiceUsage[]
+
+  @@index([gymId, memberId, status])
+  @@index([gymId, endDate])
+}
+
+model SubscriptionFreeze {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  startedAt      DateTime
+  plannedEndAt   DateTime? // set when the freeze length is known up front
+  endedAt        DateTime? // null = currently frozen
+  days           Int? // settled days (added to endDate) once ended
+  reason         String?
+  createdById    String
+  createdAt      DateTime  @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([subscriptionId])
+}
+
+// Who is/was the coach for a PT subscription (history of transfers)
+model CoachAssignment {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  coachId        String
+  fromDate       DateTime
+  toDate         DateTime? // null = current coach
+  reason         String?
+  createdAt      DateTime  @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  coach        Staff        @relation(fields: [coachId], references: [id])
+
+  @@index([subscriptionId, toDate])
+  @@index([coachId])
+}
+
+// ---------------------------------------------------------------------------
+// Classes (kickboxing etc.)
+// ---------------------------------------------------------------------------
+
+model ClassSchedule {
+  id        String   @id @default(uuid())
+  gymId     String
+  name      String
+  coachId   String
+  dayOfWeek Int // 0 = Sunday .. 6 = Saturday
+  startTime String // "18:00"
+  endTime   String // "19:00"
+  capacity  Int      @default(20)
+  isActive  Boolean  @default(true)
+
+  gym        Gym                      @relation(fields: [gymId], references: [id])
+  coach      Staff                    @relation(fields: [coachId], references: [id])
+  exceptions ClassScheduleException[]
+  slots      SubscriptionClassSlot[]
+  sessions   ClassSession[]
+}
+
+model ClassScheduleException {
+  id              String    @id @default(uuid())
+  classScheduleId String
+  date            DateTime  @db.Date
+  isCancelled     Boolean   @default(false)
+  newStartTime    String?
+  newEndTime      String?
+  substituteCoachId String?
+
+  classSchedule ClassSchedule @relation(fields: [classScheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([classScheduleId, date])
+}
+
+// One row per class occurrence that reception actually started. While it is open
+// (or until the scheduled length runs out) members of the class may scan in.
+model ClassSession {
+  id              String    @id @default(uuid())
+  gymId           String
+  classScheduleId String
+  date            DateTime  @db.Date
+  startedAt       DateTime
+  startedById     String
+  endedAt         DateTime?
+  endedById       String?
+  actualCoachId   String? // who really taught it (late / substitute)
+  note            String?
+
+  classSchedule ClassSchedule @relation(fields: [classScheduleId], references: [id])
+  startedBy     Staff         @relation("ClassSessionStartedBy", fields: [startedById], references: [id])
+
+  @@unique([classScheduleId, date])
+  @@index([gymId, date])
+}
+
+// The weekly slots a CLASS subscriber is registered in (e.g. Sun + Wed 18:00)
+model SubscriptionClassSlot {
+  subscriptionId  String
+  classScheduleId String
+
+  subscription  Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  classSchedule ClassSchedule @relation(fields: [classScheduleId], references: [id])
+
+  @@id([subscriptionId, classScheduleId])
+}
+
+// ---------------------------------------------------------------------------
+// Services usage + attendance
+// ---------------------------------------------------------------------------
+
+model ServiceUsage {
+  id             String   @id @default(uuid())
+  gymId          String
+  memberId       String?
+  serviceId      String
+  subscriptionId String? // consumed from a plan's included quantity
+  invoiceItemId  String?  @unique // or paid at the POS
+  shiftId        String
+  usedAt         DateTime @default(now())
+
+  member       Member?       @relation(fields: [memberId], references: [id])
+  service      Service       @relation(fields: [serviceId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  invoiceItem  InvoiceItem?  @relation(fields: [invoiceItemId], references: [id])
+
+  @@index([subscriptionId, serviceId])
+}
+
+model AccessLog {
+  id             String   @id @default(uuid())
+  gymId          String
+  memberId       String?
+  subscriptionId String?
+  allowed        Boolean
+  reason         String // AccessReason code
+  scannedAt      DateTime @default(now())
+  scannedById    String?
+
+  member Member? @relation(fields: [memberId], references: [id])
+
+  @@index([gymId, scannedAt])
+  @@index([memberId, scannedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Shifts + expenses
+// ---------------------------------------------------------------------------
+
+model Shift {
+  id             String      @id @default(uuid())
+  gymId          String
+  staffId        String
+  status         ShiftStatus @default(OPEN)
+  openedAt       DateTime    @default(now())
+  closedAt       DateTime?
+  closedById     String? // may be an admin using "close all"
+  openingCash    Decimal     @db.Decimal(12, 2)
+  // Frozen at close time so reports never change afterwards
+  expectedCash   Decimal?    @db.Decimal(12, 2)
+  countedCash    Decimal?    @db.Decimal(12, 2)
+  variance       Decimal?    @db.Decimal(12, 2)
+  note           String?
+
+  gym        Gym           @relation(fields: [gymId], references: [id])
+  staff      Staff         @relation("ShiftOwner", fields: [staffId], references: [id])
+  closedBy   Staff?        @relation("ShiftClosedBy", fields: [closedById], references: [id])
+  invoices   Invoice[]
+  payments   Payment[]
+  expenses   Expense[]
+  vouchers   CashVoucher[]
+
+  @@index([gymId, status])
+  @@index([staffId, status])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  gymId       String
+  shiftId     String
+  category    String
+  amount      Decimal  @db.Decimal(12, 2)
+  description String?
+  paidFromDrawer Boolean @default(true) // reduces the shift's expected cash
+  createdById String
+  createdAt   DateTime @default(now())
+
+  gym       Gym   @relation(fields: [gymId], references: [id])
+  shift     Shift @relation(fields: [shiftId], references: [id])
+  createdBy Staff @relation(fields: [createdById], references: [id])
+
+  @@index([shiftId])
+  @@index([gymId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Commission + payroll
+// ---------------------------------------------------------------------------
+
+// minRevenue = collected revenue of the coach in the month. The matching tier's
+// percent applies to the WHOLE month's commissionable amount.
+// coachId = null -> gym default tiers.
+model CommissionTier {
+  id         String  @id @default(uuid())
+  gymId      String
+  coachId    String?
+  minRevenue Decimal @db.Decimal(12, 2)
+  percent    Decimal @db.Decimal(5, 2)
+
+  gym   Gym    @relation(fields: [gymId], references: [id])
+  coach Staff? @relation(fields: [coachId], references: [id])
+
+  @@unique([gymId, coachId, minRevenue])
+}
+
+// One row per (subscription, milestone, coach). A transfer in the middle of a
+// milestone creates two rows whose shareBps add up to 10000.
+model CommissionEntry {
+  id             String                @id @default(uuid())
+  gymId          String
+  subscriptionId String
+  coachId        String
+  milestoneIndex Int // 1-based
+  periodStart    DateTime
+  dueDate        DateTime
+  baseAmount     Decimal               @db.Decimal(12, 2) // full milestone slice (price / milestones)
+  shareBps       Int                   @default(10000) // this coach's share of the slice, in basis points
+  allocatedBase  Decimal               @default(0) @db.Decimal(12, 2) // part of baseAmount covered by collected money
+  status         CommissionEntryStatus @default(PENDING)
+  tierPercent    Decimal?              @db.Decimal(5, 2) // frozen when the payroll closes
+  amount         Decimal?              @db.Decimal(12, 2) // frozen when the payroll closes
+  payrollRunId   String?
+  createdAt      DateTime              @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  coach        Staff        @relation(fields: [coachId], references: [id])
+  payrollRun   PayrollRun?  @relation(fields: [payrollRunId], references: [id])
+
+  @@unique([subscriptionId, milestoneIndex, coachId])
+  @@index([coachId, status, dueDate])
+}
+
+model PayrollRun {
+  id        String        @id @default(uuid())
+  gymId     String
+  year      Int
+  month     Int // 1..12
+  status    PayrollStatus @default(DRAFT)
+  closedAt  DateTime?
+  closedById String?
+  createdAt DateTime      @default(now())
+
+  gym     Gym               @relation(fields: [gymId], references: [id])
+  lines   PayrollLine[]
+  entries CommissionEntry[]
+
+  @@unique([gymId, year, month])
+}
+
+model PayrollLine {
+  id           String          @id @default(uuid())
+  payrollRunId String
+  staffId      String
+  kind         PayrollLineKind
+  amount       Decimal         @db.Decimal(12, 2) // signed
+  description  String?
+  // for COMMISSION lines: the numbers used
+  collectedRevenue Decimal? @db.Decimal(12, 2)
+  tierPercent      Decimal? @db.Decimal(5, 2)
+
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  staff      Staff      @relation(fields: [staffId], references: [id])
+
+  @@index([payrollRunId, staffId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications + audit
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id            String                    @id @default(uuid())
+  gymId         String
+  recipientType NotificationRecipientType
+  recipientId   String
+  type          String // SUBSCRIPTION_EXPIRING, PAYMENT_OVERDUE, SESSIONS_LOW, ...
+  title         String
+  body          String
+  dedupeKey     String // e.g. "sub-expiring:<subId>:3"
+  readAt        DateTime?
+  createdAt     DateTime                  @default(now())
+
+  gym Gym @relation(fields: [gymId], references: [id])
+
+  @@unique([dedupeKey, recipientId])
+  @@index([recipientType, recipientId, readAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  gymId      String?
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now())
+
+  gym Gym? @relation(fields: [gymId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([gymId, createdAt])
+}

@@ -1,0 +1,57 @@
+{
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "search": "بحث...",
+    "status": "الحالة",
+    "actions": "الإجراءات",
+    "loading": "جاري التحميل...",
+    "empty": "لا توجد بيانات",
+    "error": "حدث خطأ غير متوقع",
+    "egp": "ج.م",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "retry": "إعادة المحاولة",
+    "close": "إغلاق",
+    "all": "الكل"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "role": "الدور الوظيفي"
+  },
+  "nav": {
+    "staff": "بوابة الاستقبال والإدارة",
+    "coach": "بوابة المدربين",
+    "member": "بوابة الأعضاء",
+    "design": "دليل التصميم والمكونات"
+  },
+  "theme": {
+    "light": "نهاري",
+    "dark": "ليلي",
+    "toggle": "تبديل المظهر"
+  },
+  "lang": {
+    "ar": "العربية",
+    "en": "English",
+    "toggle": "تغيير اللغة"
+  },
+  "design": {
+    "title": "نظام التصميم والمكونات",
+    "subtitle": "دليل المكونات المشتركة لنظام EazyGym مع دعم RTL و LTR والمظهر النهاري والليلي",
+    "buttons": "الأزرار (Buttons)",
+    "inputs": "حقول الإدخال والاختيار (Inputs & Selects)",
+    "money": "التعامل المالي (Money Display & Input)",
+    "badges": "شارات الحالة وأسباب الدخول (Status Badges)",
+    "statCards": "بطاقات الإحصائيات (Stat Cards)",
+    "table": "جدول البيانات (DataTable)",
+    "dialogs": "النوافذ المنبثقة والتأكيد (Dialogs & Sheets)",
+    "fullScreen": "شاشة المسح والتأكيد (Full Screen Result)",
+    "tabs": "التبويبات (Tabs)"
+  }
+}
