@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, useToast } from "@gym/ui";
+import { mockClient } from "@gym/mock-data";
 import { Lock, Mail } from "lucide-react";
 
 export default function StaffLoginPage() {
@@ -16,11 +17,21 @@ export default function StaffLoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    const emailToStaffId: Record<string, string> = {
+      "reception@powercore.gym": "staff_01",
+      "bar@powercore.gym": "staff_02",
+      "admin@powercore.gym": "staff_03",
+      "owner@powercore.gym": "staff_04",
+    };
+
+    const targetStaffId = emailToStaffId[email] || "staff_03";
+    mockClient.switchActiveUser(targetStaffId);
+
     setTimeout(() => {
       setIsLoading(false);
       toast({
         title: "تم تسجيل الدخول بنجاح",
-        description: "مرحباً بك في منظومة EazyGym",
+        description: `مرحباً بك في منظومة EazyGym (${email === "admin@powercore.gym" ? "حساب الأدمن" : email})`,
         variant: "success",
       });
       router.push("/");

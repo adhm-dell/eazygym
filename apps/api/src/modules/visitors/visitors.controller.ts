@@ -62,3 +62,4 @@ export class VisitorsController {
     return this.visitorsService.getVisitorById(user.gymId, id);
   }
 }
+

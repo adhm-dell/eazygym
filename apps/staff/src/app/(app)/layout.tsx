@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,7 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@gym/ui";
-import { ShiftProvider } from "../../lib/shift-context";
+import { ShiftProvider, useShift } from "../../lib/shift-context";
 import { OpenShiftDialog } from "../../features/shift/components/open-shift-dialog";
 
 const navItems = [
@@ -28,6 +28,63 @@ const navItems = [
   { href: "/expenses", label: "المصروفات", icon: DollarSign },
   { href: "/design", label: "دليل التصميم", icon: Palette },
 ];
+
+function SidebarUserFooter() {
+  const { currentUser, switchUser } = useShift();
+  const [showSwitch, setShowSwitch] = useState(false);
+
+  const staffList = [
+    { id: "staff_03", name: "منى السيد", role: "أدمن (GYM_ADMIN)" },
+    { id: "staff_01", name: "سارة حسن", role: "استقبال (RECEPTION)" },
+    { id: "staff_02", name: "عمر خالد", role: "كاشير البار (BAR_CASHIER)" },
+    { id: "staff_04", name: "م. طارق العوضي", role: "المالك (SUPER_ADMIN)" },
+  ];
+
+  return (
+    <div className="mt-auto pt-6 px-2.5 hidden md:block">
+      <div className="p-3 rounded-xl bg-[#262D38]/50 border border-white/5 text-xs text-[#C9CFD6] space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-white font-medium">
+            <Sparkles className="h-3 w-3 text-[#C6F24E]" />
+            <span>فرع المعادي الرئيسي</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSwitch(!showSwitch)}
+            className="text-[11px] text-[#C6F24E] hover:underline font-bold cursor-pointer"
+          >
+            {showSwitch ? "إغلاق" : "تبديل"}
+          </button>
+        </div>
+        <p className="text-[11px] opacity-75">
+          المشغل: {currentUser ? `${currentUser.name} (${currentUser.role})` : "سارة حسن (استقبال)"}
+        </p>
+        {showSwitch && (
+          <div className="pt-2 border-t border-white/10 space-y-1">
+            <span className="text-[10px] text-[#C6F24E] font-bold block">تبديل الحساب الحالي:</span>
+            {staffList.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={async () => {
+                  await switchUser(s.id);
+                  setShowSwitch(false);
+                }}
+                className={`w-full text-start px-2 py-1.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                  currentUser?.id === s.id
+                    ? "bg-[#C6F24E] text-[#14181F] font-bold"
+                    : "text-white/80 hover:bg-[#262D38] hover:text-[#C6F24E]"
+                }`}
+              >
+                {s.name} - {s.role}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -70,15 +127,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="mt-auto pt-6 px-2.5 hidden md:block">
-            <div className="p-3 rounded-xl bg-[#262D38]/50 border border-white/5 text-xs text-[#C9CFD6] space-y-1">
-              <div className="flex items-center gap-1.5 text-white font-medium">
-                <Sparkles className="h-3 w-3 text-[#C6F24E]" />
-                <span>فرع المعادي الرئيسي</span>
-              </div>
-              <p className="text-[11px] opacity-75">المشغل: سارة حسن (استقبال)</p>
-            </div>
-          </div>
+          <SidebarUserFooter />
         </aside>
 
         {/* Main Content Viewport */}

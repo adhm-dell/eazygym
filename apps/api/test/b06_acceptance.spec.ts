@@ -306,3 +306,4 @@ describe("B06 Shifts & Expenses Acceptance Tests", () => {
     expect(live2.body.expectedCash).toBe(30000);
   });
 });
+
