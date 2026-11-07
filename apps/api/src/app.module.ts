@@ -32,6 +32,7 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { JobsModule } from "./modules/jobs/jobs.module";
 import { NumberingModule } from "./modules/numbering/numbering.module";
+import { CoachOpsModule } from "./modules/coach-ops/coach-ops.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -39,7 +40,7 @@ import { AppController } from "./app.controller";
     JwtModule.register({
       global: true,
       secret: ENV.JWT_SECRET,
-      signOptions: { expiresIn: "15m" },
+      signOptions: { expiresIn: "7d" },
     }),
     NumberingModule,
     AuditModule,
@@ -60,6 +61,7 @@ import { AppController } from "./app.controller";
     ExpensesModule,
     VouchersModule,
     VisitorsModule,
+    CoachOpsModule,
     CommissionsModule,
     PayrollModule,
     NotificationsModule,

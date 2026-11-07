@@ -6,36 +6,45 @@ import { Button, Input, useToast } from "@gym/ui";
 import { mockClient } from "@gym/mock-data";
 import { Lock, Mail } from "lucide-react";
 
+import { loginUser } from "../../../lib/api";
+
 export default function StaffLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = useState("reception@powercore.gym");
-  const [password, setPassword] = useState("••••••••");
+  const [password, setPassword] = useState("123456");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const emailToStaffId: Record<string, string> = {
-      "reception@powercore.gym": "staff_01",
-      "bar@powercore.gym": "staff_02",
-      "admin@powercore.gym": "staff_03",
-      "owner@powercore.gym": "staff_04",
-    };
+    try {
+      const res = await loginUser(email, password || "123456");
+      const emailToStaffId: Record<string, string> = {
+        "reception@powercore.gym": "staff_reception",
+        "bar@powercore.gym": "staff_cashier",
+        "admin@powercore.gym": "staff_gym_admin",
+        "owner@powercore.gym": "staff_super_admin",
+      };
+      const targetStaffId = emailToStaffId[email] || "staff_gym_admin";
+      mockClient.switchActiveUser(targetStaffId);
 
-    const targetStaffId = emailToStaffId[email] || "staff_03";
-    mockClient.switchActiveUser(targetStaffId);
-
-    setTimeout(() => {
-      setIsLoading(false);
       toast({
         title: "تم تسجيل الدخول بنجاح",
-        description: `مرحباً بك في منظومة EazyGym (${email === "admin@powercore.gym" ? "حساب الأدمن" : email})`,
+        description: `مرحباً بك: ${res.user.name} (${res.user.role})`,
         variant: "success",
       });
       router.push("/");
-    }, 400);
+    } catch (err: any) {
+      toast({
+        title: "خطأ في تسجيل الدخول",
+        description: err.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+        variant: "error",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickSelectStaff = (staffEmail: string) => {

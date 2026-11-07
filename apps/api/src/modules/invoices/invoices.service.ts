@@ -10,6 +10,7 @@ import { AuditService } from "../audit/audit.service";
 import { NumberingService } from "../numbering/numbering.service";
 import { PromotionsService } from "../promotions/promotions.service";
 import { SubscriptionsService } from "../subscriptions/subscriptions.service";
+import { CommissionsService } from "../commissions/commissions.service";
 import {
   allocateProRata,
   planWalletUse,
@@ -41,7 +42,8 @@ export class InvoicesService {
     private readonly auditService: AuditService,
     private readonly numberingService: NumberingService,
     private readonly promotionsService: PromotionsService,
-    private readonly subscriptionsService: SubscriptionsService
+    private readonly subscriptionsService: SubscriptionsService,
+    private readonly commissionsService: CommissionsService
   ) {}
 
   private async getOpenShift(gymId: string, staffId: string) {
@@ -127,7 +129,7 @@ export class InvoicesService {
           unitPricePiasters: unitPrice,
           grossTotalPiasters: unitPrice * item.quantity,
           plan,
-          subscriptionOptions: item.subscription,
+          subscriptionOptions: item.subscription || (item as any).subscriptionOptions,
         });
       } else if (item.kind === "SERVICE") {
         if (!item.serviceId) {
@@ -488,6 +490,11 @@ export class InvoicesService {
         });
       }
 
+      // Recompute commission allocation for created subscriptions
+      for (const sub of createdSubscriptions) {
+        await this.commissionsService.recomputeAllocation(tx, gymId, sub.id);
+      }
+
       return {
         ...invoice,
         items: createdItems,
@@ -733,6 +740,10 @@ export class InvoicesService {
         tx,
         subs.map((s) => s.id)
       );
+
+      for (const sub of subs) {
+        await this.commissionsService.recomputeAllocation(tx, gymId, sub.id);
+      }
     });
 
     return this.getById(gymId, id);
@@ -862,10 +873,17 @@ export class InvoicesService {
             data: { stock: { increment: item.quantity } },
           });
         } else if (item.kind === "SUBSCRIPTION") {
+          const subs = await tx.subscription.findMany({
+            where: { invoiceItemId: item.id },
+          });
           await tx.subscription.updateMany({
             where: { invoiceItemId: item.id },
             data: { status: "CANCELLED", cancelledAt: new Date() },
           });
+          for (const sub of subs) {
+            await this.commissionsService.recomputeAllocation(tx, gymId, sub.id);
+            await this.commissionsService.voidUnearned(tx, sub.id);
+          }
         }
       }
 

@@ -171,7 +171,7 @@ export default function ShiftManagementPage() {
     }[] = [];
 
     // Payments
-    report.records.payments.forEach((p) => {
+    (report?.records?.payments || []).forEach((p) => {
       list.push({
         id: p.id,
         kind: "PAYMENT",
@@ -185,7 +185,7 @@ export default function ShiftManagementPage() {
     });
 
     // Expenses
-    report.records.expenses.forEach((e) => {
+    (report?.records?.expenses || []).forEach((e) => {
       list.push({
         id: e.id,
         kind: "EXPENSE",
@@ -200,7 +200,7 @@ export default function ShiftManagementPage() {
     });
 
     // Vouchers
-    report.records.vouchers.forEach((v) => {
+    (report?.records?.vouchers || []).forEach((v) => {
       const isReceipt = v.type === "RECEIPT";
       list.push({
         id: v.id,

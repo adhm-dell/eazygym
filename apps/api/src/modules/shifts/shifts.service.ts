@@ -378,6 +378,11 @@ export class ShiftsService {
       orderBy: { createdAt: "desc" },
     });
 
+    const vouchers = await this.prisma.cashVoucher.findMany({
+      where: { shiftId: shift.id },
+      orderBy: { createdAt: "desc" },
+    });
+
     return {
       shift: {
         ...shift,
@@ -395,6 +400,10 @@ export class ShiftsService {
         expenses: expenses.map((e) => ({
           ...e,
           amount: decimalToPiasters(e.amount),
+        })),
+        vouchers: vouchers.map((v) => ({
+          ...v,
+          amount: decimalToPiasters(v.amount),
         })),
       },
     };

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { CommissionsService } from "../commissions/commissions.service";
 import {
   activationDecision,
   isOverdue,
@@ -27,7 +28,8 @@ import type {
 export class SubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly commissionsService: CommissionsService
   ) {}
 
   /**
@@ -181,6 +183,20 @@ export class SubscriptionsService {
           freeSessionsGranted: params.plan.freePtSessions || 0,
         },
       });
+
+      // Generate commission milestones
+      await this.commissionsService.generateMilestones(
+        tx,
+        params.gymId,
+        {
+          id: sub.id,
+          price: sub.price,
+          commissionMilestones: sub.commissionMilestones || 1,
+          startDate: sub.startDate,
+          durationDays: sub.durationDays,
+        },
+        params.options.coachId
+      );
     }
 
     // CLASS Slots assignment
@@ -492,6 +508,13 @@ export class SubscriptionsService {
       });
 
       await this.recompute(tx, [sub.id], now);
+
+      await this.commissionsService.shiftPendingMilestones(
+        tx,
+        sub.id,
+        settled.days,
+        now
+      );
     });
 
     await this.auditService.log({
@@ -530,6 +553,8 @@ export class SubscriptionsService {
         cancelledAt: new Date(),
       },
     });
+
+    await this.commissionsService.voidUnearned(this.prisma, id);
 
     await this.auditService.log({
       gymId,
@@ -616,6 +641,16 @@ export class SubscriptionsService {
           isActive: true,
         },
       });
+
+      if (currentAssignment) {
+        await this.commissionsService.handleCoachTransfer(
+          tx,
+          sub.id,
+          currentAssignment.coachId,
+          dto.newCoachId,
+          effectiveAt
+        );
+      }
     });
 
     await this.auditService.log({

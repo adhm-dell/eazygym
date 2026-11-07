@@ -30,7 +30,7 @@ export class StaffController {
   constructor(private readonly staffService: StaffService) {}
 
   @Get()
-  @Roles("GYM_ADMIN", "SUPER_ADMIN")
+  @Roles("GYM_ADMIN", "SUPER_ADMIN", "RECEPTION")
   @ApiOperation({ summary: "List all staff in current gym" })
   async listStaff(@Req() req: any) {
     return this.staffService.list(req.gymId);

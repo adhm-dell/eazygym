@@ -25,6 +25,7 @@ import { CancelSubscriptionDialog } from "../../../../features/members/component
 import { LogSessionDialog } from "../../../../features/members/components/log-session-dialog";
 import { VisitorCheckinDialog } from "../../../../features/members/components/visitor-checkin-dialog";
 import { CollectBalanceDialog } from "../../../../features/members/components/collect-balance-dialog";
+import { MemberFitnessTab } from "../../../../features/members/components/member-fitness-tab";
 import type { MemberProfileDetail, Subscription, InvoiceDetail } from "@gym/mock-data";
 
 export default function MemberProfilePage() {
@@ -33,7 +34,7 @@ export default function MemberProfilePage() {
 
   const [profile, setProfile] = useState<MemberProfileDetail | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "subscriptions" | "invoices" | "wallet" | "attendance" | "freeze" | "notes"
+    "overview" | "subscriptions" | "invoices" | "wallet" | "attendance" | "freeze" | "notes" | "fitness"
   >("overview");
   const [isLoading, setIsLoading] = useState(true);
   const [newNote, setNewNote] = useState("");
@@ -256,6 +257,7 @@ export default function MemberProfilePage() {
             { id: "wallet", label: "المحفظة" },
             { id: "attendance", label: `سجل الحضور (${profile.attendance.length})` },
             { id: "freeze", label: `سجل التجميد (${profile.freezeHistory.length})` },
+            { id: "fitness", label: "الملف البدني و InBody" },
             { id: "notes", label: "الملاحظات" },
           ].map((tab) => (
             <button
@@ -763,6 +765,11 @@ export default function MemberProfilePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tab 8: Fitness Profile & InBody Assessments */}
+      {activeTab === "fitness" && (
+        <MemberFitnessTab memberId={memberId} />
       )}
 
       {/* Modals & Dialogs */}

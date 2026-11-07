@@ -9,11 +9,11 @@ import {
   Dialog,
 } from "@gym/ui";
 import {
-  mockClient,
   type AccessLog,
   type ClassScheduleWithDetails,
   type ScanResult,
 } from "@gym/mock-data";
+import { scanApi } from "../../features/scan/api";
 import { useShift } from "../../lib/shift-context";
 import {
   Search,
@@ -106,8 +106,8 @@ export default function ReceptionScanPage() {
   const loadData = useCallback(async () => {
     try {
       const [logs, classes] = await Promise.all([
-        mockClient.listAccessLogs(),
-        mockClient.listTodayClassSchedules(),
+        scanApi.listAccessLogs(),
+        scanApi.listTodayClassSchedules(),
       ]);
       setAccessLogs(logs);
       setTodayClasses(classes);
@@ -145,12 +145,12 @@ export default function ReceptionScanPage() {
     }
 
     try {
-      const result = await mockClient.evaluateDoorScan(query);
+      const result = await scanApi.evaluateDoorScan(query);
       setActiveResult(result);
       setScanQuery("");
 
       // Refresh logs
-      const updatedLogs = await mockClient.listAccessLogs();
+      const updatedLogs = await scanApi.listAccessLogs();
       setAccessLogs(updatedLogs);
 
       // Auto-dismiss on allowed
@@ -207,7 +207,7 @@ export default function ReceptionScanPage() {
 
       case "unfreeze":
         if (activeResult.subscriptionId) {
-          await mockClient.unfreezeSubscription(activeResult.subscriptionId);
+          await scanApi.unfreezeSubscription(activeResult.subscriptionId);
           toast({
             title: "تم إلغاء التجميد بنجاح",
             description: `تم استئناف اشتراك العضو ${member?.name}`,
@@ -222,7 +222,7 @@ export default function ReceptionScanPage() {
 
       case "startClass":
         try {
-          await mockClient.startClass("cs_kickboxing", "staff_reception");
+          await scanApi.startClass("cs_kickboxing");
           toast({
             title: "تم بدء الكلاس بنجاح",
             description: "تم بدء تسجيل حضور كيك بوكس",
@@ -305,7 +305,7 @@ export default function ReceptionScanPage() {
   // Start Class handler from Today's Classes panel
   const handleStartClass = async (classScheduleId: string) => {
     try {
-      await mockClient.startClass(classScheduleId, "staff_reception");
+      await scanApi.startClass(classScheduleId);
       toast({
         title: "تم بدء الحصة بنجاح",
         description: "تم فتح نافذة الدخول للحصة ومسموح للمشتركين بالدخول",
@@ -324,7 +324,7 @@ export default function ReceptionScanPage() {
   // End Class handler from Today's Classes panel
   const handleEndClass = async (sessionOrScheduleId: string) => {
     try {
-      await mockClient.endClass(sessionOrScheduleId, "staff_reception");
+      await scanApi.endClass(sessionOrScheduleId);
       toast({
         title: "تم إنهاء الحصة بنجاح",
         description: "تم إغلاق نافذة الحضور وحفظ السجل",

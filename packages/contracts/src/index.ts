@@ -527,6 +527,146 @@ export const CloseAllShiftsSchema = z.object({
 });
 export type CloseAllShiftsDto = z.infer<typeof CloseAllShiftsSchema>;
 
+// ---------------------------------------------------------------------------
+// Coach Operations DTOs (B07 & Phase 10)
+// ---------------------------------------------------------------------------
+
+export const CreateCoachShiftSchema = z.object({
+  coachId: z.string().min(1),
+  dayOfWeek: z.number().int().min(0).max(6),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+});
+export type CreateCoachShiftDto = z.infer<typeof CreateCoachShiftSchema>;
+
+export const UpdateCoachShiftSchema = CreateCoachShiftSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdateCoachShiftDto = z.infer<typeof UpdateCoachShiftSchema>;
+
+export const RequestCoachBreakSchema = z.object({
+  coachId: z.string().min(1),
+  reason: z.string().optional().nullable(),
+});
+export type RequestCoachBreakDto = z.infer<typeof RequestCoachBreakSchema>;
+
+export const RejectCoachBreakSchema = z.object({
+  reason: z.string().min(1),
+});
+export type RejectCoachBreakDto = z.infer<typeof RejectCoachBreakSchema>;
+
+export const NotifyBreakReturnSchema = z.object({
+  coachId: z.string().min(1),
+});
+export type NotifyBreakReturnDto = z.infer<typeof NotifyBreakReturnSchema>;
+
+export const UpdateFitnessProfileSchema = z.object({
+  goals: z.string().optional().nullable(),
+  medicalConditions: z.string().optional().nullable(),
+  injuries: z.string().optional().nullable(),
+  previousGymExperience: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type UpdateFitnessProfileDto = z.infer<typeof UpdateFitnessProfileSchema>;
+
+export const FitnessAssessmentMetricsSchema = z.object({
+  weight: z.number().optional(),
+  bodyFatPercent: z.number().optional(),
+  muscleMass: z.number().optional(),
+  waterPercent: z.number().optional(),
+  visceralFatLevel: z.number().optional(),
+  bmr: z.number().optional(),
+  notes: z.string().optional(),
+});
+export type FitnessAssessmentMetrics = z.infer<typeof FitnessAssessmentMetricsSchema>;
+
+export const CreateFitnessAssessmentSchema = z.object({
+  metrics: FitnessAssessmentMetricsSchema,
+  assessmentDate: z.string().optional(),
+});
+export type CreateFitnessAssessmentDto = z.infer<typeof CreateFitnessAssessmentSchema>;
+
+export const AssignFitnessProfileSchema = z.object({
+  coachId: z.string().min(1),
+});
+export type AssignFitnessProfileDto = z.infer<typeof AssignFitnessProfileSchema>;
+
+export const RejectFitnessAssignmentSchema = z.object({
+  reason: z.string().min(1),
+});
+export type RejectFitnessAssignmentDto = z.infer<typeof RejectFitnessAssignmentSchema>;
+
+export const UpdateRotationQueueSchema = z.object({
+  queue: z.array(
+    z.object({
+      coachId: z.string().min(1),
+      position: z.number().int().min(0),
+    })
+  ),
+});
+export type UpdateRotationQueueDto = z.infer<typeof UpdateRotationQueueSchema>;
+
+export const CoachSessionTypeSchema = z.enum(["PRIVATE", "GROUP"]);
+export type CoachSessionType = z.infer<typeof CoachSessionTypeSchema>;
+
+export const CreateCoachSessionSchema = z.object({
+  coachId: z.string().min(1),
+  type: CoachSessionTypeSchema,
+  startTime: z.string(),
+  endTime: z.string(),
+  capacity: z.number().int().positive().optional().nullable(),
+  classScheduleId: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type CreateCoachSessionDto = z.infer<typeof CreateCoachSessionSchema>;
+
+export const AddSessionParticipantSchema = z.object({
+  memberId: z.string().min(1),
+  source: z.enum(["FREE_GRANT", "PT_LINKED", "CLASS_LINKED"]),
+  subscriptionId: z.string().optional().nullable(),
+});
+export type AddSessionParticipantDto = z.infer<typeof AddSessionParticipantSchema>;
+
+export const RecordSessionAttendanceSchema = z.object({
+  attendedMemberIds: z.array(z.string()),
+});
+export type RecordSessionAttendanceDto = z.infer<typeof RecordSessionAttendanceSchema>;
+
+// ---------------------------------------------------------------------------
+// Commissions & Payroll (B08 & Phase 07)
+// ---------------------------------------------------------------------------
+
+export const CommissionTierItemSchema = z.object({
+  minRevenue: z.number(),
+  percent: z.number(),
+});
+export type CommissionTierItem = z.infer<typeof CommissionTierItemSchema>;
+
+export const SetCommissionTiersSchema = z.object({
+  coachId: z.string().optional().nullable(),
+  tiers: z.array(CommissionTierItemSchema),
+});
+export type SetCommissionTiersDto = z.infer<typeof SetCommissionTiersSchema>;
+
+export const CreatePayrollRunSchema = z.object({
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+});
+export type CreatePayrollRunDto = z.infer<typeof CreatePayrollRunSchema>;
+
+export const AddPayrollLineSchema = z.object({
+  staffId: z.string().min(1),
+  kind: z.enum(["BONUS", "DEDUCTION"]),
+  amount: z.number().positive(),
+  description: z.string().min(1),
+});
+export type AddPayrollLineDto = z.infer<typeof AddPayrollLineSchema>;
+
+export const ClosePayrollRunSchema = z.object({
+  note: z.string().optional(),
+});
+export type ClosePayrollRunDto = z.infer<typeof ClosePayrollRunSchema>;
+
 export const HealthCheckResponseSchema = z.object({
   status: z.literal("ok"),
   timestamp: z.string(),

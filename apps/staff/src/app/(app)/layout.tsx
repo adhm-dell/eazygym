@@ -13,6 +13,7 @@ import {
   DollarSign,
   Palette,
   Sparkles,
+  Dumbbell,
 } from "lucide-react";
 import { cn } from "@gym/ui";
 import { ShiftProvider, useShift } from "../../lib/shift-context";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/pos", label: "بيع (البار والخدمات)", icon: ShoppingCart },
   { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard },
   { href: "/members", label: "الأعضاء", icon: Users },
+  { href: "/coach-ops", label: "عمليات المدربين", icon: Dumbbell },
   { href: "/classes", label: "الحصص", icon: CalendarDays },
   { href: "/shift", label: "الوردية", icon: Clock },
   { href: "/expenses", label: "المصروفات", icon: DollarSign },

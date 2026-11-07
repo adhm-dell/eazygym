@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { mockClient, type Shift, type Staff } from "@gym/mock-data";
+import { type Shift, type Staff } from "@gym/mock-data";
+import { shiftApi } from "../features/shift/api";
 import { useToast } from "@gym/ui";
 
 interface ShiftContextType {
@@ -34,8 +35,8 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
   const refreshShift = useCallback(async () => {
     try {
       const [current, user] = await Promise.all([
-        mockClient.getCurrentShift(),
-        mockClient.getCurrentUser(),
+        shiftApi.getCurrentShift(),
+        shiftApi.getCurrentUser(),
       ]);
       setShift(current);
       setCurrentUser(user);
@@ -52,7 +53,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
 
   const switchUser = async (staffId: string) => {
     try {
-      const u = await mockClient.switchActiveUser(staffId);
+      const u = await shiftApi.switchActiveUser(staffId);
       setCurrentUser(u);
       await refreshShift();
       toast({
@@ -73,8 +74,8 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
 
   const openShift = async (openingCashPiasters: number) => {
     try {
-      const user = await mockClient.getCurrentUser();
-      const newShift = await mockClient.openShift(user.id, openingCashPiasters);
+      const user = await shiftApi.getCurrentUser();
+      const newShift = await shiftApi.openShift(user.id, openingCashPiasters / 100);
       setShift(newShift);
       setIsShiftModalOpen(false);
       toast({
@@ -96,7 +97,7 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
   const closeShift = async (countedCashPiasters: number, note?: string) => {
     if (!shift) throw new Error("No open shift");
     try {
-      const closed = await mockClient.closeShift(shift.id, countedCashPiasters, note);
+      const closed = await shiftApi.closeShift(shift.id, countedCashPiasters / 100, note);
       setShift(closed);
       setIsCloseShiftModalOpen(false);
       toast({

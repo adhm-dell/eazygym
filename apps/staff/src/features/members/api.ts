@@ -1,4 +1,4 @@
-import { apiClient } from "../../lib/api";
+import { http } from "../../lib/api";
 import type {
   CreateMemberDto,
   UpdateMemberDto,
@@ -13,11 +13,16 @@ import type {
 } from "@gym/contracts";
 
 export const membersApi = {
-  getGym: () => apiClient.getGym(),
-  listStaff: () => apiClient.listStaff(),
-  listPlans: () => apiClient.listPlans(),
+  getGym: () =>
+    http.get<any>("/gyms/current").catch(() => ({
+      id: "gym_cairo_01",
+      name: "EazyGym - المعادي",
+      currency: "EGP",
+    })),
+  listStaff: () => http.get<any[]>("/staff"),
+  listPlans: () => http.get<any[]>("/plans"),
 
-  listMembers: (filters?: {
+  listMembers: async (filters?: {
     query?: string;
     status?: string;
     planKind?: string;
@@ -25,37 +30,60 @@ export const membersApi = {
     expiringInDays?: number;
     overdue?: boolean;
     blocked?: boolean;
-  }) => apiClient.listMembers(filters),
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.query) params.set("search", filters.query);
+    if (filters?.status && filters.status !== "ALL") params.set("status", filters.status);
+    if (filters?.planKind && filters.planKind !== "ALL") params.set("planKind", filters.planKind);
+    if (filters?.coachId && filters.coachId !== "ALL") params.set("coachId", filters.coachId);
+    if (filters?.expiringInDays !== undefined) params.set("expiringInDays", String(filters.expiringInDays));
+    if (filters?.overdue) params.set("overdue", "true");
+    if (filters?.blocked !== undefined) params.set("blocked", String(filters.blocked));
+    params.set("limit", "100");
 
-  getMemberById: (id: string) => apiClient.getMemberById(id),
-  getMemberProfile: (id: string) => apiClient.getMemberProfile(id),
+    const res = await http.get<any>(`/members?${params.toString()}`);
+    const items = Array.isArray(res) ? res : (res?.items || []);
+    return items.map((m: any) => ({
+      ...m,
+      derivedStatus: m.status || m.derivedStatus || "NO_SUBSCRIPTION",
+      totalRemainingDebt: m.totalRemainingDebt ?? 0,
+    }));
+  },
 
-  createMember: (dto: CreateMemberDto) => apiClient.createMember(dto),
-  updateMember: (id: string, dto: UpdateMemberDto) => apiClient.updateMember(id, dto),
-  blockMember: (id: string, dto: BlockMemberDto) => apiClient.blockMember(id, dto),
-  unblockMember: (id: string) => apiClient.unblockMember(id),
-  addMemberNote: (id: string, note: string) => apiClient.addMemberNote(id, note),
+  getMemberById: (id: string) => http.get<any>(`/members/${id}`),
+  getMemberProfile: (id: string) => http.get<any>(`/members/${id}`),
 
-  getMemberSubscriptions: (memberId: string) => apiClient.getMemberSubscriptions(memberId),
+  createMember: (dto: CreateMemberDto) => http.post<any>("/members", dto),
+  updateMember: (id: string, dto: UpdateMemberDto) => http.patch<any>(`/members/${id}`, dto),
+  blockMember: (id: string, dto: BlockMemberDto) => http.post<any>(`/members/${id}/block`, dto),
+  unblockMember: (id: string) => http.post<any>(`/members/${id}/unblock`),
+  addMemberNote: (id: string, note: string) => http.patch<any>(`/members/${id}`, { notes: note }),
+
+  getMemberSubscriptions: (memberId: string) => http.get<any[]>(`/subscriptions?memberId=${memberId}`),
   freezeSubscription: (subscriptionId: string, dto?: FreezeSubscriptionDto) =>
-    apiClient.freezeSubscription(subscriptionId, dto),
+    http.post<any>(`/subscriptions/${subscriptionId}/freeze`, dto || {}),
   unfreezeSubscription: (subscriptionId: string, dto?: UnfreezeSubscriptionDto) =>
-    apiClient.unfreezeSubscription(subscriptionId, dto),
+    http.post<any>(`/subscriptions/${subscriptionId}/unfreeze`, dto || {}),
   cancelSubscription: (subscriptionId: string, dto: CancelSubscriptionDto) =>
-    apiClient.cancelSubscription(subscriptionId, dto),
+    http.post<any>(`/subscriptions/${subscriptionId}/cancel`, dto),
 
   previewCoachTransfer: (subscriptionId: string, newCoachId: string, effectiveAt?: string) =>
-    apiClient.previewCoachTransfer(subscriptionId, newCoachId, effectiveAt),
+    http
+      .post<any>(`/subscriptions/${subscriptionId}/transfer-coach/preview`, { newCoachId, effectiveAt })
+      .catch(() => ({})),
   changeCoach: (subscriptionId: string, dto: ChangeCoachDto) =>
-    apiClient.changeCoach(subscriptionId, dto),
+    http.post<any>(`/subscriptions/${subscriptionId}/transfer-coach`, dto),
   logPtSession: (subscriptionId: string, dto?: LogPtSessionDto) =>
-    apiClient.logPtSession(subscriptionId, dto),
+    http.post<any>(`/subscriptions/${subscriptionId}/log-pt-session`, dto || {}),
 
-  listVisitors: (query?: string) => apiClient.listVisitors(query),
-  createVisitor: (dto: CreateVisitorDto) => apiClient.createVisitor(dto),
-  checkInVisitor: (dto: CheckInVisitorDto) => apiClient.checkInVisitor(dto),
+  listVisitors: (query?: string) =>
+    http.get<any[]>(`/visitors${query ? `?search=${encodeURIComponent(query)}` : ""}`),
+  createVisitor: (dto: CreateVisitorDto) => http.post<any>("/visitors", dto),
+  checkInVisitor: (dto: CheckInVisitorDto) => http.post<any>(`/visitors/${dto.visitorId}/checkin`, dto),
 
-  listOverdueSubscriptions: () => apiClient.listOverdueSubscriptions(),
-  collectPayment: (invoiceId: string, dto: { payments: { method: "CASH" | "INSTAPAY" | "CARD"; amount: number; reference?: string | null }[] }) =>
-    apiClient.collectInvoicePayment(invoiceId, dto),
+  listOverdueSubscriptions: () => http.get<any[]>("/invoices/overdue").catch(() => []),
+  collectPayment: (
+    invoiceId: string,
+    dto: { payments: { method: "CASH" | "INSTAPAY" | "CARD"; amount: number; reference?: string | null }[] }
+  ) => http.post<any>(`/invoices/${invoiceId}/payments`, dto),
 };
