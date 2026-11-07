@@ -10,6 +10,7 @@
     "types": ["node"]
   },
   "files": [],
+  "include": [],
   "references": [
     { "path": "./packages/domain" },
     { "path": "./packages/contracts" },
