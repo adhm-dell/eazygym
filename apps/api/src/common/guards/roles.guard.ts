@@ -1,22 +1,62 @@
-import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Optional,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ROLES_KEY } from "../decorators/roles.decorator";
-import type { StaffRole } from "@gym/contracts";
+import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import type { UserRole } from "@gym/contracts";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  private reflector: Reflector;
+
+  constructor(@Optional() reflector?: Reflector) {
+    this.reflector = reflector || new Reflector();
+  }
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<StaffRole[]>(ROLES_KEY, [
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
+    if (isPublic) {
+      return true;
+    }
+
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
     }
+
     const { user } = context.switchToHttp().getRequest();
-    return user && requiredRoles.includes(user.role);
+    if (!user || !user.role) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: "FORBIDDEN",
+        message: "No user role found in request context",
+      });
+    }
+
+    if (user.role === "SUPER_ADMIN") {
+      return true;
+    }
+
+    if (!requiredRoles.includes(user.role)) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: "FORBIDDEN",
+        message: `Role ${user.role} is not permitted to access this resource`,
+      });
+    }
+
+    return true;
   }
 }
-

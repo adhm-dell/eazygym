@@ -1,9 +1,13 @@
-﻿import { Module } from '@nestjs/common';
-import { InvoicesService } from './invoices.service';
-import { InvoicesController } from './invoices.controller';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Module } from "@nestjs/common";
+import { InvoicesService } from "./invoices.service";
+import { InvoicesController } from "./invoices.controller";
+import { PrismaService } from "../../prisma/prisma.service";
+import { NumberingModule } from "../numbering/numbering.module";
+import { PromotionsModule } from "../promotions/promotions.module";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 
 @Module({
+  imports: [NumberingModule, PromotionsModule, SubscriptionsModule],
   controllers: [InvoicesController],
   providers: [InvoicesService, PrismaService],
   exports: [InvoicesService],

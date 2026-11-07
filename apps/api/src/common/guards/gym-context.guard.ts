@@ -1,15 +1,52 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from "@nestjs/common";
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  UnauthorizedException,
+  Optional,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
 @Injectable()
 export class GymContextGuard implements CanActivate {
+  private reflector: Reflector;
+
+  constructor(@Optional() reflector?: Reflector) {
+    this.reflector = reflector || new Reflector();
+  }
+
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest();
-    const gymId = req.headers["x-gym-id"] || req.user?.gymId || "gym_cairo_01";
-    if (!gymId) {
-      throw new UnauthorizedException("Missing Gym Context (gymId)");
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
     }
-    req.gymId = gymId;
+
+    const req = context.switchToHttp().getRequest();
+    const user = req.user;
+
+    if (!user) {
+      return true;
+    }
+
+    if (user.role === "SUPER_ADMIN") {
+      const headerGymId = req.headers["x-gym-id"];
+      req.gymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
+      return true;
+    }
+
+    if (!user.gymId) {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: "MISSING_GYM_CONTEXT",
+        message: "No gym associated with this account",
+      });
+    }
+
+    req.gymId = user.gymId;
     return true;
   }
 }
-

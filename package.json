@@ -23,7 +23,8 @@
       "@prisma/client",
       "@prisma/engines",
       "esbuild",
-      "prisma"
+      "prisma",
+      "@swc/core"
     ]
   }
 }

@@ -149,3 +149,4 @@ export function BlockMemberDialog({ member, isOpen, onClose, onSuccess }: BlockM
     </div>
   );
 }
+

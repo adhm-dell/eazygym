@@ -14,6 +14,16 @@ export const StaffRoleSchema = z.enum([
 ]);
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
 
+export const UserRoleSchema = z.enum([
+  "SUPER_ADMIN",
+  "GYM_ADMIN",
+  "RECEPTION",
+  "BAR_CASHIER",
+  "COACH",
+  "MEMBER",
+]);
+export type UserRole = z.infer<typeof UserRoleSchema>;
+
 export const PlanKindSchema = z.enum(["GYM", "PT", "CLASS"]);
 
 export const SubscriptionStatusSchema = z.enum([
@@ -44,6 +54,63 @@ export const LoginRequestSchema = z.object({
   password: z.string().min(6),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+export const MemberLoginRequestSchema = z.object({
+  phone: z.string().min(4),
+  password: z.string().min(4),
+});
+export type MemberLoginRequest = z.infer<typeof MemberLoginRequestSchema>;
+
+export const SetMemberPasswordSchema = z.object({
+  password: z.string().min(4),
+});
+export type SetMemberPasswordDto = z.infer<typeof SetMemberPasswordSchema>;
+
+export const CreateStaffSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  role: StaffRoleSchema,
+  baseSalary: z.number().int().nonnegative().optional(),
+  password: z.string().min(6).optional(),
+});
+export type CreateStaffDto = z.infer<typeof CreateStaffSchema>;
+
+export const UpdateStaffSchema = z.object({
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  role: StaffRoleSchema.optional(),
+  baseSalary: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+  password: z.string().min(6).optional(),
+});
+export type UpdateStaffDto = z.infer<typeof UpdateStaffSchema>;
+
+export const UpdateGymSettingsSchema = z.object({
+  name: z.string().optional(),
+  defaultMinUpfrontPercent: z.number().min(0).max(100).optional(),
+  defaultDueAfterDays: z.number().int().nonnegative().nullable().optional(),
+  defaultDueAfterPercent: z.number().min(0).max(100).nullable().optional(),
+  classEntryMode: z.enum(["RECEPTION_STARTS", "SCHEDULED"]).optional(),
+  classCheckinEarlyMinutes: z.number().int().nonnegative().optional(),
+  expiryNotifyDays: z.array(z.number().int().nonnegative()).optional(),
+  maxCoachBreaksPerDay: z.number().int().nonnegative().optional(),
+  coachBreakDurationMinutes: z.number().int().nonnegative().optional(),
+  freeSessionsOnFitnessProfile: z.number().int().nonnegative().optional(),
+  manualDiscountLimitPercent: z.number().min(0).max(100).optional(),
+  timezone: z.string().optional(),
+});
+export type UpdateGymSettingsDto = z.infer<typeof UpdateGymSettingsSchema>;
+
+export const AuditQuerySchema = z.object({
+  entityType: z.string().optional(),
+  actorId: z.string().optional(),
+  fromDate: z.string().optional(),
+  toDate: z.string().optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+export type AuditQueryDto = z.infer<typeof AuditQuerySchema>;
 
 export const AuthUserDtoSchema = z.object({
   id: z.string(),
@@ -239,6 +306,7 @@ export const CreateInvoiceItemSchema = z.object({
       classSlotIds: z.array(z.string()).optional(),
       freezeMaxCount: z.number().int().min(0).optional(),
       freezeMaxTotalDays: z.number().int().min(0).optional(),
+      bundleId: z.string().optional(),
     })
     .optional(),
 });
@@ -322,6 +390,142 @@ export type VoidExpenseDto = z.infer<typeof VoidExpenseSchema>;
 // ---------------------------------------------------------------------------
 // Common DTOs
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Health & Catalog DTOs
+// ---------------------------------------------------------------------------
+
+export const CreatePlanSchema = z.object({
+  name: z.string().min(1),
+  kind: PlanKindSchema,
+  price: z.number().int().nonnegative(),
+  durationDays: z.number().int().positive(),
+  grantsFloorAccess: z.boolean().optional(),
+  totalSessions: z.number().int().positive().nullable().optional(),
+  sessionsPerWeek: z.number().int().positive().nullable().optional(),
+  freezeMaxCount: z.number().int().nonnegative().default(0),
+  freezeMaxTotalDays: z.number().int().nonnegative().default(0),
+  minUpfrontPercent: z.number().min(0).max(100).nullable().optional(),
+  dueAfterDays: z.number().int().nonnegative().nullable().optional(),
+  dueAfterPercent: z.number().min(0).max(100).nullable().optional(),
+  maxInvitations: z.number().int().nonnegative().default(0),
+  freePtSessions: z.number().int().nonnegative().default(0),
+  commissionable: z.boolean().optional(),
+  commissionMilestones: z.number().int().positive().default(1),
+});
+export type CreatePlanDto = z.infer<typeof CreatePlanSchema>;
+
+export const UpdatePlanSchema = CreatePlanSchema.partial();
+export type UpdatePlanDto = z.infer<typeof UpdatePlanSchema>;
+
+export const CreateServiceSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().int().nonnegative(),
+  sellableAtPos: z.boolean().default(true),
+});
+export type CreateServiceDto = z.infer<typeof CreateServiceSchema>;
+
+export const UpdateServiceSchema = z.object({
+  name: z.string().optional(),
+  price: z.number().int().nonnegative().optional(),
+  sellableAtPos: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateServiceDto = z.infer<typeof UpdateServiceSchema>;
+
+export const CreateProductSchema = z.object({
+  name: z.string().min(1),
+  price: z.number().int().nonnegative(),
+  stock: z.number().int().nonnegative().default(0),
+});
+export type CreateProductDto = z.infer<typeof CreateProductSchema>;
+
+export const UpdateProductSchema = z.object({
+  name: z.string().optional(),
+  price: z.number().int().nonnegative().optional(),
+  stock: z.number().int().nonnegative().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateProductDto = z.infer<typeof UpdateProductSchema>;
+
+export const PromotionTypeSchema = z.enum(["PERCENT", "FIXED"]);
+export type PromotionType = z.infer<typeof PromotionTypeSchema>;
+
+export const CreatePromotionSchema = z.object({
+  name: z.string().min(1),
+  code: z.string().nullable().optional(),
+  type: PromotionTypeSchema,
+  value: z.number().nonnegative(),
+  maxDiscount: z.number().int().nonnegative().nullable().optional(),
+  minSubtotal: z.number().int().nonnegative().nullable().optional(),
+  itemKinds: z.array(z.enum(["SUBSCRIPTION", "SERVICE", "PRODUCT"])).default([]),
+  planIds: z.array(z.string()).default([]),
+  startsAt: z.string().nullable().optional(),
+  endsAt: z.string().nullable().optional(),
+  maxUses: z.number().int().positive().nullable().optional(),
+  perMemberLimit: z.number().int().positive().nullable().optional(),
+});
+export type CreatePromotionDto = z.infer<typeof CreatePromotionSchema>;
+
+export const UpdatePromotionSchema = CreatePromotionSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdatePromotionDto = z.infer<typeof UpdatePromotionSchema>;
+
+export const CartItemSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["SUBSCRIPTION", "SERVICE", "PRODUCT"]),
+  planId: z.string().nullable().optional(),
+  total: z.number().int().nonnegative(),
+});
+export type CartItemDto = z.infer<typeof CartItemSchema>;
+
+export const PromotionPreviewSchema = z.object({
+  promotionId: z.string().optional(),
+  code: z.string().optional(),
+  memberId: z.string().optional(),
+  items: z.array(CartItemSchema).min(1),
+});
+export type PromotionPreviewDto = z.infer<typeof PromotionPreviewSchema>;
+
+// ---------------------------------------------------------------------------
+// Classes & Exceptions DTOs
+// ---------------------------------------------------------------------------
+
+export const CreateClassScheduleSchema = z.object({
+  name: z.string().min(1),
+  coachId: z.string().min(1),
+  dayOfWeek: z.number().int().min(0).max(6),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  capacity: z.number().int().positive().default(20),
+});
+export type CreateClassScheduleDto = z.infer<typeof CreateClassScheduleSchema>;
+
+export const UpdateClassScheduleSchema = CreateClassScheduleSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+export type UpdateClassScheduleDto = z.infer<typeof UpdateClassScheduleSchema>;
+
+export const CreateClassExceptionSchema = z.object({
+  date: z.string(), // YYYY-MM-DD
+  isCancelled: z.boolean().default(false),
+  newStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  newEndTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  substituteCoachId: z.string().optional().nullable(),
+});
+export type CreateClassExceptionDto = z.infer<typeof CreateClassExceptionSchema>;
+
+export const StartClassSchema = z.object({
+  actualCoachId: z.string().optional().nullable(),
+  note: z.string().optional().nullable(),
+});
+export type StartClassDto = z.infer<typeof StartClassSchema>;
+
+export const CloseAllShiftsSchema = z.object({
+  note: z.string().min(1),
+});
+export type CloseAllShiftsDto = z.infer<typeof CloseAllShiftsSchema>;
 
 export const HealthCheckResponseSchema = z.object({
   status: z.literal("ok"),
