@@ -4,6 +4,11 @@ import type {
   Member,
   Plan,
   Subscription,
+  SubscriptionFreeze,
+  CoachAssignment,
+  CommissionEntry,
+  Visitor,
+  VisitorAttendance,
   Invoice,
   InvoiceItem,
   Payment,
@@ -18,6 +23,7 @@ import type {
   Product,
   Promotion,
   CashVoucher,
+  Expense,
 } from "./types";
 
 export const MOCK_GYM: Gym = {
@@ -636,6 +642,38 @@ export const MOCK_MEMBERS: Member[] = [
     createdAt: "2026-10-18T10:00:00.000Z",
     updatedAt: "2026-10-18T10:00:00.000Z",
   },
+  // 20. PT Coach Transfer acceptance test (code 100250)
+  {
+    id: "mem_pt_transfer",
+    gymId: "gym_cairo_01",
+    code: "100250",
+    name: "عمر خالد الشريف",
+    phone: "01099112233",
+    email: "omar.el-sherif@gmail.com",
+    birthDate: "1995-04-12",
+    gender: "MALE",
+    notes: "عضو باقة تدريب خاص 3 شهور لاختبار تحويل المدرب وحساب نسب العمولات بدقة",
+    isBlocked: false,
+    blockedReason: null,
+    createdAt: "2026-01-01T10:00:00.000Z",
+    updatedAt: "2026-01-01T10:00:00.000Z",
+  },
+  // 21. Freeze allowance acceptance test (code 100251)
+  {
+    id: "mem_freeze_test",
+    gymId: "gym_cairo_01",
+    code: "100251",
+    name: "يوسف إبراهيم خليل",
+    phone: "01088223344",
+    email: "youssef.k@gmail.com",
+    birthDate: "1994-08-15",
+    gender: "MALE",
+    notes: "عضو لاختبار قواعد التجميد (رصيد التجميد: مرتين بحد أقصى 15 يوماً)",
+    isBlocked: false,
+    blockedReason: null,
+    createdAt: "2026-09-01T10:00:00.000Z",
+    updatedAt: "2026-09-01T10:00:00.000Z",
+  },
 ];
 
 export const MOCK_SUBSCRIPTIONS: Subscription[] = [
@@ -980,6 +1018,57 @@ export const MOCK_SUBSCRIPTIONS: Subscription[] = [
     activatedAt: "2026-10-18T10:00:00.000Z",
     sessionsLeft: 8,
   },
+  // sub_pt_3m_transfer: PT 3 months (3,000.00 EGP), 90 days, 3 milestones, starts Jan 1 2026
+  {
+    id: "sub_pt_3m_transfer",
+    gymId: "gym_cairo_01",
+    memberId: "mem_pt_transfer",
+    planId: "plan_pt_12",
+    invoiceItemId: "item_pt_transfer",
+    bundleId: null,
+    kind: "PT",
+    status: "ACTIVE",
+    price: 300000, // 3,000.00 EGP
+    durationDays: 90,
+    startDate: "2026-01-01T00:00:00.000Z",
+    endDate: "2026-04-01T23:59:59.000Z",
+    originalEndDate: "2026-04-01T23:59:59.000Z",
+    activatedAt: "2026-01-01T10:00:00.000Z",
+    totalSessions: 36,
+    usedSessions: 18,
+    sessionsLeft: 18,
+    freezeMaxCount: 2,
+    freezeMaxTotalDays: 15,
+    freezeUsedCount: 0,
+    freezeUsedDays: 0,
+    commissionMilestones: 3,
+    maxInvitations: 3,
+    usedInvitations: 0,
+  },
+  // sub_freeze_test: 15 days freeze over 2 times allowance
+  {
+    id: "sub_freeze_test",
+    gymId: "gym_cairo_01",
+    memberId: "mem_freeze_test",
+    planId: "plan_gym_3m",
+    invoiceItemId: "item_freeze_test",
+    bundleId: null,
+    kind: "GYM",
+    status: "ACTIVE",
+    price: 240000,
+    durationDays: 90,
+    startDate: "2026-09-01T00:00:00.000Z",
+    endDate: "2026-12-01T23:59:59.000Z",
+    originalEndDate: "2026-12-01T23:59:59.000Z",
+    activatedAt: "2026-09-01T10:00:00.000Z",
+    sessionsLeft: null,
+    freezeMaxCount: 2,
+    freezeMaxTotalDays: 15,
+    freezeUsedCount: 0,
+    freezeUsedDays: 0,
+    maxInvitations: 3,
+    usedInvitations: 0,
+  },
 ];
 
 // Classes Schedules
@@ -1185,26 +1274,39 @@ export const MOCK_PAYMENTS: Payment[] = [
     gymId: "gym_cairo_01",
     invoiceId: "inv_01",
     method: "CASH",
-    amount: 240000,
+    amount: 200000, // 2,000.00 EGP cash sales
     shiftId: "shift_mock_01",
     receivedById: "staff_reception",
     attributedCoachId: null,
     reference: null,
-    note: "سداد بالخزينة",
-    createdAt: "2026-09-15T10:05:00.000Z",
+    note: "سداد اشتراك جيم نقداً",
+    createdAt: "2026-11-04T09:30:00.000Z",
   },
   {
     id: "pay_02",
     gymId: "gym_cairo_01",
     invoiceId: "inv_02",
     method: "INSTAPAY",
-    amount: 90000,
+    amount: 100000, // 1,000.00 EGP via Instapay (never in drawer)
     shiftId: "shift_mock_01",
     receivedById: "staff_reception",
     attributedCoachId: null,
-    reference: "IPN-20261008-9941",
-    note: "تحويل إنستاباي موثق",
-    createdAt: "2026-10-08T12:05:00.000Z",
+    reference: "IPN-20261104-1188",
+    note: "تحويل إنستاباي موثق لحصص تدريب",
+    createdAt: "2026-11-04T10:15:00.000Z",
+  },
+  {
+    id: "pay_03",
+    gymId: "gym_cairo_01",
+    invoiceId: "inv_03",
+    method: "CARD",
+    amount: 50000, // 500.00 EGP via Card (never in drawer)
+    shiftId: "shift_mock_01",
+    receivedById: "staff_reception",
+    attributedCoachId: null,
+    reference: "VISA-9041",
+    note: "سداد مشتريات بار بالبطاقة",
+    createdAt: "2026-11-04T10:45:00.000Z",
   },
 ];
 
@@ -1431,12 +1533,83 @@ export const MOCK_VOUCHERS: CashVoucher[] = [
     type: "RECEIPT",
     memberId: "mem_mock_main",
     method: "CASH",
-    amount: 25000,
-    reason: "إيداع رصيد بالمحفظة نقداً",
+    amount: 30000, // 300.00 EGP cash receipt voucher
+    reason: "سند قبض نقدي - إيداع رصيد بالمحفظة",
     shiftId: "shift_mock_01",
     createdById: "staff_reception",
-    createdAt: "2026-11-01T10:00:00.000Z",
+    createdAt: "2026-11-04T10:00:00.000Z",
     walletTxId: "wtx_01",
+  },
+  {
+    id: "vch_02",
+    gymId: "gym_cairo_01",
+    type: "DISBURSEMENT",
+    memberId: null,
+    method: "CASH",
+    amount: 10000, // 100.00 EGP cash disbursement voucher
+    reason: "سند صرف نقدي - سحب طوارئ لصيانة سريعة",
+    shiftId: "shift_mock_01",
+    createdById: "staff_reception",
+    createdAt: "2026-11-04T11:00:00.000Z",
+  },
+];
+
+export const MOCK_EXPENSES: Expense[] = [
+  {
+    id: "exp_01",
+    gymId: "gym_cairo_01",
+    shiftId: "shift_mock_01",
+    category: "نظافة وضيافة",
+    amount: 15000, // 150.00 EGP (paid from drawer)
+    description: "شراء صابون ومستلزمات نظافة للمغاسل وغرف التبديل",
+    paidFromDrawer: true,
+    voidedAt: null,
+    voidReason: null,
+    createdById: "staff_reception",
+    createdAt: "2026-11-04T10:30:00.000Z",
+    createdBy: { id: "staff_reception", name: "سارة حسن" },
+  },
+  {
+    id: "exp_02",
+    gymId: "gym_cairo_01",
+    shiftId: "shift_mock_01",
+    category: "صيانة وإصلاحات",
+    amount: 45000, // 450.00 EGP (paid from gym account, NOT drawer)
+    description: "صيانة طارئة لسير الجري رقم 2",
+    paidFromDrawer: false,
+    voidedAt: null,
+    voidReason: null,
+    createdById: "staff_gym_admin",
+    createdAt: "2026-11-04T11:15:00.000Z",
+    createdBy: { id: "staff_gym_admin", name: "أحمد مجدي" },
+  },
+  {
+    id: "exp_03",
+    gymId: "gym_cairo_01",
+    shiftId: "shift_mock_past_01",
+    category: "أدوات ومطبوعات",
+    amount: 12000, // 120.00 EGP
+    description: "شراء رول ورق حراري لطابعة الإيصالات",
+    paidFromDrawer: true,
+    voidedAt: null,
+    voidReason: null,
+    createdById: "staff_reception",
+    createdAt: "2026-11-03T14:00:00.000Z",
+    createdBy: { id: "staff_reception", name: "سارة حسن" },
+  },
+  {
+    id: "exp_04",
+    gymId: "gym_cairo_01",
+    shiftId: "shift_mock_past_02",
+    category: "مياه ومشروبات",
+    amount: 8000, // 80.00 EGP (Voided)
+    description: "شراء زجاجات مياه لبوفيه الاستقبال",
+    paidFromDrawer: true,
+    voidedAt: "2026-11-02T16:00:00.000Z",
+    voidReason: "تم الإلغاء لتسجيل البند مرتين بالخطأ",
+    createdById: "staff_reception",
+    createdAt: "2026-11-02T15:00:00.000Z",
+    createdBy: { id: "staff_reception", name: "سارة حسن" },
   },
 ];
 
@@ -1448,8 +1621,212 @@ export const MOCK_CURRENT_SHIFT: Shift = {
   openedAt: "2026-11-04T09:00:00.000Z",
   closedAt: null,
   openingCash: 50000, // 500.00 EGP
-  expectedCash: 255000, // 2,550.00 EGP (matches mockup Main.dc.html!)
+  expectedCash: 255000, // 2,550.00 EGP (500 + 2000 cash - 150 exp - 100 disb + 300 rec)
   countedCash: null,
   variance: null,
-  note: "وردية سارة مفتوحة منذ 09:00 · الكاش المتوقع 2,550.00 ج.م",
+  note: "وردية سارة مفتوحة منذ 09:00 · الكاش المتوقع بالدرج 2,550.00 ج.م",
 };
+
+export const MOCK_SHIFTS: (Shift & { staff?: Staff; closedBy?: Staff | null })[] = [
+  {
+    ...MOCK_CURRENT_SHIFT,
+    staff: MOCK_STAFF[2],
+  },
+  {
+    id: "shift_mock_open_cashier",
+    gymId: "gym_cairo_01",
+    staffId: "staff_cashier",
+    status: "OPEN",
+    openedAt: "2026-11-04T10:00:00.000Z",
+    closedAt: null,
+    openingCash: 30000, // 300.00 EGP
+    expectedCash: 48000, // 480.00 EGP
+    countedCash: null,
+    variance: null,
+    note: "وردية بار ومشروبات مفتوحة",
+    staff: MOCK_STAFF[3],
+  },
+  {
+    id: "shift_mock_past_01",
+    gymId: "gym_cairo_01",
+    staffId: "staff_reception",
+    status: "CLOSED",
+    openedAt: "2026-11-03T09:00:00.000Z",
+    closedAt: "2026-11-03T18:00:00.000Z",
+    closedById: "staff_reception",
+    openingCash: 50000,
+    expectedCash: 312000,
+    countedCash: 312000,
+    variance: 0, // مطابقة تامة
+    note: "إقفال الوردية وتسليم الخزينة بدون أي عجز",
+    staff: MOCK_STAFF[2],
+    closedBy: MOCK_STAFF[2],
+  },
+  {
+    id: "shift_mock_past_02",
+    gymId: "gym_cairo_01",
+    staffId: "staff_reception",
+    status: "CLOSED",
+    openedAt: "2026-11-02T09:00:00.000Z",
+    closedAt: "2026-11-02T18:30:00.000Z",
+    closedById: "staff_reception",
+    openingCash: 50000,
+    expectedCash: 195000,
+    countedCash: 190000,
+    variance: -5000, // عجز 50 ج.م
+    note: "عجز بسيط 50 ج.م بسبب فكة كاش وتمت المراجعة",
+    staff: MOCK_STAFF[2],
+  },
+  {
+    id: "shift_mock_past_03",
+    gymId: "gym_cairo_01",
+    staffId: "staff_cashier",
+    status: "CLOSED",
+    openedAt: "2026-11-01T10:00:00.000Z",
+    closedAt: "2026-11-01T23:59:00.000Z",
+    closedById: "staff_gym_admin",
+    openingCash: 30000,
+    expectedCash: 62000,
+    countedCash: null, // تم الإقفال بواسطة الإدارة بدون جرد
+    variance: null,
+    note: "إقفال نهاية اليوم بواسطة الإدارة (Close-all) بدون جرد نقدي",
+    staff: MOCK_STAFF[3],
+    closedBy: MOCK_STAFF[1],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Phase 5: Visitors, Freezes, Coach Assignments & Commission Milestones
+// ---------------------------------------------------------------------------
+
+export const MOCK_VISITORS: Visitor[] = [
+  {
+    id: "vis_01",
+    gymId: "gym_cairo_01",
+    name: "كريم يوسف منصور",
+    phone: "01099887766",
+    notes: "صديق العضو أحمد محمد علي",
+    createdAt: "2026-10-15T12:00:00.000Z",
+  },
+  {
+    id: "vis_02",
+    gymId: "gym_cairo_01",
+    name: "حسام الدين مصطفى",
+    phone: "01188776655",
+    notes: "مهتم بالاشتراك السنوي",
+    createdAt: "2026-10-20T14:30:00.000Z",
+  },
+  {
+    id: "vis_03",
+    gymId: "gym_cairo_01",
+    name: "مروان خالد إبراهيم",
+    phone: "01277665544",
+    notes: "دعوة تجريبية للجيم",
+    createdAt: "2026-11-01T16:00:00.000Z",
+  },
+];
+
+export const MOCK_VISITOR_ATTENDANCES: VisitorAttendance[] = [
+  {
+    id: "va_01",
+    gymId: "gym_cairo_01",
+    visitorId: "vis_01",
+    invitedByMemberId: "mem_01",
+    subscriptionId: "sub_01",
+    checkInAt: "2026-10-16T18:20:00.000Z",
+  },
+];
+
+export const MOCK_SUBSCRIPTION_FREEZES: SubscriptionFreeze[] = [
+  {
+    id: "freeze_01",
+    subscriptionId: "sub_01",
+    startedAt: "2026-10-01T00:00:00.000Z",
+    plannedEndAt: "2026-10-10T00:00:00.000Z",
+    endedAt: "2026-10-10T00:00:00.000Z",
+    days: 9,
+    reason: "سفر خارج القاهرة لمدة أسبوع",
+    createdById: "staff_reception",
+    createdAt: "2026-10-01T10:00:00.000Z",
+    createdByName: "سارة حسن",
+  },
+  {
+    id: "freeze_02",
+    subscriptionId: "sub_07", // the frozen sub
+    startedAt: "2026-11-01T00:00:00.000Z",
+    plannedEndAt: "2026-11-15T00:00:00.000Z",
+    endedAt: null, // open freeze!
+    days: null,
+    reason: "إصابة رياضية مؤقتة وإجازة طبية",
+    createdById: "staff_reception",
+    createdAt: "2026-11-01T12:00:00.000Z",
+    createdByName: "سارة حسن",
+  },
+];
+
+export const MOCK_COACH_ASSIGNMENTS: CoachAssignment[] = [
+  {
+    id: "ca_01",
+    subscriptionId: "sub_mock_pt",
+    coachId: "staff_coach",
+    fromDate: "2026-09-23T00:00:00.000Z",
+    toDate: null,
+    reason: "تعيين مدرب عند الاشتراك",
+    createdAt: "2026-09-23T10:00:00.000Z",
+  },
+  {
+    id: "ca_02",
+    subscriptionId: "sub_pt_3m_transfer",
+    coachId: "staff_coach",
+    fromDate: "2026-01-01T00:00:00.000Z",
+    toDate: null,
+    reason: "تعيين أولي للمدرب أحمد",
+    createdAt: "2026-01-01T10:00:00.000Z",
+  },
+];
+
+export const MOCK_COMMISSION_ENTRIES: CommissionEntry[] = [
+  // 3 milestones for sub_pt_3m_transfer (price 3000 EGP => 3 x 1000 EGP)
+  {
+    id: "comm_01",
+    gymId: "gym_cairo_01",
+    subscriptionId: "sub_pt_3m_transfer",
+    coachId: "staff_coach",
+    milestoneIndex: 1,
+    periodStart: "2026-01-01T00:00:00.000Z",
+    dueDate: "2026-01-31T00:00:00.000Z",
+    baseAmount: 100000,
+    shareBps: 10000,
+    allocatedBase: 100000,
+    status: "EARNED",
+    createdAt: "2026-01-01T10:00:00.000Z",
+  },
+  {
+    id: "comm_02",
+    gymId: "gym_cairo_01",
+    subscriptionId: "sub_pt_3m_transfer",
+    coachId: "staff_coach",
+    milestoneIndex: 2,
+    periodStart: "2026-01-31T00:00:00.000Z",
+    dueDate: "2026-03-02T00:00:00.000Z",
+    baseAmount: 100000,
+    shareBps: 10000,
+    allocatedBase: 100000,
+    status: "PENDING",
+    createdAt: "2026-01-01T10:00:00.000Z",
+  },
+  {
+    id: "comm_03",
+    gymId: "gym_cairo_01",
+    subscriptionId: "sub_pt_3m_transfer",
+    coachId: "staff_coach",
+    milestoneIndex: 3,
+    periodStart: "2026-03-02T00:00:00.000Z",
+    dueDate: "2026-04-01T00:00:00.000Z",
+    baseAmount: 100000,
+    shareBps: 10000,
+    allocatedBase: 100000,
+    status: "PENDING",
+    createdAt: "2026-01-01T10:00:00.000Z",
+  },
+];

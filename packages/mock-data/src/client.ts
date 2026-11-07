@@ -18,6 +18,13 @@ import {
   MOCK_PRODUCTS,
   MOCK_PROMOTIONS,
   MOCK_VOUCHERS,
+  MOCK_EXPENSES,
+  MOCK_SHIFTS,
+  MOCK_VISITORS,
+  MOCK_VISITOR_ATTENDANCES,
+  MOCK_SUBSCRIPTION_FREEZES,
+  MOCK_COACH_ASSIGNMENTS,
+  MOCK_COMMISSION_ENTRIES,
 } from "./seed";
 import type {
   Gym,
@@ -25,6 +32,21 @@ import type {
   Member,
   Plan,
   Subscription,
+  SubscriptionFreeze,
+  CoachAssignment,
+  CommissionEntry,
+  Visitor,
+  VisitorAttendance,
+  MemberProfileDetail,
+  FreezeSubscriptionDto,
+  UnfreezeSubscriptionDto,
+  CancelSubscriptionDto,
+  ChangeCoachDto,
+  LogPtSessionDto,
+  CreateVisitorDto,
+  CheckInVisitorDto,
+  UpdateMemberDto,
+  BlockMemberDto,
   Invoice,
   InvoiceItem,
   Payment,
@@ -38,10 +60,16 @@ import type {
   Product,
   Promotion,
   CashVoucher,
+  Expense,
   InvoiceDetail,
   CreateInvoiceDto,
   CollectPaymentDto,
   CreateVoucherDto,
+  CreateExpenseDto,
+  VoidExpenseDto,
+  CloseShiftDto,
+  AdminCloseAllShiftsDto,
+  ShiftReport,
 } from "./types";
 import {
   evaluateAccess,
@@ -57,11 +85,24 @@ import {
   allocateAcrossItems,
   allocateProRata,
   addDays,
+  expectedCash,
+  shiftVariance,
+  canCloseShift,
+  requireOpenShift,
+  canFreeze,
+  settleFreeze,
+  endDateAfterFreeze,
+  splitOnTransfer,
+  buildMilestones,
+  shiftPendingMilestones,
+  canInviteVisitor,
   type AccessDecision,
   type AccessSubscription,
   type ClassSlot,
   type Minor,
   type CartItem,
+  type FreezeState,
+  type HeldMilestone,
 } from "@gym/domain";
 
 export interface ScanResult extends AccessDecision {
@@ -72,6 +113,9 @@ export interface ScanResult extends AccessDecision {
 
 export class MockApiClient {
   private currentShift: Shift | null = { ...MOCK_CURRENT_SHIFT };
+  private shifts: (Shift & { staff?: Staff; closedBy?: Staff | null })[] = [...MOCK_SHIFTS];
+  private expenses: Expense[] = [...MOCK_EXPENSES];
+  private currentStaffId: string = "staff_reception";
   private classSessions: ClassSession[] = [...MOCK_CLASS_SESSIONS];
   private accessLogs: AccessLog[] = [...MOCK_ACCESS_LOGS];
   private subscriptions: Subscription[] = [...MOCK_SUBSCRIPTIONS];
@@ -83,6 +127,12 @@ export class MockApiClient {
   private payments: Payment[] = [...MOCK_PAYMENTS];
   private wallets: Wallet[] = [...MOCK_WALLETS];
   private vouchers: CashVoucher[] = [...MOCK_VOUCHERS];
+  private members: Member[] = [...MOCK_MEMBERS];
+  private freezes: SubscriptionFreeze[] = [...MOCK_SUBSCRIPTION_FREEZES];
+  private coachAssignments: CoachAssignment[] = [...MOCK_COACH_ASSIGNMENTS];
+  private commissionEntries: CommissionEntry[] = [...MOCK_COMMISSION_ENTRIES];
+  private visitors: Visitor[] = [...MOCK_VISITORS];
+  private visitorAttendances: VisitorAttendance[] = [...MOCK_VISITOR_ATTENDANCES];
   private nextInvoiceNumber = 1003;
 
   async getGym(): Promise<Gym> {
@@ -99,41 +149,379 @@ export class MockApiClient {
   }
 
   async getCurrentUser(): Promise<Staff> {
-    // Defaults to reception staff (Sarah)
-    return { ...MOCK_STAFF[2]! };
+    const found = MOCK_STAFF.find((s) => s.id === this.currentStaffId);
+    return found ? { ...found } : { ...MOCK_STAFF[2]! };
   }
 
-  async listMembers(): Promise<Member[]> {
-    return [...MOCK_MEMBERS];
+  async switchActiveUser(staffId: string): Promise<Staff> {
+    const found = MOCK_STAFF.find((s) => s.id === staffId);
+    if (!found) throw new Error("Staff not found");
+    this.currentStaffId = staffId;
+    return { ...found };
+  }
+
+  buildSubscriptionDetail(sub: Subscription): Subscription {
+    const plan = MOCK_PLANS.find((p) => p.id === sub.planId);
+    const member = this.members.find((m) => m.id === sub.memberId);
+    const assignment = this.coachAssignments.find(
+      (ca) => ca.subscriptionId === sub.id && !ca.toDate
+    );
+    const currentCoach = assignment
+      ? MOCK_STAFF.find((s) => s.id === assignment.coachId) ?? null
+      : null;
+    const subFreezes = this.freezes.filter((f) => f.subscriptionId === sub.id);
+
+    // Calculate collected & remaining
+    let collected: Minor = 0;
+    const inv = this.invoices.find((i) =>
+      i.items?.some((it) => it.planId === sub.planId || it.id === sub.invoiceItemId)
+    );
+    if (inv) {
+      const detail = this.buildInvoiceDetail(inv);
+      collected = detail.collectedAmount;
+    } else if (sub.status === "ACTIVE" || sub.status === "FROZEN") {
+      collected = sub.price;
+    } else if (sub.status === "PENDING_PAYMENT") {
+      collected = 0;
+    } else if (sub.status === "SUSPENDED_UNPAID") {
+      collected = Math.round(sub.price * 0.4);
+    }
+    const remaining: Minor = Math.max(0, sub.price - collected);
+    const now = new Date();
+    const daysLeft = Math.max(
+      0,
+      Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    const isOverdueSub =
+      sub.status === "SUSPENDED_UNPAID" ||
+      (remaining > 0 &&
+        isOverdue({
+          total: sub.price,
+          collected,
+          startDate: new Date(sub.startDate),
+          durationDays: sub.durationDays,
+          dueAfterDays: sub.dueAfterDays ?? plan?.dueAfterDays ?? 14,
+          dueAfterPercent: sub.dueAfterPercent ?? plan?.dueAfterPercent ?? 25,
+          now,
+        }));
+
+    return {
+      ...sub,
+      plan: plan ?? sub.plan,
+      member: member ?? sub.member,
+      coachAssignment: assignment ?? null,
+      currentCoach,
+      freezes: subFreezes,
+      collected,
+      remaining,
+      isOverdue: isOverdueSub,
+      daysLeft,
+      freezeMaxCount: sub.freezeMaxCount ?? plan?.freezeMaxCount ?? 2,
+      freezeMaxTotalDays: sub.freezeMaxTotalDays ?? plan?.freezeMaxTotalDays ?? 15,
+      freezeUsedCount: sub.freezeUsedCount ?? 0,
+      freezeUsedDays: sub.freezeUsedDays ?? 0,
+      maxInvitations: sub.maxInvitations ?? 3,
+      usedInvitations: sub.usedInvitations ?? 0,
+    };
+  }
+
+  async listMembers(filters?: {
+    query?: string;
+    status?: string;
+    planKind?: string;
+    coachId?: string;
+    expiringInDays?: number;
+    overdue?: boolean;
+    blocked?: boolean;
+  }): Promise<Member[]> {
+    const q = filters?.query?.trim().toLowerCase();
+    const now = new Date();
+
+    let list = this.members.map((m) => {
+      const subs = this.subscriptions
+        .filter((s) => s.memberId === m.id)
+        .map((s) => this.buildSubscriptionDetail(s));
+      const activeSub = subs.find(
+        (s) => s.status === "ACTIVE" || s.status === "FROZEN" || s.status === "SUSPENDED_UNPAID"
+      );
+      const wallet = this.wallets.find((w) => w.memberId === m.id);
+
+      const memberInvoices = this.invoices
+        .filter((inv) => inv.memberId === m.id && inv.status !== "VOID")
+        .map((inv) => this.buildInvoiceDetail(inv));
+      const totalRemainingDebt = memberInvoices.reduce((sum, inv) => sum + inv.remainingAmount, 0);
+
+      const accessSubs: AccessSubscription[] = subs.map((s) => ({
+        id: s.id,
+        kind: s.kind,
+        grantsFloorAccess: s.plan?.grantsFloorAccess ?? true,
+        startDate: new Date(s.startDate),
+        endDate: new Date(s.endDate),
+        cancelled: s.status === "CANCELLED",
+        activated: s.status !== "PENDING_PAYMENT",
+        frozen: s.status === "FROZEN",
+        overdue: s.isOverdue ?? false,
+        sessionsLeft: s.sessionsLeft ?? null,
+      }));
+      const access = evaluateAccess({ isBlocked: m.isBlocked, subscriptions: accessSubs }, now);
+
+      return {
+        ...m,
+        derivedStatus: access.reason,
+        walletBalance: wallet?.balance ?? 0,
+        activeSubscriptionsCount: subs.filter((s) => s.status === "ACTIVE").length,
+        totalRemainingDebt,
+        activePlanName: activeSub?.plan?.name ?? activeSub?.kind,
+        daysLeft: activeSub?.daysLeft,
+        currentCoachName: activeSub?.currentCoach?.name,
+      };
+    });
+
+    if (q) {
+      list = list.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.code.includes(q) ||
+          m.phone.includes(q) ||
+          (m.email && m.email.toLowerCase().includes(q))
+      );
+    }
+
+    if (filters?.blocked !== undefined) {
+      list = list.filter((m) => m.isBlocked === filters.blocked);
+    }
+
+    if (filters?.overdue) {
+      list = list.filter(
+        (m) => (m.totalRemainingDebt ?? 0) > 0 || m.derivedStatus === "PAYMENT_OVERDUE"
+      );
+    }
+
+    if (filters?.status && filters.status !== "ALL") {
+      list = list.filter((m) => m.derivedStatus === filters.status);
+    }
+
+    if (filters?.planKind && filters.planKind !== "ALL") {
+      list = list.filter((m) => {
+        const subs = this.subscriptions.filter((s) => s.memberId === m.id);
+        return subs.some((s) => s.kind === filters.planKind);
+      });
+    }
+
+    if (filters?.coachId && filters.coachId !== "ALL") {
+      list = list.filter((m) => {
+        const subs = this.subscriptions.filter((s) => s.memberId === m.id);
+        return subs.some((s) => {
+          const ca = this.coachAssignments.find((a) => a.subscriptionId === s.id && !a.toDate);
+          return ca?.coachId === filters.coachId;
+        });
+      });
+    }
+
+    if (filters?.expiringInDays !== undefined) {
+      const maxDays = filters.expiringInDays;
+      list = list.filter((m) => m.daysLeft !== undefined && m.daysLeft >= 0 && m.daysLeft <= maxDays);
+    }
+
+    return list;
   }
 
   async getMemberById(id: string): Promise<Member | null> {
-    const found = MOCK_MEMBERS.find((m) => m.id === id);
+    const found = this.members.find((m) => m.id === id);
     return found ? { ...found } : null;
   }
 
   async getMemberByCode(code: string): Promise<Member | null> {
     const cleanCode = code.trim();
-    const found = MOCK_MEMBERS.find((m) => m.code === cleanCode);
+    const found = this.members.find((m) => m.code === cleanCode);
     return found ? { ...found } : null;
   }
 
   async getMemberByPhone(phone: string): Promise<Member | null> {
     const clean = phone.trim();
-    const found = MOCK_MEMBERS.find((m) => m.phone === clean);
+    const found = this.members.find((m) => m.phone === clean);
     return found ? { ...found } : null;
   }
 
   async searchMembers(query: string): Promise<Member[]> {
     const q = query.trim().toLowerCase();
-    if (!q) return [...MOCK_MEMBERS];
-    return MOCK_MEMBERS.filter(
+    if (!q) return [...this.members];
+    return this.members.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.code.includes(q) ||
         m.phone.includes(q) ||
         (m.email && m.email.toLowerCase().includes(q))
     );
+  }
+
+  async getMemberProfile(id: string): Promise<MemberProfileDetail> {
+    const member = this.members.find((m) => m.id === id);
+    if (!member) {
+      throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو غير موجود" };
+    }
+
+    const allSubs = this.subscriptions
+      .filter((s) => s.memberId === id)
+      .map((s) => this.buildSubscriptionDetail(s));
+    const activeSubs = allSubs.filter((s) => s.status === "ACTIVE" || s.status === "FROZEN");
+    const wallet = await this.getMemberWallet(id);
+    const invoices = await this.getMemberInvoices(id);
+    const attendance = this.accessLogs.filter((log) => log.memberId === id);
+    const freezeHistory = this.freezes.filter((f) =>
+      allSubs.some((s) => s.id === f.subscriptionId)
+    );
+    const visitorAttendances = this.visitorAttendances
+      .filter((va) => va.invitedByMemberId === id)
+      .map((va) => ({
+        ...va,
+        visitor: this.visitors.find((v) => v.id === va.visitorId),
+        subscription: allSubs.find((s) => s.id === va.subscriptionId),
+      }));
+
+    const totalSpent = invoices
+      .filter((inv) => inv.status !== "VOID")
+      .reduce((sum, inv) => sum + inv.collectedAmount, 0);
+    const totalRemainingDebt = invoices
+      .filter((inv) => inv.status !== "VOID")
+      .reduce((sum, inv) => sum + inv.remainingAmount, 0);
+
+    const accessSubs: AccessSubscription[] = allSubs.map((s) => ({
+      id: s.id,
+      kind: s.kind,
+      grantsFloorAccess: s.plan?.grantsFloorAccess ?? true,
+      startDate: new Date(s.startDate),
+      endDate: new Date(s.endDate),
+      cancelled: s.status === "CANCELLED",
+      activated: s.status !== "PENDING_PAYMENT",
+      frozen: s.status === "FROZEN",
+      overdue: s.isOverdue ?? false,
+      sessionsLeft: s.sessionsLeft ?? null,
+    }));
+    const access = evaluateAccess({ isBlocked: member.isBlocked, subscriptions: accessSubs }, new Date());
+
+    return {
+      ...member,
+      walletBalance: wallet.balance,
+      activeSubscriptions: activeSubs,
+      allSubscriptions: allSubs,
+      invoices,
+      attendance,
+      freezeHistory,
+      visitorAttendances,
+      totalVisits: attendance.filter((a) => a.allowed).length,
+      totalSpent,
+      totalRemainingDebt,
+      derivedStatus: access.reason,
+    };
+  }
+
+  async createMember(dto: {
+    code?: string;
+    name: string;
+    phone: string;
+    email?: string | null;
+    birthDate?: string | null;
+    gender?: "MALE" | "FEMALE" | null;
+    notes?: string | null;
+  }): Promise<Member> {
+    const cleanPhone = dto.phone.trim();
+    const existing = this.members.find((m) => m.phone === cleanPhone);
+    if (existing) {
+      throw { statusCode: 409, code: "PHONE_EXISTS", message: "رقم الهاتف مسجل بالفعل لعضو آخر" };
+    }
+
+    let code = dto.code?.trim();
+    if (!code) {
+      let candidate = "";
+      do {
+        candidate = String(Math.floor(100000 + Math.random() * 900000));
+      } while (this.members.some((m) => m.code === candidate));
+      code = candidate;
+    }
+
+    const newMember: Member = {
+      id: `mem_${Date.now()}`,
+      gymId: "gym_cairo_01",
+      code,
+      name: dto.name.trim(),
+      phone: cleanPhone,
+      email: dto.email?.trim() ?? null,
+      birthDate: dto.birthDate ?? null,
+      gender: dto.gender ?? null,
+      notes: dto.notes?.trim() ?? null,
+      isBlocked: false,
+      blockedReason: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.members.unshift(newMember);
+
+    this.wallets.push({
+      id: `wallet_${newMember.id}`,
+      gymId: newMember.gymId,
+      memberId: newMember.id,
+      balance: 0,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return { ...newMember };
+  }
+
+  async updateMember(id: string, dto: UpdateMemberDto): Promise<Member> {
+    const member = this.members.find((m) => m.id === id);
+    if (!member) throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو غير موجود" };
+
+    if (dto.phone) {
+      const cleanPhone = dto.phone.trim();
+      const existing = this.members.find((m) => m.phone === cleanPhone && m.id !== id);
+      if (existing) {
+        throw { statusCode: 409, code: "PHONE_EXISTS", message: "رقم الهاتف مسجل بالفعل لعضو آخر" };
+      }
+      member.phone = cleanPhone;
+    }
+
+    if (dto.name !== undefined) member.name = dto.name.trim();
+    if (dto.email !== undefined) member.email = dto.email ? dto.email.trim() : null;
+    if (dto.birthDate !== undefined) member.birthDate = dto.birthDate ?? null;
+    if (dto.gender !== undefined) member.gender = dto.gender ?? null;
+    if (dto.notes !== undefined) member.notes = dto.notes ? dto.notes.trim() : null;
+    member.updatedAt = new Date().toISOString();
+
+    return { ...member };
+  }
+
+  async blockMember(id: string, dto: BlockMemberDto): Promise<Member> {
+    const member = this.members.find((m) => m.id === id);
+    if (!member) throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو غير موجود" };
+    if (!dto.reason.trim()) {
+      throw { statusCode: 400, code: "REASON_REQUIRED", message: "سبب الحظر مطلوب إجبارياً" };
+    }
+    member.isBlocked = true;
+    member.blockedReason = dto.reason.trim();
+    member.updatedAt = new Date().toISOString();
+    return { ...member };
+  }
+
+  async unblockMember(id: string): Promise<Member> {
+    const member = this.members.find((m) => m.id === id);
+    if (!member) throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو غير موجود" };
+    member.isBlocked = false;
+    member.blockedReason = null;
+    member.updatedAt = new Date().toISOString();
+    return { ...member };
+  }
+
+  async addMemberNote(id: string, note: string): Promise<Member> {
+    const member = this.members.find((m) => m.id === id);
+    if (!member) throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو غير موجود" };
+    const dateStr = new Date().toLocaleDateString("ar-EG");
+    const newEntry = `[${dateStr}] ${note.trim()}`;
+    member.notes = member.notes ? `${member.notes}\n${newEntry}` : newEntry;
+    member.updatedAt = new Date().toISOString();
+    return { ...member };
   }
 
   async listPlans(): Promise<Plan[]> {
@@ -146,18 +534,463 @@ export class MockApiClient {
   }
 
   async listSubscriptions(): Promise<Subscription[]> {
-    return [...this.subscriptions];
+    return this.subscriptions.map((s) => this.buildSubscriptionDetail(s));
   }
 
   async getMemberSubscriptions(memberId: string): Promise<Subscription[]> {
-    return this.subscriptions.filter((s) => s.memberId === memberId);
+    return this.subscriptions
+      .filter((s) => s.memberId === memberId)
+      .map((s) => this.buildSubscriptionDetail(s));
   }
 
-  async unfreezeSubscription(subscriptionId: string): Promise<Subscription> {
+  async freezeSubscription(
+    subscriptionId: string,
+    dto?: FreezeSubscriptionDto
+  ): Promise<{
+    subscription: Subscription;
+    freeze: SubscriptionFreeze;
+    decision: any;
+  }> {
     const sub = this.subscriptions.find((s) => s.id === subscriptionId);
-    if (!sub) throw new Error("Subscription not found");
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+
+    const detail = this.buildSubscriptionDetail(sub);
+    const isOpenFreeze = this.freezes.some((f) => f.subscriptionId === sub.id && !f.endedAt);
+
+    const freezeState: FreezeState = {
+      isFrozen: sub.status === "FROZEN" || isOpenFreeze,
+      isActive: sub.status === "ACTIVE",
+      overdue: sub.status === "SUSPENDED_UNPAID" || (detail.isOverdue ?? false),
+      maxCount: sub.freezeMaxCount ?? 2,
+      maxTotalDays: sub.freezeMaxTotalDays ?? 15,
+      usedCount: sub.freezeUsedCount ?? 0,
+      usedDays: sub.freezeUsedDays ?? 0,
+    };
+
+    const decision = canFreeze(freezeState, dto?.days);
+    if (!decision.ok) {
+      const messages: Record<string, string> = {
+        FREEZE_NOT_ALLOWED: "التجميد غير متاح لهذه الباقة",
+        ALREADY_FROZEN: "الاشتراك مجمد بالفعل حالياً",
+        PAYMENT_OVERDUE: "لا يمكن تجميد الاشتراك لوجود مديونية متأخرة على العضو",
+        NOT_ACTIVE: "لا يمكن تجميد اشتراك غير نشط",
+        COUNT_EXHAUSTED: "تم استنفاد عدد مرات التجميد المتاحة لهذا الاشتراك",
+        DAYS_EXHAUSTED: "تم استنفاد إجمالي أيام التجميد المسموح بها",
+        REQUEST_EXCEEDS_REMAINING: `أيام التجميد المطلوبة تتجاوز الرصيد المتبقي (${decision.remainingDays} يوم)`,
+      };
+      throw {
+        statusCode: 400,
+        code: decision.reason,
+        message: messages[decision.reason ?? ""] || "لا يمكن تجميد الاشتراك",
+        decision,
+      };
+    }
+
+    const currentUser = await this.getCurrentUser();
+    const startsAt = dto?.startsAt ? new Date(dto.startsAt) : new Date();
+    const plannedEndAt = dto?.days ? addDays(startsAt, dto.days).toISOString() : null;
+
+    const newFreeze: SubscriptionFreeze = {
+      id: `freeze_${Date.now()}`,
+      subscriptionId: sub.id,
+      startedAt: startsAt.toISOString(),
+      plannedEndAt,
+      endedAt: null,
+      days: null,
+      reason: dto?.reason?.trim() ?? "طلب تجميد من العضو",
+      createdById: currentUser.id,
+      createdAt: new Date().toISOString(),
+      createdByName: currentUser.name,
+    };
+
+    this.freezes.unshift(newFreeze);
+
+    sub.status = "FROZEN";
+    sub.freezeUsedCount = (sub.freezeUsedCount ?? 0) + 1;
+
+    return {
+      subscription: this.buildSubscriptionDetail(sub),
+      freeze: newFreeze,
+      decision,
+    };
+  }
+
+  async unfreezeSubscription(
+    subscriptionId: string,
+    dto?: UnfreezeSubscriptionDto
+  ): Promise<{
+    subscription: Subscription;
+    freeze: SubscriptionFreeze;
+    settledDays: number;
+    overflowDays: number;
+  }> {
+    const sub = this.subscriptions.find((s) => s.id === subscriptionId);
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+
+    const activeFreeze = this.freezes.find(
+      (f) => f.subscriptionId === subscriptionId && !f.endedAt
+    );
+    if (!activeFreeze && sub.status !== "FROZEN") {
+      throw { statusCode: 400, code: "NOT_FROZEN", message: "الاشتراك ليس في حالة تجميد" };
+    }
+
+    const startedAt = activeFreeze ? new Date(activeFreeze.startedAt) : new Date(sub.startDate);
+    const endedAt = dto?.endedAt ? new Date(dto.endedAt) : new Date();
+    const remainingDays = Math.max(0, (sub.freezeMaxTotalDays ?? 15) - (sub.freezeUsedDays ?? 0));
+
+    const settlement = settleFreeze({ startedAt, endedAt, remainingDays });
+
+    if (activeFreeze) {
+      activeFreeze.endedAt = endedAt.toISOString();
+      activeFreeze.days = settlement.days;
+    }
+
+    sub.freezeUsedDays = (sub.freezeUsedDays ?? 0) + settlement.days;
+    sub.endDate = endDateAfterFreeze(new Date(sub.endDate), settlement.days).toISOString();
     sub.status = "ACTIVE";
-    return { ...sub };
+
+    const subComms = this.commissionEntries.filter(
+      (c) => c.subscriptionId === sub.id && c.status === "PENDING"
+    );
+    if (subComms.length > 0) {
+      const shifted = shiftPendingMilestones(
+        subComms.map((c) => ({
+          ...c,
+          dueDate: new Date(c.dueDate),
+          periodStart: new Date(c.periodStart),
+        })),
+        endedAt,
+        settlement.days
+      );
+      shifted.forEach((sm) => {
+        const found = subComms.find((c) => c.id === sm.id);
+        if (found) {
+          found.dueDate = sm.dueDate.toISOString();
+          found.periodStart = sm.periodStart.toISOString();
+        }
+      });
+    }
+
+    return {
+      subscription: this.buildSubscriptionDetail(sub),
+      freeze: activeFreeze ?? ({} as SubscriptionFreeze),
+      settledDays: settlement.days,
+      overflowDays: settlement.overflowDays,
+    };
+  }
+
+  async cancelSubscription(
+    subscriptionId: string,
+    dto: CancelSubscriptionDto
+  ): Promise<Subscription> {
+    const sub = this.subscriptions.find((s) => s.id === subscriptionId);
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+
+    if (!dto.reason.trim()) {
+      throw { statusCode: 400, code: "REASON_REQUIRED", message: "سبب الإلغاء مطلوب إجبارياً" };
+    }
+
+    sub.status = "CANCELLED";
+    sub.cancelledAt = new Date().toISOString();
+    sub.cancelledReason = dto.reason.trim();
+
+    this.commissionEntries
+      .filter((c) => c.subscriptionId === sub.id && c.status === "PENDING")
+      .forEach((c) => {
+        c.status = "VOID";
+      });
+
+    return this.buildSubscriptionDetail(sub);
+  }
+
+  async previewCoachTransfer(
+    subscriptionId: string,
+    newCoachId: string,
+    effectiveAt?: string
+  ): Promise<{
+    milestones: {
+      index: number;
+      periodStart: string;
+      dueDate: string;
+      base: Minor;
+      oldCoachShareBps: number;
+      newCoachShareBps: number;
+      oldCoachPercent: number;
+      newCoachPercent: number;
+    }[];
+  }> {
+    const sub = this.subscriptions.find((s) => s.id === subscriptionId);
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+    if (sub.kind !== "PT") {
+      throw { statusCode: 400, code: "PT_ONLY", message: "تغيير المدرب متاح فقط لاشتراكات التدريب الخاص" };
+    }
+
+    const currentCa = this.coachAssignments.find((a) => a.subscriptionId === sub.id && !a.toDate);
+    if (currentCa?.coachId === newCoachId) {
+      throw { statusCode: 400, code: "INVALID_COACH", message: "المدرب المختار هو نفس المدرب الحالي" };
+    }
+
+    const transferDate = effectiveAt ? new Date(effectiveAt) : new Date();
+    const msCount = sub.commissionMilestones ?? 3;
+    const ms = buildMilestones({
+      price: sub.price,
+      milestones: msCount,
+      startDate: new Date(sub.startDate),
+      durationDays: sub.durationDays,
+    });
+
+    const heldMilestones: HeldMilestone[] = ms.map((m) => {
+      const existing = this.commissionEntries.find(
+        (c) => c.subscriptionId === sub.id && c.milestoneIndex === m.index && c.coachId === currentCa?.coachId
+      );
+      return {
+        index: m.index,
+        periodStart: m.periodStart,
+        dueDate: m.dueDate,
+        heldBps: existing?.shareBps ?? 10000,
+      };
+    });
+
+    const splits = splitOnTransfer(heldMilestones, transferDate);
+
+    return {
+      milestones: ms.map((m, i) => {
+        const sp = splits[i]!;
+        return {
+          index: m.index,
+          periodStart: m.periodStart.toISOString(),
+          dueDate: m.dueDate.toISOString(),
+          base: m.base,
+          oldCoachShareBps: sp.oldKeepsBps,
+          newCoachShareBps: sp.newGetsBps,
+          oldCoachPercent: sp.oldKeepsBps / 100,
+          newCoachPercent: sp.newGetsBps / 100,
+        };
+      }),
+    };
+  }
+
+  async changeCoach(
+    subscriptionId: string,
+    dto: ChangeCoachDto
+  ): Promise<{
+    subscription: Subscription;
+    splits: any[];
+  }> {
+    const sub = this.subscriptions.find((s) => s.id === subscriptionId);
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+    if (sub.kind !== "PT") {
+      throw { statusCode: 400, code: "PT_ONLY", message: "تغيير المدرب متاح لاشتراكات التدريب الخاص فقط" };
+    }
+
+    const newCoach = MOCK_STAFF.find((s) => s.id === dto.newCoachId && s.role === "COACH" && s.isActive);
+    if (!newCoach) throw { statusCode: 400, code: "INVALID_COACH", message: "المدرب غير صالح أو غير نشط" };
+
+    const currentCa = this.coachAssignments.find((a) => a.subscriptionId === sub.id && !a.toDate);
+    if (currentCa?.coachId === dto.newCoachId) {
+      throw { statusCode: 400, code: "INVALID_COACH", message: "لا يمكن التحويل لنفس المدرب الحالي" };
+    }
+
+    const transferDate = dto.effectiveAt ? new Date(dto.effectiveAt) : new Date();
+
+    // 1. Calculate preview splits BEFORE mutating assignments
+    const preview = await this.previewCoachTransfer(sub.id, dto.newCoachId, dto.effectiveAt);
+
+    // 2. Close current coach assignment
+    if (currentCa) {
+      currentCa.toDate = transferDate.toISOString();
+    }
+
+    // 3. Open new coach assignment
+    this.coachAssignments.unshift({
+      id: `ca_${Date.now()}`,
+      subscriptionId: sub.id,
+      coachId: newCoach.id,
+      fromDate: transferDate.toISOString(),
+      toDate: null,
+      reason: dto.reason?.trim() ?? "تحويل مدرب",
+      createdAt: new Date().toISOString(),
+      coach: newCoach,
+    });
+
+    preview.milestones.forEach((m) => {
+      if (currentCa) {
+        const oldEntry = this.commissionEntries.find(
+          (c) => c.subscriptionId === sub.id && c.milestoneIndex === m.index && c.coachId === currentCa.coachId
+        );
+        if (oldEntry) {
+          oldEntry.shareBps = m.oldCoachShareBps;
+        }
+      }
+
+      if (m.newCoachShareBps > 0) {
+        this.commissionEntries.push({
+          id: `comm_${Date.now()}_${m.index}`,
+          gymId: sub.gymId,
+          subscriptionId: sub.id,
+          coachId: newCoach.id,
+          milestoneIndex: m.index,
+          periodStart: m.periodStart,
+          dueDate: m.dueDate,
+          baseAmount: m.base,
+          shareBps: m.newCoachShareBps,
+          allocatedBase: m.base,
+          status: "PENDING",
+          createdAt: new Date().toISOString(),
+          coach: newCoach,
+        });
+      }
+    });
+
+    return {
+      subscription: this.buildSubscriptionDetail(sub),
+      splits: preview.milestones,
+    };
+  }
+
+  async logPtSession(
+    subscriptionId: string,
+    dto?: LogPtSessionDto
+  ): Promise<Subscription> {
+    const sub = this.subscriptions.find((s) => s.id === subscriptionId);
+    if (!sub) throw { statusCode: 404, code: "SUBSCRIPTION_NOT_FOUND", message: "الاشتراك غير موجود" };
+
+    const total = sub.totalSessions ?? 0;
+    const used = sub.usedSessions ?? 0;
+    if (total > 0 && used >= total) {
+      throw { statusCode: 400, code: "NO_SESSIONS_LEFT", message: "تم استنفاد جميع الجلسات المتاحة في هذا الاشتراك" };
+    }
+
+    sub.usedSessions = used + 1;
+    sub.sessionsLeft = Math.max(0, (sub.sessionsLeft ?? total) - 1);
+
+    return this.buildSubscriptionDetail(sub);
+  }
+
+  async listVisitors(query?: string): Promise<Visitor[]> {
+    const q = query?.trim().toLowerCase();
+    if (!q) return [...this.visitors];
+    return this.visitors.filter(
+      (v) => v.name.toLowerCase().includes(q) || v.phone.includes(q)
+    );
+  }
+
+  async createVisitor(dto: CreateVisitorDto): Promise<Visitor> {
+    const cleanPhone = dto.phone.trim();
+    const existing = this.visitors.find((v) => v.phone === cleanPhone);
+    if (existing) {
+      throw { statusCode: 409, code: "PHONE_EXISTS", message: "رقم هاتف الزائر مسجل بالفعل" };
+    }
+
+    const newVisitor: Visitor = {
+      id: `vis_${Date.now()}`,
+      gymId: "gym_cairo_01",
+      name: dto.name.trim(),
+      phone: cleanPhone,
+      notes: dto.notes?.trim() ?? null,
+      createdAt: new Date().toISOString(),
+    };
+
+    this.visitors.unshift(newVisitor);
+    return { ...newVisitor };
+  }
+
+  async checkInVisitor(dto: CheckInVisitorDto): Promise<{
+    success: boolean;
+    attendance: VisitorAttendance;
+    usedInvitations: number;
+    maxInvitations: number;
+  }> {
+    const member = this.members.find((m) => m.id === dto.invitedByMemberId);
+    if (!member) throw { statusCode: 404, code: "MEMBER_NOT_FOUND", message: "العضو الداعي غير موجود" };
+
+    const visitor = this.visitors.find((v) => v.id === dto.visitorId);
+    if (!visitor) throw { statusCode: 404, code: "VISITOR_NOT_FOUND", message: "الزائر غير موجود" };
+
+    let sub: Subscription | undefined;
+    if (dto.subscriptionId) {
+      sub = this.subscriptions.find((s) => s.id === dto.subscriptionId);
+    } else {
+      sub = this.subscriptions.find((s) => s.memberId === member.id && s.status === "ACTIVE");
+    }
+
+    if (!sub) {
+      throw { statusCode: 400, code: "SUBSCRIPTION_NOT_USABLE", message: "لا يوجد اشتراك متاح لاستخدام الدعوات" };
+    }
+
+    const maxInv = sub.maxInvitations ?? 3;
+    const usedInv = sub.usedInvitations ?? 0;
+    const usable = sub.status === "ACTIVE";
+
+    const decision = canInviteVisitor({
+      subscriptionUsable: usable,
+      maxInvitations: maxInv,
+      usedInvitations: usedInv,
+    });
+
+    if (decision === "SUBSCRIPTION_NOT_USABLE") {
+      throw {
+        statusCode: 400,
+        code: "SUBSCRIPTION_NOT_USABLE",
+        message: "اشتراك العضو غير متاح للدعوات (مجمد، متأخر عن السداد، أو منتهي)",
+      };
+    }
+    if (decision === "NO_INVITATIONS_LEFT") {
+      throw {
+        statusCode: 400,
+        code: "NO_INVITATIONS_LEFT",
+        message: `تم استنفاد جميع الدعوات المتاحة لهذا الاشتراك (${usedInv} من أصل ${maxInv})`,
+      };
+    }
+
+    sub.usedInvitations = usedInv + 1;
+
+    const attendance: VisitorAttendance = {
+      id: `va_${Date.now()}`,
+      gymId: "gym_cairo_01",
+      visitorId: visitor.id,
+      invitedByMemberId: member.id,
+      subscriptionId: sub.id,
+      checkInAt: new Date().toISOString(),
+      visitor,
+      invitedBy: member,
+      subscription: this.buildSubscriptionDetail(sub),
+    };
+
+    this.visitorAttendances.unshift(attendance);
+
+    return {
+      success: true,
+      attendance,
+      usedInvitations: sub.usedInvitations,
+      maxInvitations: maxInv,
+    };
+  }
+
+  async listOverdueSubscriptions(): Promise<
+    (Subscription & {
+      member: Member;
+      plan: Plan;
+      overdueBalance: Minor;
+      balanceDueDate: string;
+    })[]
+  > {
+    const overdueList: any[] = [];
+    for (const sub of this.subscriptions) {
+      const detail = this.buildSubscriptionDetail(sub);
+      if (detail.isOverdue || sub.status === "SUSPENDED_UNPAID" || (detail.remaining ?? 0) > 0) {
+        if (detail.remaining && detail.remaining > 0 && detail.member && detail.plan) {
+          overdueList.push({
+            ...detail,
+            member: detail.member,
+            plan: detail.plan,
+            overdueBalance: detail.remaining,
+            balanceDueDate: detail.balanceDueDate ?? detail.startDate,
+          });
+        }
+      }
+    }
+    return overdueList;
   }
 
   async getMemberInvoices(memberId: string): Promise<InvoiceDetail[]> {
@@ -170,44 +1003,347 @@ export class MockApiClient {
     return [...this.payments];
   }
 
-  // Shift Management (Shift Gate)
+  // Shift Management & Cash Drawer (Shift Gate)
   async getCurrentShift(): Promise<Shift | null> {
     return this.currentShift ? { ...this.currentShift } : null;
   }
 
+  async listShifts(filters?: {
+    staffId?: string;
+    status?: "OPEN" | "CLOSED";
+    hasVariance?: boolean;
+  }): Promise<(Shift & { staff?: Staff; closedBy?: Staff | null })[]> {
+    let result = [...this.shifts];
+    if (filters?.staffId) {
+      result = result.filter((s) => s.staffId === filters.staffId);
+    }
+    if (filters?.status) {
+      result = result.filter((s) => s.status === filters.status);
+    }
+    if (filters?.hasVariance) {
+      result = result.filter((s) => s.variance !== null && s.variance !== 0);
+    }
+    return result.sort(
+      (a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime()
+    );
+  }
+
+  async getShiftById(
+    id: string
+  ): Promise<(Shift & { staff?: Staff; closedBy?: Staff | null }) | null> {
+    const shift =
+      this.shifts.find((s) => s.id === id) ||
+      (this.currentShift?.id === id ? this.currentShift : null);
+    if (!shift) return null;
+    return { ...shift };
+  }
+
+  async getShiftReport(shiftId: string): Promise<ShiftReport> {
+    const shift =
+      this.shifts.find((s) => s.id === shiftId) ||
+      (this.currentShift?.id === shiftId ? this.currentShift : null);
+    if (!shift) throw new Error("Shift not found");
+
+    // All payments for this shift
+    const shiftPayments = this.payments.filter((p) => p.shiftId === shiftId);
+    const cashPayments = shiftPayments
+      .filter((p) => p.method === "CASH")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const instapayPayments = shiftPayments
+      .filter((p) => p.method === "INSTAPAY")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const cardPayments = shiftPayments
+      .filter((p) => p.method === "CARD")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const walletPayments = shiftPayments
+      .filter((p) => p.method === "WALLET")
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    // Vouchers for this shift
+    const shiftVouchers = this.vouchers.filter((v) => v.shiftId === shiftId);
+    const cashReceiptVouchers = shiftVouchers
+      .filter((v) => v.type === "RECEIPT" && v.method === "CASH")
+      .reduce((sum, v) => sum + v.amount, 0);
+    const cashDisbursementVouchers = shiftVouchers
+      .filter((v) => v.type === "DISBURSEMENT" && v.method === "CASH")
+      .reduce((sum, v) => sum + v.amount, 0);
+
+    // Expenses for this shift
+    const shiftExpenses = this.expenses.filter((e) => e.shiftId === shiftId);
+    const activeExpenses = shiftExpenses.filter((e) => !e.voidedAt);
+    const expensesFromDrawer = activeExpenses
+      .filter((e) => e.paidFromDrawer)
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    // Expected cash in drawer calculated via domain rule
+    const calcExpected = expectedCash({
+      openingCash: shift.openingCash,
+      cashPayments,
+      cashReceiptVouchers,
+      expensesFromDrawer,
+      cashDisbursementVouchers,
+    });
+
+    const expCash = shift.status === "CLOSED" && shift.expectedCash !== null
+      ? shift.expectedCash
+      : calcExpected;
+
+    // Invoices on this shift
+    const shiftInvoices = this.invoices.filter((i) => i.shiftId === shiftId);
+    const detailedInvoices: InvoiceDetail[] = [];
+    for (const inv of shiftInvoices) {
+      const detail = await this.getInvoice(inv.id);
+      if (detail) detailedInvoices.push(detail);
+    }
+
+    const invoicesTotal = shiftInvoices.reduce((sum, i) => sum + i.total, 0);
+    const discountsTotal = shiftInvoices.reduce((sum, i) => sum + i.discount, 0);
+
+    // Sales by kind
+    let subscriptionsSales = 0;
+    let servicesSales = 0;
+    let productsSales = 0;
+    for (const inv of detailedInvoices) {
+      for (const item of inv.items) {
+        if (item.kind === "SUBSCRIPTION") subscriptionsSales += item.total;
+        else if (item.kind === "SERVICE") servicesSales += item.total;
+        else if (item.kind === "PRODUCT") productsSales += item.total;
+      }
+    }
+
+    // Wallet credits created (e.g. from receipt vouchers or overpayments)
+    const walletCreditsCreated = shiftVouchers
+      .filter((v) => v.type === "RECEIPT" && v.walletTxId)
+      .reduce((sum, v) => sum + v.amount, 0);
+
+    return {
+      shift: { ...shift },
+      openingCash: shift.openingCash,
+      cashPayments,
+      cashReceiptVouchers,
+      expensesFromDrawer,
+      cashDisbursementVouchers,
+      expectedCash: expCash,
+      countedCash: shift.countedCash,
+      variance: shift.variance,
+      instapayPayments,
+      cardPayments,
+      walletPayments,
+      walletCreditsCreated,
+      invoicesCount: shiftInvoices.length,
+      invoicesTotal,
+      discountsTotal,
+      salesByKind: {
+        subscriptions: subscriptionsSales,
+        services: servicesSales,
+        products: productsSales,
+      },
+      records: {
+        payments: [...shiftPayments],
+        vouchers: [...shiftVouchers],
+        expenses: [...shiftExpenses],
+        invoices: detailedInvoices,
+      },
+    };
+  }
+
   async openShift(staffId: string, openingCash: Minor): Promise<Shift> {
-    const newShift: Shift = {
+    const existingOpen = this.shifts.find(
+      (s) => s.staffId === staffId && s.status === "OPEN"
+    );
+    if (existingOpen) {
+      throw new Error("SHIFT_ALREADY_OPEN: لدى هذا الموظف وردية مفتوحة بالفعل");
+    }
+
+    const staff = MOCK_STAFF.find((s) => s.id === staffId);
+    const newShift: Shift & { staff?: Staff; closedBy?: Staff | null } = {
       id: `shift_${Date.now()}`,
       gymId: MOCK_GYM.id,
       staffId,
       status: "OPEN",
       openedAt: new Date().toISOString(),
       closedAt: null,
+      closedById: null,
       openingCash,
       expectedCash: openingCash,
       countedCash: null,
       variance: null,
       note: `وردية مفتوحة - عهدة افتتاحية ${(openingCash / 100).toFixed(2)} ج.م`,
+      staff: staff ? { ...staff } : undefined,
     };
-    this.currentShift = newShift;
+
+    this.shifts.unshift(newShift);
+    this.currentShift = { ...newShift };
     return { ...newShift };
   }
 
-  async closeShift(shiftId: string, countedCash: Minor, note?: string): Promise<Shift> {
-    if (!this.currentShift || this.currentShift.id !== shiftId) {
-      throw new Error("Shift not found or already closed");
+  async closeShift(
+    shiftId: string,
+    countedCash: Minor,
+    note?: string,
+    actorId?: string,
+    actorIsAdmin?: boolean
+  ): Promise<Shift> {
+    const shift =
+      this.shifts.find((s) => s.id === shiftId) ||
+      (this.currentShift?.id === shiftId ? this.currentShift : null);
+    if (!shift) throw new Error("Shift not found");
+
+    const actor = actorId
+      ? MOCK_STAFF.find((s) => s.id === actorId)
+      : await this.getCurrentUser();
+    const isAdmin =
+      actorIsAdmin ?? (actor?.role === "GYM_ADMIN" || actor?.role === "SUPER_ADMIN");
+    const aId = actor?.id ?? "staff_reception";
+
+    const denial = canCloseShift({
+      shiftStatus: shift.status,
+      shiftOwnerId: shift.staffId,
+      actorId: aId,
+      actorIsAdmin: isAdmin,
+    });
+
+    if (denial === "ALREADY_CLOSED") {
+      throw new Error("ALREADY_CLOSED: الوردية مغلقة بالفعل ولا يمكن إقفالها مجدداً");
     }
-    const expected = this.currentShift.expectedCash ?? this.currentShift.openingCash;
-    const variance = countedCash - expected;
-    this.currentShift = {
-      ...this.currentShift,
-      status: "CLOSED",
-      closedAt: new Date().toISOString(),
-      countedCash,
-      variance,
-      note: note || this.currentShift.note,
+    if (denial === "NOT_OWNER") {
+      throw new Error("NOT_OWNER: لا يمكنك إقفال وردية موظف آخر، هذه الصلاحية للمدير فقط");
+    }
+
+    const report = await this.getShiftReport(shiftId);
+    const expected = report.expectedCash;
+    const variance = shiftVariance(expected, countedCash);
+    const closedAt = new Date().toISOString();
+
+    shift.status = "CLOSED";
+    shift.closedAt = closedAt;
+    shift.closedById = aId;
+    shift.expectedCash = expected;
+    shift.countedCash = countedCash;
+    shift.variance = variance;
+    if (note) shift.note = note;
+    shift.closedBy = actor;
+
+    if (this.currentShift && this.currentShift.id === shiftId) {
+      this.currentShift = { ...shift };
+    }
+
+    return { ...shift };
+  }
+
+  async adminCloseAllShifts(note: string, adminId?: string): Promise<Shift[]> {
+    const admin = adminId
+      ? MOCK_STAFF.find((s) => s.id === adminId)
+      : await this.getCurrentUser();
+    const aId = admin?.id ?? "staff_gym_admin";
+
+    const closedList: Shift[] = [];
+    const now = new Date().toISOString();
+
+    for (const shift of this.shifts) {
+      if (shift.status === "OPEN") {
+        const report = await this.getShiftReport(shift.id);
+        shift.status = "CLOSED";
+        shift.closedAt = now;
+        shift.closedById = aId;
+        shift.expectedCash = report.expectedCash;
+        shift.countedCash = null; // Admin has no physical count
+        shift.variance = null;
+        shift.note = note || "إقفال جماعي بواسطة الإدارة بدون جرد نقدي";
+        shift.closedBy = admin;
+        closedList.push({ ...shift });
+      }
+    }
+
+    if (this.currentShift && this.currentShift.status === "OPEN") {
+      const match = this.shifts.find((s) => s.id === this.currentShift!.id);
+      if (match) this.currentShift = { ...match };
+    }
+
+    return closedList;
+  }
+
+  // Expenses Management
+  async listExpenses(filters?: {
+    shiftId?: string;
+    category?: string;
+  }): Promise<Expense[]> {
+    let result = [...this.expenses];
+    if (filters?.shiftId) {
+      result = result.filter((e) => e.shiftId === filters.shiftId);
+    }
+    if (filters?.category) {
+      result = result.filter((e) => e.category === filters.category);
+    }
+    return result.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  async createExpense(
+    dto: CreateExpenseDto,
+    staffId?: string
+  ): Promise<Expense> {
+    requireOpenShift(this.currentShift);
+
+    const staff = staffId
+      ? MOCK_STAFF.find((s) => s.id === staffId)
+      : await this.getCurrentUser();
+
+    const newExpense: Expense = {
+      id: `exp_${Date.now()}`,
+      gymId: MOCK_GYM.id,
+      shiftId: this.currentShift!.id,
+      category: dto.category,
+      amount: dto.amount,
+      description: dto.description || null,
+      paidFromDrawer: dto.paidFromDrawer ?? true,
+      voidedAt: null,
+      voidReason: null,
+      createdById: staff?.id ?? "staff_reception",
+      createdAt: new Date().toISOString(),
+      createdBy: staff
+        ? { id: staff.id, name: staff.name }
+        : { id: "staff_reception", name: "سارة حسن" },
     };
-    return { ...this.currentShift };
+
+    this.expenses.unshift(newExpense);
+
+    if (newExpense.paidFromDrawer) {
+      this.currentShift!.expectedCash = Math.max(
+        0,
+        (this.currentShift!.expectedCash ?? this.currentShift!.openingCash) -
+          dto.amount
+      );
+    }
+
+    return { ...newExpense };
+  }
+
+  async voidExpense(
+    expenseId: string,
+    reason: string,
+    adminId?: string
+  ): Promise<Expense> {
+    const exp = this.expenses.find((e) => e.id === expenseId);
+    if (!exp) throw new Error("المصروف غير موجود");
+    if (exp.voidedAt) throw new Error("المصروف ملغي بالفعل");
+
+    exp.voidedAt = new Date().toISOString();
+    exp.voidReason = reason;
+
+    // If shift is still OPEN and was paid from drawer, restore the expectedCash
+    if (
+      this.currentShift &&
+      this.currentShift.id === exp.shiftId &&
+      exp.paidFromDrawer
+    ) {
+      this.currentShift.expectedCash =
+        (this.currentShift.expectedCash ?? this.currentShift.openingCash) +
+        exp.amount;
+    }
+
+    return { ...exp };
   }
 
   // Access Logs

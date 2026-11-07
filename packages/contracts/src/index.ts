@@ -65,15 +65,30 @@ export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 // ---------------------------------------------------------------------------
 
 export const CreateMemberSchema = z.object({
-  code: z.string().min(1),
+  code: z.string().min(1).optional(),
   name: z.string().min(2),
   phone: z.string().min(10),
   email: z.string().email().optional().nullable(),
   birthDate: z.string().optional().nullable(),
-  gender: z.string().optional().nullable(),
+  gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 export type CreateMemberDto = z.infer<typeof CreateMemberSchema>;
+
+export const UpdateMemberSchema = z.object({
+  name: z.string().min(2).optional(),
+  phone: z.string().min(10).optional(),
+  email: z.string().email().optional().nullable(),
+  birthDate: z.string().optional().nullable(),
+  gender: z.enum(["MALE", "FEMALE"]).optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+export type UpdateMemberDto = z.infer<typeof UpdateMemberSchema>;
+
+export const BlockMemberSchema = z.object({
+  reason: z.string().min(1),
+});
+export type BlockMemberDto = z.infer<typeof BlockMemberSchema>;
 
 export const MemberDtoSchema = z.object({
   id: z.string(),
@@ -91,6 +106,67 @@ export const MemberDtoSchema = z.object({
   updatedAt: z.string(),
 });
 export type MemberDto = z.infer<typeof MemberDtoSchema>;
+
+// ---------------------------------------------------------------------------
+// Subscription Management & Actions DTOs
+// ---------------------------------------------------------------------------
+
+export const FreezeSubscriptionSchema = z.object({
+  days: z.number().int().min(1).optional(),
+  startsAt: z.string().optional(),
+  reason: z.string().optional().nullable(),
+});
+export type FreezeSubscriptionDto = z.infer<typeof FreezeSubscriptionSchema>;
+
+export const UnfreezeSubscriptionSchema = z.object({
+  endedAt: z.string().optional(),
+});
+export type UnfreezeSubscriptionDto = z.infer<typeof UnfreezeSubscriptionSchema>;
+
+export const CancelSubscriptionSchema = z.object({
+  reason: z.string().min(1),
+});
+export type CancelSubscriptionDto = z.infer<typeof CancelSubscriptionSchema>;
+
+export const ChangeCoachSchema = z.object({
+  newCoachId: z.string().min(1),
+  effectiveAt: z.string().optional(),
+  reason: z.string().optional().nullable(),
+});
+export type ChangeCoachDto = z.infer<typeof ChangeCoachSchema>;
+
+export const LogPtSessionSchema = z.object({
+  notes: z.string().optional().nullable(),
+});
+export type LogPtSessionDto = z.infer<typeof LogPtSessionSchema>;
+
+// ---------------------------------------------------------------------------
+// Visitor Invitations DTOs
+// ---------------------------------------------------------------------------
+
+export const CreateVisitorSchema = z.object({
+  name: z.string().min(2),
+  phone: z.string().min(10),
+  notes: z.string().optional().nullable(),
+});
+export type CreateVisitorDto = z.infer<typeof CreateVisitorSchema>;
+
+export const CheckInVisitorSchema = z.object({
+  visitorId: z.string().min(1),
+  invitedByMemberId: z.string().min(1),
+  subscriptionId: z.string().optional().nullable(),
+});
+export type CheckInVisitorDto = z.infer<typeof CheckInVisitorSchema>;
+
+export const VisitorDtoSchema = z.object({
+  id: z.string(),
+  gymId: z.string(),
+  name: z.string(),
+  phone: z.string(),
+  notes: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type VisitorDto = z.infer<typeof VisitorDtoSchema>;
 
 // ---------------------------------------------------------------------------
 // Access / Scan DTOs
@@ -210,6 +286,38 @@ export const CreateVoucherSchema = z.object({
   creditToWallet: z.boolean().optional(),
 });
 export type CreateVoucherDto = z.infer<typeof CreateVoucherSchema>;
+
+// ---------------------------------------------------------------------------
+// Shift & Expense DTOs
+// ---------------------------------------------------------------------------
+
+export const AdminCloseAllShiftsSchema = z.object({
+  note: z.string().min(1),
+});
+export type AdminCloseAllShiftsDto = z.infer<typeof AdminCloseAllShiftsSchema>;
+
+export const ExpenseCategorySchema = z.enum([
+  "CLEANING",
+  "MAINTENANCE",
+  "OFFICE_SUPPLIES",
+  "BEVERAGES",
+  "MARKETING",
+  "OTHER",
+]);
+export type ExpenseCategory = z.infer<typeof ExpenseCategorySchema>;
+
+export const CreateExpenseSchema = z.object({
+  category: z.string().min(1),
+  amount: z.number().int().min(1),
+  description: z.string().optional().nullable(),
+  paidFromDrawer: z.boolean().default(true),
+});
+export type CreateExpenseDto = z.infer<typeof CreateExpenseSchema>;
+
+export const VoidExpenseSchema = z.object({
+  voidReason: z.string().min(1),
+});
+export type VoidExpenseDto = z.infer<typeof VoidExpenseSchema>;
 
 // ---------------------------------------------------------------------------
 // Common DTOs

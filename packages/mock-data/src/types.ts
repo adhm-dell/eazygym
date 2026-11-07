@@ -79,6 +79,14 @@ export interface Member {
   blockedReason: string | null;
   createdAt: string;
   updatedAt: string;
+  // Computed / summary fields when listing
+  derivedStatus?: string;
+  walletBalance?: Minor;
+  activeSubscriptionsCount?: number;
+  totalRemainingDebt?: Minor;
+  activePlanName?: string;
+  daysLeft?: number;
+  currentCoachName?: string;
 }
 
 export interface Subscription {
@@ -96,7 +104,161 @@ export interface Subscription {
   endDate: string;
   originalEndDate: string;
   activatedAt: string | null;
+  cancelledAt?: string | null;
+  cancelledReason?: string | null;
+  totalSessions?: number | null;
+  usedSessions?: number;
   sessionsLeft?: number | null;
+  freezeMaxCount?: number;
+  freezeMaxTotalDays?: number;
+  freezeUsedCount?: number;
+  freezeUsedDays?: number;
+  minUpfrontPercent?: number;
+  dueAfterDays?: number | null;
+  dueAfterPercent?: number | null;
+  commissionMilestones?: number;
+  maxInvitations?: number;
+  usedInvitations?: number;
+  freePtSessions?: number;
+  createdById?: string;
+  // joined fields
+  plan?: Plan;
+  member?: Member;
+  currentCoach?: Staff | null;
+  coachAssignment?: CoachAssignment | null;
+  freezes?: SubscriptionFreeze[];
+  collected?: Minor;
+  remaining?: Minor;
+  isOverdue?: boolean;
+  balanceDueDate?: string | null;
+  daysLeft?: number;
+}
+
+export interface SubscriptionFreeze {
+  id: string;
+  subscriptionId: string;
+  startedAt: string;
+  plannedEndAt: string | null;
+  endedAt: string | null;
+  days: number | null;
+  reason: string | null;
+  createdById: string;
+  createdAt: string;
+  createdByName?: string;
+}
+
+export interface CoachAssignment {
+  id: string;
+  subscriptionId: string;
+  coachId: string;
+  fromDate: string;
+  toDate: string | null;
+  reason: string | null;
+  createdAt: string;
+  coach?: Staff;
+}
+
+export interface CommissionEntry {
+  id: string;
+  gymId: string;
+  subscriptionId: string;
+  coachId: string;
+  milestoneIndex: number;
+  periodStart: string;
+  dueDate: string;
+  baseAmount: Minor;
+  shareBps: number;
+  allocatedBase: Minor;
+  status: "PENDING" | "EARNED" | "PAID" | "VOID";
+  tierPercent?: number | null;
+  amount?: Minor | null;
+  createdAt: string;
+  coach?: Staff;
+}
+
+export interface Visitor {
+  id: string;
+  gymId: string;
+  name: string;
+  phone: string;
+  notes: string | null;
+  createdAt: string;
+  attendances?: VisitorAttendance[];
+}
+
+export interface VisitorAttendance {
+  id: string;
+  gymId: string;
+  visitorId: string;
+  invitedByMemberId: string;
+  subscriptionId: string | null;
+  checkInAt: string;
+  visitor?: Visitor;
+  invitedBy?: Member;
+  subscription?: Subscription;
+}
+
+export interface MemberProfileDetail extends Member {
+  walletBalance: Minor;
+  activeSubscriptions: Subscription[];
+  allSubscriptions: Subscription[];
+  invoices: InvoiceDetail[];
+  attendance: AccessLog[];
+  freezeHistory: SubscriptionFreeze[];
+  visitorAttendances: VisitorAttendance[];
+  totalVisits: number;
+  totalSpent: Minor;
+  totalRemainingDebt: Minor;
+  derivedStatus: string;
+}
+
+export interface FreezeSubscriptionDto {
+  days?: number;
+  startsAt?: string;
+  reason?: string | null;
+}
+
+export interface UnfreezeSubscriptionDto {
+  endedAt?: string;
+}
+
+export interface CancelSubscriptionDto {
+  reason: string;
+}
+
+export interface ChangeCoachDto {
+  newCoachId: string;
+  effectiveAt?: string;
+  reason?: string | null;
+}
+
+export interface LogPtSessionDto {
+  notes?: string | null;
+}
+
+export interface CreateVisitorDto {
+  name: string;
+  phone: string;
+  notes?: string | null;
+}
+
+export interface CheckInVisitorDto {
+  visitorId: string;
+  invitedByMemberId: string;
+  subscriptionId?: string | null;
+}
+
+export interface UpdateMemberDto {
+  name?: string;
+  phone?: string;
+  email?: string | null;
+  birthDate?: string | null;
+  gender?: "MALE" | "FEMALE" | null;
+  notes?: string | null;
+}
+
+export interface BlockMemberDto {
+  reason: string;
 }
 
 export interface InvoiceItem {
@@ -175,11 +337,80 @@ export interface Shift {
   status: ShiftStatus;
   openedAt: string;
   closedAt: string | null;
+  closedById?: string | null;
   openingCash: Minor;
   expectedCash: Minor | null;
   countedCash: Minor | null;
   variance: Minor | null;
   note: string | null;
+  staff?: Staff;
+  closedBy?: Staff | null;
+}
+
+export interface Expense {
+  id: string;
+  gymId: string;
+  shiftId: string;
+  category: string;
+  amount: Minor;
+  description: string | null;
+  paidFromDrawer: boolean;
+  voidedAt: string | null;
+  voidReason: string | null;
+  createdById: string;
+  createdAt: string;
+  createdBy?: { id: string; name: string };
+  shift?: Shift;
+}
+
+export interface CreateExpenseDto {
+  category: string;
+  amount: Minor;
+  description?: string | null;
+  paidFromDrawer?: boolean;
+}
+
+export interface VoidExpenseDto {
+  voidReason: string;
+}
+
+export interface CloseShiftDto {
+  countedCash: Minor;
+  note?: string;
+}
+
+export interface AdminCloseAllShiftsDto {
+  note: string;
+}
+
+export interface ShiftReport {
+  shift: Shift & { staff?: Staff; closedBy?: Staff | null };
+  openingCash: Minor;
+  cashPayments: Minor;
+  cashReceiptVouchers: Minor;
+  expensesFromDrawer: Minor;
+  cashDisbursementVouchers: Minor;
+  expectedCash: Minor;
+  countedCash: Minor | null;
+  variance: Minor | null;
+  instapayPayments: Minor;
+  cardPayments: Minor;
+  walletPayments: Minor;
+  walletCreditsCreated: Minor;
+  invoicesCount: number;
+  invoicesTotal: Minor;
+  discountsTotal: Minor;
+  salesByKind: {
+    subscriptions: Minor;
+    services: Minor;
+    products: Minor;
+  };
+  records: {
+    payments: Payment[];
+    vouchers: CashVoucher[];
+    expenses: Expense[];
+    invoices: InvoiceDetail[];
+  };
 }
 
 export interface AccessLog {
