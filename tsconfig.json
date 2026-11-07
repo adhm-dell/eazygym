@@ -9,5 +9,17 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src"]
+  "files": [],
+  "references": [
+    { "path": "./packages/domain" },
+    { "path": "./packages/contracts" },
+    { "path": "./packages/db" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/i18n" },
+    { "path": "./packages/mock-data" },
+    { "path": "./apps/api" },
+    { "path": "./apps/staff" },
+    { "path": "./apps/coach" },
+    { "path": "./apps/member" }
+  ]
 }
