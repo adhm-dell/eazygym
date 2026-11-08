@@ -28,6 +28,28 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Post("switch")
+  @ApiOperation({ summary: "Switch user in development/portal and return access token" })
+  async switchUser(
+    @Body() body: { email?: string; staffId?: string },
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const result = await this.authService.switchUser(body.email, body.staffId);
+    res.cookie("refresh_token", result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 3600 * 1000,
+    });
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+      gym: result.gym,
+    };
+  }
+
+  @Public()
   @Post("login")
   @ApiOperation({ summary: "Staff login with email and password" })
   async loginStaff(
@@ -124,6 +146,12 @@ export class MeController {
   @Get("me")
   @ApiOperation({ summary: "Get current authenticated user profile and gym settings" })
   async getMe(@CurrentUser() user: any) {
+    return this.authService.getMe(user.sub || user.id, user.role);
+  }
+
+  @Get("auth/me")
+  @ApiOperation({ summary: "Get current authenticated user profile (alias)" })
+  async getAuthMe(@CurrentUser() user: any) {
     return this.authService.getMe(user.sub || user.id, user.role);
   }
 }

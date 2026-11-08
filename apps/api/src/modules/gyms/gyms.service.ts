@@ -136,4 +136,131 @@ export class GymsService {
 
     return this.getSettings(gymId);
   }
+
+  // Super-admin platform gym management
+  async listGyms() {
+    const gyms = await this.prisma.gym.findMany({
+      include: {
+        _count: {
+          select: {
+            members: true,
+            staff: true,
+            subscriptions: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return gyms.map((g) => ({
+      id: g.id,
+      name: g.name,
+      slug: g.slug,
+      timezone: g.timezone,
+      currency: g.currency,
+      isActive: g.isActive,
+      membersCount: g._count.members,
+      staffCount: g._count.staff,
+      subscriptionsCount: g._count.subscriptions,
+      createdAt: g.createdAt,
+    }));
+  }
+
+  async createGym(dto: {
+    name: string;
+    slug: string;
+    timezone?: string;
+    admin: { name: string; email: string; password?: string };
+  }) {
+    const existing = await this.prisma.gym.findUnique({
+      where: { slug: dto.slug.toLowerCase().trim() },
+    });
+    if (existing) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "SLUG_EXISTS",
+        message: "A gym with this slug already exists",
+      });
+    }
+
+    const adminEmail = dto.admin.email.toLowerCase().trim();
+    const existingStaff = await this.prisma.staff.findUnique({
+      where: { email: adminEmail },
+    });
+    if (existingStaff) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "EMAIL_EXISTS",
+        message: "Admin email already in use",
+      });
+    }
+
+    // Default password hash for "123456"
+    const passwordHash = "$2a$10$wE9l1O1Wk3jK9T8mG7sBMe9b7G/iH3M5O9dJ0vG5A8jK3Y9hB8bSe";
+
+    return this.prisma.$transaction(async (tx) => {
+      const gym = await tx.gym.create({
+        data: {
+          name: dto.name,
+          slug: dto.slug.toLowerCase().trim(),
+          timezone: dto.timezone || "Africa/Cairo",
+          currency: "EGP",
+          defaultMinUpfrontPercent: 30,
+          defaultDueAfterDays: 30,
+          classEntryMode: "RECEPTION_STARTS",
+          classCheckinEarlyMinutes: 15,
+          expiryNotifyDays: [7, 3, 1],
+          maxCoachBreaksPerDay: 2,
+          coachBreakDurationMinutes: 20,
+          freeSessionsOnFitnessProfile: 1,
+          manualDiscountLimitPercent: 10,
+          isActive: true,
+        },
+      });
+
+      const admin = await tx.staff.create({
+        data: {
+          gymId: gym.id,
+          name: dto.admin.name,
+          email: adminEmail,
+          passwordHash,
+          role: "GYM_ADMIN",
+          baseSalary: 10000,
+          isActive: true,
+        },
+      });
+
+      return {
+        gym,
+        admin: {
+          id: admin.id,
+          name: admin.name,
+          email: admin.email,
+          role: admin.role,
+        },
+      };
+    });
+  }
+
+  async toggleGymActive(gymId: string, isActive: boolean) {
+    const gym = await this.prisma.gym.findUnique({ where: { id: gymId } });
+    if (!gym) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "NOT_FOUND",
+        message: "Gym not found",
+      });
+    }
+
+    const updated = await this.prisma.gym.update({
+      where: { id: gymId },
+      data: { isActive },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      isActive: updated.isActive,
+    };
+  }
 }

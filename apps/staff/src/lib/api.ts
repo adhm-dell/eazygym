@@ -57,7 +57,7 @@ async function ensureToken(): Promise<string> {
 
   loginPromise = (async () => {
     try {
-      const res = await loginUser("reception@powercore.gym", "123456");
+      const res = await loginUser("admin@powercore.gym", "123456");
       return res.accessToken;
     } catch (e) {
       console.warn("Auto-login failed:", e);

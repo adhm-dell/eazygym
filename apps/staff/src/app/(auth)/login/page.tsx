@@ -107,6 +107,17 @@ export default function StaffLoginPage() {
             >
               منى (أدمن)
             </button>
+            <button
+              type="button"
+              onClick={() => handleQuickSelectStaff("owner@powercore.gym")}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                email === "owner@powercore.gym"
+                  ? "bg-[#14181F] text-[#C6F24E] border-[#14181F]"
+                  : "bg-white text-[#14181F] border-[#E1E5DF] hover:bg-slate-50"
+              }`}
+            >
+              م. طارق (المالك)
+            </button>
           </div>
         </div>
 

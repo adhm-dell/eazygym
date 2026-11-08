@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
+import { ScheduleModule } from "@nestjs/schedule";
 import { PrismaService } from "./prisma/prisma.service";
 import { ENV } from "./config/env";
 
@@ -33,10 +34,12 @@ import { AuditModule } from "./modules/audit/audit.module";
 import { JobsModule } from "./modules/jobs/jobs.module";
 import { NumberingModule } from "./modules/numbering/numbering.module";
 import { CoachOpsModule } from "./modules/coach-ops/coach-ops.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { AppController } from "./app.controller";
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     JwtModule.register({
       global: true,
       secret: ENV.JWT_SECRET,
@@ -67,6 +70,7 @@ import { AppController } from "./app.controller";
     NotificationsModule,
     ReportsModule,
     JobsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

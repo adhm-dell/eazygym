@@ -74,6 +74,65 @@ export class AuthService {
     this.loginAttempts.delete(identifier.toLowerCase().trim());
   }
 
+  async switchUser(email?: string, staffId?: string) {
+    const where = staffId
+      ? { id: staffId }
+      : email
+      ? { email: email.toLowerCase() }
+      : null;
+
+    if (!where) {
+      throw new BadRequestException("Must provide email or staffId");
+    }
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { ...where, isActive: true },
+      include: { gym: true },
+    });
+
+    if (!staff) {
+      throw new NotFoundException("Staff member not found");
+    }
+
+    const accessToken = this.jwtService.sign(
+      {
+        sub: staff.id,
+        gymId: staff.gymId,
+        role: staff.role,
+        email: staff.email,
+        name: staff.name,
+      },
+      {
+        secret: ENV.JWT_SECRET,
+        expiresIn: "7d",
+      }
+    );
+
+    const refreshToken = this.jwtService.sign(
+      {
+        sub: staff.id,
+        type: "refresh",
+      },
+      {
+        secret: ENV.JWT_REFRESH_SECRET,
+        expiresIn: "7d",
+      }
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: staff.id,
+        gymId: staff.gymId,
+        name: staff.name,
+        email: staff.email,
+        role: staff.role,
+      },
+      gym: staff.gym,
+    };
+  }
+
   async loginStaff(dto: LoginRequest) {
     this.checkBruteForce(dto.email);
 

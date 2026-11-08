@@ -1,4 +1,4 @@
-import { http } from "../../lib/api";
+import { http, setStoredToken } from "../../lib/api";
 import type { CreateExpenseDto, ShiftStatus } from "@gym/mock-data";
 
 export const shiftApi = {
@@ -33,14 +33,22 @@ export const shiftApi = {
     http.post<any>(`/expenses/${expenseId}/void`, { reason }),
 
   // Staff & User
-  getCurrentUser: () =>
-    http.get<any>("/auth/me").catch(() => ({
-      id: "staff_reception",
-      name: "سارة حسن (استقبال)",
-      role: "RECEPTION",
-      email: "reception@powercore.gym",
-    })),
-  switchActiveUser: (staffId: string) =>
-    http.post<any>("/auth/switch", { staffId }).catch(() => null),
+  getCurrentUser: async () => {
+    try {
+      const res = await http.get<any>("/me");
+      return res.user || res;
+    } catch {
+      return null;
+    }
+  },
+  switchActiveUser: async (staffIdOrEmail: string) => {
+    const isEmail = staffIdOrEmail.includes("@");
+    const payload = isEmail ? { email: staffIdOrEmail } : { staffId: staffIdOrEmail };
+    const res = await http.post<any>("/auth/switch", payload);
+    if (res?.accessToken) {
+      setStoredToken(res.accessToken, res.user);
+    }
+    return res.user || res;
+  },
   listStaff: () => http.get<any[]>("/staff"),
 };

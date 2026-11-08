@@ -105,4 +105,37 @@ export class NotificationsService {
 
     return { success: true };
   }
+
+  async createNotification(data: {
+    gymId: string;
+    recipientType: NotificationRecipientType;
+    recipientId: string;
+    type: string;
+    title: string;
+    body: string;
+    dedupeKey?: string;
+  }) {
+    if (data.dedupeKey) {
+      const existing = await this.prisma.notification.findFirst({
+        where: {
+          gymId: data.gymId,
+          recipientId: data.recipientId,
+          dedupeKey: data.dedupeKey,
+        },
+      });
+      if (existing) return existing;
+    }
+
+    return this.prisma.notification.create({
+      data: {
+        gymId: data.gymId,
+        recipientType: data.recipientType,
+        recipientId: data.recipientId,
+        type: data.type,
+        title: data.title,
+        body: data.body,
+        dedupeKey: data.dedupeKey,
+      },
+    });
+  }
 }

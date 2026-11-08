@@ -384,6 +384,7 @@ export class ShiftsService {
     });
 
     return {
+      ...summary,
       shift: {
         ...shift,
         openingCash: decimalToPiasters(shift.openingCash),
@@ -391,6 +392,8 @@ export class ShiftsService {
         countedCash: shift.countedCash !== null ? decimalToPiasters(shift.countedCash) : null,
         variance: shift.variance !== null ? decimalToPiasters(shift.variance) : null,
       },
+      countedCash: shift.countedCash !== null ? decimalToPiasters(shift.countedCash) : null,
+      variance: shift.variance !== null ? decimalToPiasters(shift.variance) : null,
       summary,
       records: {
         payments: payments.map((p) => ({

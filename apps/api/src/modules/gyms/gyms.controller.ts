@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Req, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { GymsService } from "./gyms.service";
 import { Roles } from "../../common/decorators/roles.decorator";
@@ -33,5 +33,35 @@ export class GymsController {
     @Body(new ZodValidationPipe(UpdateGymSettingsSchema)) dto: UpdateGymSettingsDto
   ) {
     return this.gymsService.updateSettings(req.gymId, req.user?.id || req.user?.sub, dto);
+  }
+}
+
+@ApiTags("SuperAdmin")
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller("admin/gyms")
+export class SuperAdminGymsController {
+  constructor(private readonly gymsService: GymsService) {}
+
+  @Get()
+  @Roles("SUPER_ADMIN")
+  @ApiOperation({ summary: "List all gyms across platform with stats" })
+  async listGyms() {
+    return this.gymsService.listGyms();
+  }
+
+  @Post()
+  @Roles("SUPER_ADMIN")
+  @ApiOperation({ summary: "Create new gym and first GYM_ADMIN" })
+  async createGym(@Body() body: any) {
+    return this.gymsService.createGym(body);
+  }
+
+  @Patch(":id/status")
+  @Roles("SUPER_ADMIN")
+  @ApiOperation({ summary: "Toggle gym active/deactivated status" })
+  async toggleGymStatus(@Req() req: any, @Body("isActive") isActive: boolean) {
+    const gymId = req.params.id;
+    return this.gymsService.toggleGymActive(gymId, isActive);
   }
 }

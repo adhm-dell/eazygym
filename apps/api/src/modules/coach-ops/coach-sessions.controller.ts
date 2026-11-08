@@ -30,6 +30,12 @@ import {
 export class CoachSessionsController {
   constructor(private readonly sessionsService: CoachSessionsService) {}
 
+  @Get("me/trainees")
+  @Roles("COACH")
+  async getMyTrainees(@CurrentUser() user: any) {
+    return this.sessionsService.getTrainees(user.gymId, user.sub);
+  }
+
   @Get("coaches/:id/trainees")
   @Roles("SUPER_ADMIN", "GYM_ADMIN", "COACH")
   async getTrainees(@CurrentUser() user: any, @Param("id") coachId: string) {

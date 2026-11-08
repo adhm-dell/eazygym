@@ -4,8 +4,9 @@ import preset from "@gym/config/tailwind-preset";
 const config: Config = {
   presets: [preset],
   content: [
-    "./src/**/*.{ts,tsx}",
-    "../../packages/ui/src/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx,js,jsx}",
+    "../../packages/ui/src/**/*.{ts,tsx,js,jsx}",
+    "../../packages/ui/dist/**/*.{js,mjs}",
   ],
 };
 

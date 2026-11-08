@@ -21,9 +21,9 @@ export function ShiftReportModal({
 
   if (!isOpen || !report) return null;
 
-  const shift = report.shift;
-  const variance = report.variance;
-  const isCounted = report.countedCash !== null;
+  const shift = report.shift || ({} as any);
+  const variance = report.variance ?? null;
+  const isCounted = report.countedCash !== null && report.countedCash !== undefined;
 
   return (
     <Dialog

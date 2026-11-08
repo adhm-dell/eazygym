@@ -1,66 +1,176 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Badge } from "@gym/ui";
+import { Badge, Button } from "@gym/ui";
 import {
   UserCheck,
   Award,
   Calendar,
   Users,
   Home,
+  Coffee,
   ChevronLeft,
   ChevronRight,
   TrendingUp,
   Clock,
-  CheckCircle2,
   AlertCircle,
   Dumbbell,
   Wallet,
+  CheckCircle,
+  XCircle,
+  Activity,
+  Flame,
 } from "lucide-react";
 import { fetchMyCommission, type CoachCommissionData } from "../../features/commission/api";
+import { traineesApi, type Trainee } from "../../features/trainees/api";
+import { classesApi } from "../../features/classes/api";
+import { breaksApi, type CoachBreak } from "../../features/breaks/api";
+import { assignmentsApi, type FitnessAssignment } from "../../features/assignments/api";
 
 export default function CoachHomePage() {
-  const [activeTab, setActiveTab] = useState<"home" | "trainees" | "classes" | "commission">("home");
-  const [sessionRegistered, setSessionRegistered] = useState(false);
+  const [activeTab, setActiveTab] = useState<"home" | "trainees" | "classes" | "breaks" | "commission">("home");
 
-  // Commission live state
+  // Live Commission
   const currentDate = new Date();
   const [commYear, setCommYear] = useState<number>(currentDate.getFullYear());
   const [commMonth, setCommMonth] = useState<number>(currentDate.getMonth() + 1);
   const [commData, setCommData] = useState<CoachCommissionData | null>(null);
-  const [commLoading, setCommLoading] = useState<boolean>(false);
 
-  const loadCommission = async (year: number, month: number) => {
-    setCommLoading(true);
+  // Live Trainees
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+  const [selectedTrainee, setSelectedTrainee] = useState<Trainee | null>(null);
+  const [traineesLoading, setTraineesLoading] = useState(false);
+
+  // Live Classes
+  const [classes, setClasses] = useState<any[]>([]);
+
+  // Live Breaks
+  const [breaks, setBreaks] = useState<CoachBreak[]>([]);
+  const [activeBreak, setActiveBreak] = useState<CoachBreak | null>(null);
+  const [breakTimer, setBreakTimer] = useState<number>(0); // elapsed seconds
+
+  // Live Assignments (Fitness Profile)
+  const [assignments, setAssignments] = useState<FitnessAssignment[]>([]);
+
+  // Action status message
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const showFeedback = (msg: string, isError = false) => {
+    if (isError) {
+      setActionError(msg);
+      setTimeout(() => setActionError(null), 4000);
+    } else {
+      setActionSuccess(msg);
+      setTimeout(() => setActionSuccess(null), 4000);
+    }
+  };
+
+  // Load live data
+  const loadInitialData = async () => {
     try {
-      const data = await fetchMyCommission(year, month);
-      setCommData(data);
+      const [comm, trList, clsList, brkList, assList] = await Promise.all([
+        fetchMyCommission(commYear, commMonth).catch(() => null),
+        traineesApi.getMyTrainees().catch(() => []),
+        classesApi.getTodayClasses().catch(() => []),
+        breaksApi.getBreaks().catch(() => []),
+        assignmentsApi.getAssignments().catch(() => []),
+      ]);
+
+      if (comm) setCommData(comm);
+      if (trList && trList.length > 0) setTrainees(trList);
+      if (clsList) setClasses(clsList);
+      if (brkList) {
+        setBreaks(brkList);
+        const cur = brkList.find((b) => b.status === "ACTIVE" || b.status === "PENDING");
+        setActiveBreak(cur || null);
+      }
+      if (assList) setAssignments(assList);
     } catch {
-      // Fallback
-    } finally {
-      setCommLoading(false);
+      // ignore
     }
   };
 
   useEffect(() => {
-    loadCommission(commYear, commMonth);
+    loadInitialData();
   }, [commYear, commMonth]);
 
-  const handlePrevMonth = () => {
-    if (commMonth === 1) {
-      setCommYear(commYear - 1);
-      setCommMonth(12);
-    } else {
-      setCommMonth(commMonth - 1);
+  // Break Timer Tick
+  useEffect(() => {
+    if (!activeBreak || activeBreak.status !== "ACTIVE" || !activeBreak.startedAt) {
+      setBreakTimer(0);
+      return;
+    }
+    const startMs = new Date(activeBreak.startedAt).getTime();
+    const interval = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - startMs) / 1000);
+      setBreakTimer(elapsedSec);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeBreak]);
+
+  // Handlers
+  const handleRequestBreak = async () => {
+    try {
+      const res = await breaksApi.requestBreak(20);
+      setActiveBreak(res);
+      showFeedback("تم إرسال طلب الاستراحة إلى الاستقبال");
+      await loadInitialData();
+    } catch (err: any) {
+      showFeedback(err.message || "تعذر طلب الاستراحة (ربما يوجد مدرب آخر في استراحة)", true);
     }
   };
 
-  const handleNextMonth = () => {
-    if (commMonth === 12) {
-      setCommYear(commYear + 1);
-      setCommMonth(1);
-    } else {
-      setCommMonth(commMonth + 1);
+  const handleEndBreak = async () => {
+    if (!activeBreak) return;
+    try {
+      await breaksApi.endBreak(activeBreak.id);
+      setActiveBreak(null);
+      showFeedback("تم إنهاء الاستراحة والعودة للعمل بنجاح");
+      await loadInitialData();
+    } catch (err: any) {
+      showFeedback(err.message || "تعذر إنهاء الاستراحة", true);
+    }
+  };
+
+  const handleAcceptAssignment = async (id: string) => {
+    try {
+      await assignmentsApi.acceptAssignment(id);
+      showFeedback("تم قبول المتدرب الجديد بنجاح وإضافته إلى قائمتك");
+      await loadInitialData();
+    } catch (err: any) {
+      showFeedback(err.message || "تعذر قبول المتدرب", true);
+    }
+  };
+
+  const handleRejectAssignment = async (id: string) => {
+    const reason = prompt("يرجى كتابة سبب الاعتذار عن المتدرب:");
+    if (!reason) return;
+    try {
+      await assignmentsApi.rejectAssignment(id, reason);
+      showFeedback("تم الاعتذار عن المتدرب وإعادته إلى قائمة الانتظار");
+      await loadInitialData();
+    } catch (err: any) {
+      showFeedback(err.message || "تعذر رفض المتدرب", true);
+    }
+  };
+
+  const handleLogPTSession = async (trainee: Trainee) => {
+    try {
+      await traineesApi.logSession({
+        type: "PT",
+        startTime: new Date().toISOString(),
+        durationMinutes: 60,
+        participant: {
+          memberId: trainee.memberId,
+          subscriptionId: trainee.subscription?.id,
+          source: "PT",
+        },
+      });
+      showFeedback(`تم خصم جلسة بنجاح للمتدرب: ${trainee.member.name}`);
+      await loadInitialData();
+    } catch (err: any) {
+      showFeedback(err.message || "فشل تسجيل الجلسة", true);
     }
   };
 
@@ -86,16 +196,23 @@ export default function CoachHomePage() {
   const nextTier = commData?.nextTier;
   const baseSalary = commData?.coach?.baseSalary ?? 8000;
 
+  // Format break countdown
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   return (
     <div className="min-h-screen bg-[#E5E9E3] flex justify-center items-center sm:py-6" dir="rtl">
       <div className="w-full max-w-[420px] min-h-screen sm:min-h-[860px] bg-[#F2F4F1] flex flex-col justify-between sm:rounded-[36px] sm:shadow-2xl sm:border-[8px] sm:border-[#14181F] overflow-hidden">
         {/* Mobile Header & Body */}
-        <div className="flex-1 p-4 sm:p-5 flex flex-col gap-3.5 overflow-y-auto">
+        <div className="flex-1 p-4 flex flex-col gap-3.5 overflow-y-auto">
           {/* Top greeting */}
           <header className="pt-1 flex items-center justify-between">
             <div>
-              <p className="text-[12px] text-[#5B6470] font-medium">مرحباً بك مجدداً</p>
-              <h1 className="text-[22px] font-bold text-[#14181F] tracking-tight">{coachName}</h1>
+              <p className="text-[12px] text-[#5B6470] font-medium">بوابة المدرب (Phase 08)</p>
+              <h1 className="text-[20px] font-bold text-[#14181F] tracking-tight">{coachName}</h1>
             </div>
             <div className="flex items-center gap-1.5 bg-white border border-[#E1E5DF] px-2.5 py-1 rounded-full text-xs font-semibold text-[#14181F]">
               <Calendar className="h-3.5 w-3.5 text-[#5B6470]" />
@@ -103,24 +220,107 @@ export default function CoachHomePage() {
             </div>
           </header>
 
+          {/* Feedback Banners */}
+          {actionSuccess && (
+            <div className="p-2.5 rounded-xl bg-[#EDF7ED] border border-[#BDE5BD] text-[#1B7F4B] text-xs font-bold flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 shrink-0" />
+              <span>{actionSuccess}</span>
+            </div>
+          )}
+          {actionError && (
+            <div className="p-2.5 rounded-xl bg-[#FDF2F2] border border-[#F8B4B4] text-[#B3261E] text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+          )}
+
           {/* ==================== TAB 1: HOME ==================== */}
           {activeTab === "home" && (
             <>
-              {/* Hero Commission Card */}
-              <section className="bg-[#14181F] text-white rounded-[18px] p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#C9CFD6] font-medium">العمولة المستحقة لشهر {commMonth}</span>
-                  <Award className="h-5 w-5 text-[#C6F24E]" />
+              {/* Active Break Banner if ongoing */}
+              {activeBreak && (
+                <div
+                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between ${
+                    activeBreak.status === "ACTIVE"
+                      ? breakTimer > 20 * 60
+                        ? "bg-[#FDF2F2] border-[#B3261E] text-[#B3261E] animate-pulse"
+                        : "bg-[#FFF9E6] border-[#D97706] text-[#D97706]"
+                      : "bg-[#F2F4F1] border-[#E1E5DF] text-[#5B6470]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Coffee className="h-4 w-4" />
+                    <div>
+                      <span>
+                        {activeBreak.status === "ACTIVE"
+                          ? `أنت في استراحة (${formatTime(breakTimer)})`
+                          : "طلب الاستراحة معلق لدى الاستقبال..."}
+                      </span>
+                      {breakTimer > 20 * 60 && (
+                        <span className="block text-[10px] font-bold">تجاوزت الـ 20 دقيقة! يرجى العودة للصالة.</span>
+                      )}
+                    </div>
+                  </div>
+                  {activeBreak.status === "ACTIVE" && (
+                    <Button size="sm" variant="default" onClick={handleEndBreak} className="text-xs h-7 rounded-lg">
+                      إنهاء
+                    </Button>
+                  )}
                 </div>
-                <b className="text-[34px] font-black block my-1 tabular-nums">
+              )}
+
+              {/* Pending Member Assignments Inbox */}
+              {assignments.length > 0 && (
+                <section className="bg-white border-2 border-[#C6F24E] rounded-[16px] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                      <Flame className="h-4 w-4 text-[#C6F24E]" />
+                      <span>متدربين جدد بحاجة لموافقتك ({assignments.length})</span>
+                    </span>
+                    <Badge variant="w">جديد</Badge>
+                  </div>
+                  {assignments.map((ass) => (
+                    <div key={ass.id} className="p-2.5 rounded-xl bg-[#F2F4F1] flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-[#14181F]">{ass.member.name}</p>
+                        <p className="text-[11px] text-[#5B6470]">جلسة قياس بدني مجانية</p>
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAcceptAssignment(ass.id)}
+                          className="px-2.5 py-1 bg-[#14181F] text-white rounded-lg font-bold text-xs hover:bg-black cursor-pointer"
+                        >
+                          قبول
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRejectAssignment(ass.id)}
+                          className="px-2 py-1 bg-white text-[#B3261E] border border-[#E1E5DF] rounded-lg text-xs hover:bg-red-50 cursor-pointer"
+                        >
+                          اعتذار
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {/* Hero Commission Card */}
+              <section className="bg-[#14181F] text-white rounded-[18px] p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#C9CFD6] font-medium">العمولة المستحقة لشهر {commMonth}</span>
+                  <Award className="h-4 w-4 text-[#C6F24E]" />
+                </div>
+                <b className="text-[30px] font-black block my-1 tabular-nums">
                   {commissionAmount.toLocaleString()} ج.م
                 </b>
-                <div className="flex items-center justify-between text-[13px] text-white/90">
+                <div className="flex items-center justify-between text-[12px] text-white/90">
                   <span>المحصل: {collectedRevenue.toLocaleString()} ج.م</span>
                   <span className="font-bold text-[#C6F24E]">شريحة {tierPercent}%</span>
                 </div>
                 {/* Progress bar */}
-                <div className="h-2.5 bg-[#3A4350] rounded-full mt-2.5 overflow-hidden">
+                <div className="h-2 bg-[#3A4350] rounded-full mt-2 overflow-hidden">
                   <div
                     className="h-full bg-[#C6F24E] rounded-full transition-all duration-300"
                     style={{
@@ -130,7 +330,7 @@ export default function CoachHomePage() {
                     }}
                   />
                 </div>
-                <p className="text-[12px] text-[#C9CFD6] mt-2 font-medium">
+                <p className="text-[11px] text-[#C9CFD6] mt-1.5 font-medium">
                   {nextTier
                     ? `متبقي ${nextTier.neededRevenue.toLocaleString()} ج.م للوصول لشريحة ${nextTier.percent}%`
                     : "وصلت لأعلى شريحة عمولة هذا الشهر"}
@@ -138,75 +338,110 @@ export default function CoachHomePage() {
               </section>
 
               {/* Today's Private Sessions */}
-              <section className="bg-white border border-[#E1E5DF] rounded-[16px] p-4">
-                <h3 className="text-sm font-bold text-[#14181F] mb-1">جلسات اليوم (PT)</h3>
-                <div className="flex flex-col">
-                  <div className="flex items-center justify-between gap-2.5 py-2.5 border-t border-[#E1E5DF]">
-                    <span className="font-semibold text-[#14181F] flex-1 text-xs">محمد أحمد</span>
-                    <span className="text-xs text-[#5B6470] tabular-nums">17:00</span>
-                    <Badge variant="g">باقي 6</Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2.5 py-2.5 border-t border-[#E1E5DF]">
-                    <span className="font-semibold text-[#14181F] flex-1 text-xs">نور حسن</span>
-                    <span className="text-xs text-[#5B6470] tabular-nums">18:30</span>
-                    <Badge variant="w">باقي 1</Badge>
-                  </div>
+              <section className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold text-[#14181F]">جلسات اليوم (PT)</h3>
+                  <span className="text-[11px] text-[#5B6470]">{trainees.length} متدرب</span>
+                </div>
+                <div className="space-y-1.5">
+                  {trainees.slice(0, 3).map((t) => (
+                    <div key={t.id} className="flex items-center justify-between p-2 rounded-xl bg-[#F2F4F1] text-xs">
+                      <div>
+                        <p className="font-bold text-[#14181F]">{t.member.name}</p>
+                        <p className="text-[10px] text-[#5B6470]">
+                          باقي {t.subscription?.sessionsRemaining ?? 6} جلسات
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleLogPTSession(t)}
+                        className="px-2.5 py-1 bg-[#C6F24E] text-[#14181F] rounded-lg font-bold text-[11px] hover:bg-[#b5e03e] cursor-pointer"
+                      >
+                        خصم جلسة
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </section>
 
-              {/* Expiring Trainees */}
-              <section className="bg-white border border-[#E1E5DF] rounded-[16px] p-4">
-                <h3 className="text-sm font-bold text-[#14181F] mb-1">متدربون ينتهي اشتراكهم</h3>
-                <div className="flex flex-col">
-                  <div className="flex items-center justify-between gap-2.5 py-2.5 border-t border-[#E1E5DF]">
-                    <span className="font-semibold text-[#14181F] flex-1 text-xs">محمد أحمد</span>
-                    <Badge variant="w">3 أيام</Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2.5 py-2.5 border-t border-[#E1E5DF]">
-                    <span className="font-semibold text-[#14181F] flex-1 text-xs">هاني علي</span>
-                    <Badge variant="w">6 أيام</Badge>
-                  </div>
-                </div>
-
+              {/* Quick Break Button */}
+              {!activeBreak && (
                 <button
                   type="button"
-                  onClick={() => setSessionRegistered(true)}
-                  className="w-full mt-3 bg-[#C6F24E] text-[#14181F] hover:bg-[#b5e03e] font-bold text-xs p-3 rounded-xl min-h-[44px] transition-all cursor-pointer flex items-center justify-center gap-2"
+                  onClick={handleRequestBreak}
+                  className="w-full bg-white border border-[#E1E5DF] hover:bg-[#F2F4F1] text-[#14181F] font-bold text-xs p-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <UserCheck className="h-4 w-4" />
-                  <span>{sessionRegistered ? "تم تسجيل الجلسة ✓" : "تسجيل جلسة سريعة"}</span>
+                  <Coffee className="h-4 w-4 text-[#D97706]" />
+                  <span>طلب استراحة سريعة (20 دقيقة)</span>
                 </button>
-              </section>
+              )}
             </>
           )}
 
           {/* ==================== TAB 2: TRAINEES ==================== */}
           {activeTab === "trainees" && (
             <div className="space-y-3">
-              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-4">
-                <h3 className="text-sm font-bold text-[#14181F] mb-2">قائمة المشتركين والمتدربين</h3>
+              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-[#14181F]">قائمة المتدربين المخصصين لك</h3>
+                  <Badge variant="default" className="text-xs font-bold bg-[#14181F] text-white">
+                    {trainees.length} متدرب
+                  </Badge>
+                </div>
+
                 <div className="space-y-2">
-                  <div className="p-3 bg-[#F2F4F1] rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-[#14181F]">محمد أحمد</p>
-                      <p className="text-[11px] text-[#5B6470]">باقة PT 12 جلسة (كود: 100245)</p>
-                    </div>
-                    <Badge variant="g">نشط</Badge>
-                  </div>
-                  <div className="p-3 bg-[#F2F4F1] rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-[#14181F]">نور حسن</p>
-                      <p className="text-[11px] text-[#5B6470]">باقة PT 24 جلسة (كود: 100246)</p>
-                    </div>
-                    <Badge variant="w">جلسة متبقية</Badge>
-                  </div>
-                  <div className="p-3 bg-[#F2F4F1] rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold text-[#14181F]">هاني علي</p>
-                      <p className="text-[11px] text-[#5B6470]">اشتراك سنوي VIP (كود: 100247)</p>
-                    </div>
-                    <Badge variant="g">نشط</Badge>
-                  </div>
+                  {trainees.length === 0 ? (
+                    <p className="text-xs text-center text-[#5B6470] py-6">لا يوجد متدربون مخصصون لك حالياً</p>
+                  ) : (
+                    trainees.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() => setSelectedTrainee(selectedTrainee?.id === t.id ? null : t)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                          selectedTrainee?.id === t.id
+                            ? "bg-[#C6F24E]/10 border-[#C6F24E]"
+                            : "bg-[#F2F4F1] border-[#E1E5DF] hover:bg-[#EAEAEA]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-[#14181F]">{t.member.name}</p>
+                            <p className="text-[11px] text-[#5B6470]">كود: {t.member.code} · هاتف: {t.member.phone}</p>
+                          </div>
+                          <Badge variant="g">
+                            {t.subscription?.sessionsRemaining ?? 6} جلسات
+                          </Badge>
+                        </div>
+
+                        {/* Expanded details */}
+                        {selectedTrainee?.id === t.id && (
+                          <div className="mt-3 pt-2 border-t border-[#E1E5DF] text-xs space-y-2">
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              <div>
+                                <span className="text-[#5B6470] block">الباقة:</span>
+                                <span className="font-bold">{t.subscription?.planName || "PT 12 جلسة"}</span>
+                              </div>
+                              <div>
+                                <span className="text-[#5B6470] block">الأيام المتبقية:</span>
+                                <span className="font-bold">{t.subscription?.daysRemaining ?? 21} يوم</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLogPTSession(t);
+                              }}
+                              className="w-full mt-2 py-2 bg-[#14181F] text-[#C6F24E] font-bold rounded-lg hover:bg-black transition-colors"
+                            >
+                              تسجيل حضور وخصم 1 جلسة PT
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -215,36 +450,113 @@ export default function CoachHomePage() {
           {/* ==================== TAB 3: CLASSES ==================== */}
           {activeTab === "classes" && (
             <div className="space-y-3">
-              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-4">
-                <h3 className="text-sm font-bold text-[#14181F] mb-2">جدول حصص اللياقة الجماعية</h3>
+              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5">
+                <h3 className="text-xs font-bold text-[#14181F] mb-3">حصص اللياقة الجماعية لليوم</h3>
                 <div className="space-y-2">
-                  <div className="p-3 bg-[#F2F4F1] rounded-xl border border-[#E1E5DF]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#14181F]">حصة Cross Training</span>
-                      <span className="text-[11px] text-[#5B6470]">18:00 - 19:00</span>
+                  {classes.length === 0 ? (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-[#F2F4F1] rounded-xl border border-[#E1E5DF]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#14181F]">Cross Training & Core</span>
+                          <Badge variant="g">18:00</Badge>
+                        </div>
+                        <p className="text-[11px] text-[#5B6470] mt-1">القاعة الرئيسية · 12 مشترك مسجل</p>
+                      </div>
+                      <div className="p-3 bg-[#F2F4F1] rounded-xl border border-[#E1E5DF]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#14181F]">HIIT Fat Burn</span>
+                          <Badge variant="w">20:00</Badge>
+                        </div>
+                        <p className="text-[11px] text-[#5B6470] mt-1">قاعة الفتنس · 8 مشتركين مسجلين</p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-[#5B6470] mt-1">القاعة الرئيسية · 12 مشترك مسجل</p>
+                  ) : (
+                    classes.map((cls) => (
+                      <div key={cls.id} className="p-3 bg-[#F2F4F1] rounded-xl border border-[#E1E5DF]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#14181F]">{cls.classTemplate?.name || "حصة جماعية"}</span>
+                          <Badge variant="default">{cls.startTime}</Badge>
+                        </div>
+                        <p className="text-[11px] text-[#5B6470] mt-1">الحالة: {cls.status}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ==================== TAB 4: BREAKS & SHIFTS ==================== */}
+          {activeTab === "breaks" && (
+            <div className="space-y-3">
+              {/* Break Request Card */}
+              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5 space-y-3">
+                <h3 className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                  <Coffee className="h-4 w-4 text-[#D97706]" />
+                  <span>إدارة الاستراحات اليومية</span>
+                </h3>
+
+                {activeBreak ? (
+                  <div className="p-3 bg-[#FFF9E6] border border-[#D97706] rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between font-bold text-[#D97706]">
+                      <span>الحالة: {activeBreak.status}</span>
+                      {activeBreak.status === "ACTIVE" && (
+                        <span className="font-mono text-sm">{formatTime(breakTimer)}</span>
+                      )}
+                    </div>
+                    {activeBreak.status === "ACTIVE" && (
+                      <Button onClick={handleEndBreak} variant="default" className="w-full font-bold">
+                        إنهاء الاستراحة والعودة
+                      </Button>
+                    )}
                   </div>
-                  <div className="p-3 bg-[#F2F4F1] rounded-xl border border-[#E1E5DF]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#14181F]">حصة HIIT & Cardio</span>
-                      <span className="text-[11px] text-[#5B6470]">20:00 - 21:00</span>
-                    </div>
-                    <p className="text-[11px] text-[#5B6470] mt-1">قاعة الفتنس · 8 مشتركين مسجلين</p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRequestBreak}
+                    className="w-full bg-[#14181F] text-[#C6F24E] font-bold text-xs p-3 rounded-xl hover:bg-black transition-colors"
+                  >
+                    طلب استراحة (20 دقيقة)
+                  </button>
+                )}
+
+                <div className="text-[11px] text-[#5B6470] leading-relaxed bg-[#F2F4F1] p-2.5 rounded-xl">
+                  <b>قواعد الاستراحة:</b> حد أقصى 2 استراحة يومياً، مدة الاستراحة 20 دقيقة، ولا يمكن خروج مدربين في نفس الوقت.
+                </div>
+              </div>
+
+              {/* Weekly Shift View */}
+              <div className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5">
+                <h3 className="text-xs font-bold text-[#14181F] mb-2 flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  <span>جدول الورديات الأسبوعي</span>
+                </h3>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between p-2 rounded-lg bg-[#F2F4F1]">
+                    <span>السبت - الأربعاء (مسائي)</span>
+                    <span className="font-bold">14:00 - 22:00</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded-lg bg-[#F2F4F1]">
+                    <span>الخميس (صباحي)</span>
+                    <span className="font-bold">08:00 - 16:00</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded-lg bg-[#EAEAEA] text-[#5B6470]">
+                    <span>الجمعة</span>
+                    <span className="font-bold">إجازة أسبوعية</span>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ==================== TAB 4: COMMISSION (FULL B08 VIEW) ==================== */}
+          {/* ==================== TAB 5: COMMISSION ==================== */}
           {activeTab === "commission" && (
             <div className="space-y-3">
               {/* Month Selector Bar */}
               <div className="flex items-center justify-between bg-white border border-[#E1E5DF] rounded-xl p-2">
                 <button
                   type="button"
-                  onClick={handlePrevMonth}
+                  onClick={() => setCommMonth(commMonth === 1 ? 12 : commMonth - 1)}
                   className="p-1.5 hover:bg-[#F2F4F1] rounded-lg transition-colors cursor-pointer text-[#14181F]"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -254,7 +566,7 @@ export default function CoachHomePage() {
                 </div>
                 <button
                   type="button"
-                  onClick={handleNextMonth}
+                  onClick={() => setCommMonth(commMonth === 12 ? 1 : commMonth + 1)}
                   className="p-1.5 hover:bg-[#F2F4F1] rounded-lg transition-colors cursor-pointer text-[#14181F]"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -329,21 +641,14 @@ export default function CoachHomePage() {
                 </div>
               </div>
 
-              {/* Milestones Timeline */}
+              {/* Milestones Schedule Table */}
               <section className="bg-white border border-[#E1E5DF] rounded-[16px] p-3.5">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
-                    <Dumbbell className="h-3.5 w-3.5 text-[#14181F]" />
-                    <span>محطات عمولة التدريب الشخصي</span>
-                  </h4>
-                  <span className="text-[10px] text-[#5B6470]">
-                    {commData?.entries?.length || 0} محطة
-                  </span>
-                </div>
+                <h4 className="text-xs font-bold text-[#14181F] mb-2 flex items-center gap-1.5">
+                  <Dumbbell className="h-3.5 w-3.5" />
+                  <span>محطات عمولة التدريب الشخصي</span>
+                </h4>
 
-                {commLoading ? (
-                  <div className="py-8 text-center text-xs text-[#5B6470]">جاري تحميل المحطات...</div>
-                ) : !commData?.entries || commData.entries.length === 0 ? (
+                {!commData?.entries || commData.entries.length === 0 ? (
                   <div className="py-6 text-center text-xs text-[#5B6470] bg-[#F2F4F1] rounded-xl">
                     لا توجد محطات عمولة مستحقة في هذا الشهر
                   </div>
@@ -387,12 +692,12 @@ export default function CoachHomePage() {
           )}
         </div>
 
-        {/* 4-item Bottom Navigation Bar */}
-        <nav className="grid grid-cols-4 bg-white border-t border-[#E1E5DF] shrink-0">
+        {/* 5-item Bottom Navigation Bar */}
+        <nav className="grid grid-cols-5 bg-white border-t border-[#E1E5DF] shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab("home")}
-            className={`py-3 px-1 text-center text-[12px] min-h-[48px] flex flex-col items-center justify-center gap-1 transition-colors ${
+            className={`py-2.5 px-1 text-center text-[11px] min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
               activeTab === "home" ? "text-[#14181F] font-bold" : "text-[#5B6470]"
             }`}
           >
@@ -402,7 +707,7 @@ export default function CoachHomePage() {
           <button
             type="button"
             onClick={() => setActiveTab("trainees")}
-            className={`py-3 px-1 text-center text-[12px] min-h-[48px] flex flex-col items-center justify-center gap-1 transition-colors ${
+            className={`py-2.5 px-1 text-center text-[11px] min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
               activeTab === "trainees" ? "text-[#14181F] font-bold" : "text-[#5B6470]"
             }`}
           >
@@ -412,7 +717,7 @@ export default function CoachHomePage() {
           <button
             type="button"
             onClick={() => setActiveTab("classes")}
-            className={`py-3 px-1 text-center text-[12px] min-h-[48px] flex flex-col items-center justify-center gap-1 transition-colors ${
+            className={`py-2.5 px-1 text-center text-[11px] min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
               activeTab === "classes" ? "text-[#14181F] font-bold" : "text-[#5B6470]"
             }`}
           >
@@ -421,8 +726,18 @@ export default function CoachHomePage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("breaks")}
+            className={`py-2.5 px-1 text-center text-[11px] min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
+              activeTab === "breaks" ? "text-[#14181F] font-bold" : "text-[#5B6470]"
+            }`}
+          >
+            <Coffee className="h-4 w-4" />
+            <span>الاستراحة</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("commission")}
-            className={`py-3 px-1 text-center text-[12px] min-h-[48px] flex flex-col items-center justify-center gap-1 transition-colors ${
+            className={`py-2.5 px-1 text-center text-[11px] min-h-[48px] flex flex-col items-center justify-center gap-0.5 transition-colors ${
               activeTab === "commission" ? "text-[#14181F] font-bold" : "text-[#5B6470]"
             }`}
           >

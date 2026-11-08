@@ -1,5 +1,5 @@
-﻿import { apiClient } from '../../lib/api';
+import { http } from "../../lib/api";
 
 export const classesApi = {
-  // Feature API endpoints stub
+  getTodayClasses: () => http.get<any[]>("/classes/today"),
 };
