@@ -15,9 +15,11 @@ import {
   Sparkles,
   Dumbbell,
   ShieldAlert,
+  LogOut,
 } from "lucide-react";
 import { cn, Button } from "@gym/ui";
 import { ShiftProvider, useShift } from "../../lib/shift-context";
+import { clearStoredAuth } from "../../lib/api";
 import { OpenShiftDialog } from "../../features/shift/components/open-shift-dialog";
 
 interface NavItem {
@@ -66,9 +68,23 @@ function SidebarUserFooter() {
             {showSwitch ? "إغلاق" : "تبديل"}
           </button>
         </div>
-        <p className="text-[11px] opacity-75">
-          المشغل: {currentUser ? `${currentUser.name} (${currentUser.role})` : "تحميل..."}
-        </p>
+        <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+          <p className="text-[11px] opacity-75 truncate max-w-[120px]">
+            {currentUser ? currentUser.name : "تحميل..."}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              clearStoredAuth();
+              window.location.href = "/login";
+            }}
+            className="text-[11px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            title="تسجيل الخروج والعودة لصفحة الدخول"
+          >
+            <LogOut className="h-3 w-3" />
+            <span>خروج</span>
+          </button>
+        </div>
         {showSwitch && (
           <div className="pt-2 border-t border-white/10 space-y-1">
             <span className="text-[10px] text-[#C6F24E] font-bold block">تبديل الحساب الحالي (RBAC حقيقي):</span>

@@ -20,7 +20,9 @@ import {
   XCircle,
   Activity,
   Flame,
+  LogOut,
 } from "lucide-react";
+import { clearStoredAuth } from "../../lib/api";
 import { fetchMyCommission, type CoachCommissionData } from "../../features/commission/api";
 import { traineesApi, type Trainee } from "../../features/trainees/api";
 import { classesApi } from "../../features/classes/api";
@@ -214,9 +216,22 @@ export default function CoachHomePage() {
               <p className="text-[12px] text-[#5B6470] font-medium">بوابة المدرب (Phase 08)</p>
               <h1 className="text-[20px] font-bold text-[#14181F] tracking-tight">{coachName}</h1>
             </div>
-            <div className="flex items-center gap-1.5 bg-white border border-[#E1E5DF] px-2.5 py-1 rounded-full text-xs font-semibold text-[#14181F]">
-              <Calendar className="h-3.5 w-3.5 text-[#5B6470]" />
-              <span>{commMonth} / {commYear}</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-white border border-[#E1E5DF] px-2.5 py-1 rounded-full text-xs font-semibold text-[#14181F]">
+                <Calendar className="h-3.5 w-3.5 text-[#5B6470]" />
+                <span>{commMonth} / {commYear}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  clearStoredAuth();
+                  window.location.href = "/login";
+                }}
+                className="bg-white border border-red-200 text-red-600 hover:bg-red-50 p-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors"
+                title="تسجيل الخروج والعودة لصفحة الدخول"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
             </div>
           </header>
 

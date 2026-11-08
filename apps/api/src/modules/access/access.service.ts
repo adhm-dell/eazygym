@@ -28,11 +28,17 @@ export class AccessService {
   ) {
     const now = customNow || new Date();
 
-    // 1. Resolve member (by code, phone, or id)
+    // 1. Resolve member (by code, prefix, phone, or id)
     const member = await this.prisma.member.findFirst({
       where: {
         gymId,
-        OR: [{ code: query }, { phone: query }, { id: query }],
+        OR: [
+          { code: query },
+          { code: { startsWith: query } },
+          { phone: query },
+          { phone: { endsWith: query } },
+          { id: query },
+        ],
       },
     });
 

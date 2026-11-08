@@ -49,6 +49,7 @@ const REASON_CONFIG: Record<
   }
 > = {
   ACTIVE: { message: "تفضل بالدخول", actionLabel: null, actionType: "none" },
+  MEMBER_NOT_FOUND: { message: "العضو غير مسجل في النظام", actionLabel: "تسجيل عضو جديد", actionType: "sellSubscription" },
   BLOCKED: { message: "العضو محظور", actionLabel: "عرض سبب الحظر", actionType: "viewReason" },
   NO_SUBSCRIPTION: { message: "لا يوجد اشتراك", actionLabel: "بيع اشتراك جديد", actionType: "sellSubscription" },
   PENDING_PAYMENT: { message: "لم يتم دفع الحد الأدنى", actionLabel: "تحصيل الدفعة المقدمة", actionType: "collectPayment" },
@@ -340,11 +341,14 @@ export default function ReceptionScanPage() {
     }
   };
 
-  // Quick Test Codes List from Acceptance Criteria
+  // Quick Test Codes List from Real Database & Acceptance Scenarios
   const testCodes = [
-    { code: "1001", label: "ACTIVE (أحمد علي)", variant: "g" as const },
-    { code: "100245", label: "ACTIVE Mockup (محمد أحمد)", variant: "g" as const },
-    { code: "1002", label: "EXPIRING_SOON (محمود حسن)", variant: "w" as const },
+    { code: "100245", label: "ACTIVE (محمد أحمد)", variant: "g" as const },
+    { code: "100101", label: "ACTIVE (أحمد محمد علي)", variant: "g" as const },
+    { code: "100202", label: "EXPIRING_SOON (محمود حسن)", variant: "w" as const },
+    { code: "100404", label: "FROZEN (زياد محمود)", variant: "r" as const },
+    { code: "100505", label: "PAYMENT_OVERDUE (كريم عادل)", variant: "r" as const },
+    { code: "999999", label: "MEMBER_NOT_FOUND (عضو غير مسجل)", variant: "r" as const },
     { code: "1003", label: "BLOCKED (سارة إسماعيل)", variant: "r" as const },
     { code: "1004", label: "NO_SUBSCRIPTION (كريم ممدوح)", variant: "r" as const },
     { code: "1005", label: "PENDING_PAYMENT (عمر فاروق)", variant: "r" as const },
@@ -421,7 +425,7 @@ export default function ReceptionScanPage() {
               type="text"
               value={scanQuery}
               onChange={(e) => setScanQuery(e.target.value)}
-              placeholder="امسح الباركود أو اكتب الكود (مثل 1001, 100245, 1015)..."
+              placeholder="امسح الباركود أو اكتب الكود (مثل 100245، 100101، 100202)..."
               disabled={isEvaluating}
               className="w-full text-[22px] font-medium p-[14px_18px] pe-12 border-2 border-[#14181F] rounded-[12px] bg-white text-[#14181F] outline-none transition-all focus:ring-4 focus:ring-[#C6F24E]/40"
               autoFocus

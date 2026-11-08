@@ -7,6 +7,7 @@ import {
   switchMember,
   getOfflineMember,
   saveOfflineMember,
+  clearStoredAuth,
   type StoredOfflineMember,
 } from "../../lib/api";
 import { formatMoney } from "../../lib/money";
@@ -247,6 +248,19 @@ export default function MemberPortalPage() {
               <span>تبديل</span>
               {showSwitchMenu ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
             </button>
+
+            {/* Logout Button */}
+            <button
+              type="button"
+              onClick={() => {
+                clearStoredAuth();
+                window.location.href = "/login";
+              }}
+              className="text-[11px] bg-white/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 p-1.5 rounded-lg font-bold flex items-center transition-colors cursor-pointer"
+              title="تسجيل الخروج والعودة لشاشة الدخول"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
@@ -260,8 +274,11 @@ export default function MemberPortalPage() {
               </span>
               <button
                 type="button"
-                onClick={() => router.push("/login")}
-                className="text-[11px] text-white/70 hover:text-white flex items-center gap-1"
+                onClick={() => {
+                  clearStoredAuth();
+                  window.location.href = "/login";
+                }}
+                className="text-[11px] text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer font-bold"
               >
                 <LogOut className="h-3 w-3" />
                 تسجيل خروج

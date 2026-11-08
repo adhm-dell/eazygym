@@ -2,10 +2,29 @@ import { http } from "../../lib/api";
 
 export const scanApi = {
   evaluateDoorScan: async (code: string, now?: Date) => {
-    return http.post<any>("/access/scan", {
-      code,
-      timestamp: now ? now.toISOString() : undefined,
-    });
+    return http
+      .post<any>("/access/scan", {
+        code,
+        timestamp: now ? now.toISOString() : undefined,
+      })
+      .catch((err) => {
+        if (
+          err.code === "MEMBER_NOT_FOUND" ||
+          err.statusCode === 404 ||
+          err.message?.includes("MEMBER_NOT_FOUND") ||
+          err.message?.includes("not found")
+        ) {
+          return {
+            allowed: false,
+            reason: "MEMBER_NOT_FOUND",
+            member: { id: "unknown", name: "عضو غير مسجل", code },
+            subscription: null,
+            expiringSoon: false,
+            nextAction: "SELL",
+          };
+        }
+        throw err;
+      });
   },
   listAccessLogs: async (limit: number = 20) => {
     return http.get<any[]>(`/access/logs?limit=${limit}`);

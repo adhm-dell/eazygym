@@ -2,13 +2,20 @@ import { mockClient } from "@gym/mock-data";
 
 const TOKEN_KEY = "gym_access_token";
 const USER_KEY = "gym_active_user";
+const COOKIE_NAME = "gym_staff_token";
 
 let cachedToken: string | null = null;
-let loginPromise: Promise<string> | null = null;
 
 export function getStoredToken(): string | null {
   if (typeof window !== "undefined") {
-    return localStorage.getItem(TOKEN_KEY) || cachedToken;
+    const local = localStorage.getItem(TOKEN_KEY);
+    if (local) return local;
+
+    // Check cookie fallback
+    const match = document.cookie.match(new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`));
+    if (match && match[3]) {
+      return decodeURIComponent(match[3]);
+    }
   }
   return cachedToken;
 }
@@ -20,6 +27,8 @@ export function setStoredToken(token: string, user?: any) {
     if (user) {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
     }
+    // Set cookie for Next.js middleware guard (7 days)
+    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
   }
 }
 
@@ -28,6 +37,8 @@ export function clearStoredAuth() {
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    // Clear cookie
+    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
   }
 }
 
@@ -40,7 +51,10 @@ export async function loginUser(email: string, password: string = "123456") {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || "فشل تسجيل الدخول");
+    const error: any = new Error(err.message || "فشل تسجيل الدخول");
+    error.statusCode = res.status;
+    error.code = err.code;
+    throw error;
   }
 
   const json = await res.json();
@@ -53,21 +67,11 @@ async function ensureToken(): Promise<string> {
   const existing = getStoredToken();
   if (existing) return existing;
 
-  if (loginPromise) return loginPromise;
-
-  loginPromise = (async () => {
-    try {
-      const res = await loginUser("admin@powercore.gym", "123456");
-      return res.accessToken;
-    } catch (e) {
-      console.warn("Auto-login failed:", e);
-      return "";
-    } finally {
-      loginPromise = null;
-    }
-  })();
-
-  return loginPromise;
+  // No auto-login! Require real authentication.
+  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    window.location.href = "/login";
+  }
+  return "";
 }
 
 async function makeRequest<T>(
@@ -91,14 +95,21 @@ async function makeRequest<T>(
   });
 
   if (res.status === 401 && !isRetry) {
-    // Token may have expired, clear and attempt re-login once
+    // Token may have expired, clear auth and redirect to login
     clearStoredAuth();
-    return makeRequest<T>(url, method, body, true);
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new Error("الجلسة منتهية، يرجى تسجيل الدخول مجدداً");
   }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || "Request failed");
+    const error: any = new Error(err.message || "Request failed");
+    error.statusCode = res.status;
+    error.code = err.code;
+    error.response = err;
+    throw error;
   }
 
   const json = await res.json();

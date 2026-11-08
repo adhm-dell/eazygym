@@ -2,11 +2,19 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  // Role guard stub for Staff app (super admin, gym admin, reception, cashier)
-  const isAuth = true; // Placeholder for session check
-  if (!isAuth && !request.nextUrl.pathname.startsWith("/login")) {
+  const token = request.cookies.get("gym_staff_token")?.value;
+  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+
+  // If not logged in and not on login page, redirect to /login
+  if (!token && !isLoginRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
+
+  // If already logged in and visiting login page, redirect to /
+  if (token && isLoginRoute) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   return NextResponse.next();
 }
 
