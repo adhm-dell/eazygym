@@ -22,3 +22,4 @@ export const assignmentsApi = {
   rejectAssignment: (id: string, reason: string) =>
     http.post<any>(`/fitness-assignments/${id}/reject`, { reason }),
 };
+

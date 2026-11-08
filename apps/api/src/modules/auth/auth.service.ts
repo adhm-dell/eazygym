@@ -75,7 +75,69 @@ export class AuthService {
     this.loginAttempts.delete(identifier.toLowerCase().trim());
   }
 
-  async switchUser(email?: string, staffId?: string) {
+  async switchUser(
+    email?: string,
+    staffId?: string,
+    memberPhone?: string,
+    memberId?: string,
+    memberCode?: string
+  ) {
+    if (memberPhone || memberId || memberCode) {
+      const member = await this.prisma.member.findFirst({
+        where: {
+          ...(memberId ? { id: memberId } : {}),
+          ...(memberPhone ? { phone: memberPhone } : {}),
+          ...(memberCode ? { code: memberCode } : {}),
+        },
+        include: { gym: true, wallet: true },
+      });
+
+      if (!member) {
+        throw new NotFoundException("Member not found");
+      }
+
+      const accessToken = this.jwtService.sign(
+        {
+          sub: member.id,
+          gymId: member.gymId,
+          role: "MEMBER",
+          phone: member.phone,
+          name: member.name,
+          code: member.code,
+        },
+        {
+          secret: ENV.JWT_SECRET,
+          expiresIn: "7d",
+        }
+      );
+
+      const refreshToken = this.jwtService.sign(
+        {
+          sub: member.id,
+          type: "refresh",
+        },
+        {
+          secret: ENV.JWT_REFRESH_SECRET,
+          expiresIn: "7d",
+        }
+      );
+
+      return {
+        accessToken,
+        refreshToken,
+        user: {
+          id: member.id,
+          gymId: member.gymId,
+          name: member.name,
+          phone: member.phone,
+          code: member.code,
+          role: "MEMBER",
+          walletBalance: member.wallet?.balance ? Number(member.wallet.balance) : 0,
+        },
+        gym: member.gym,
+      };
+    }
+
     const where = staffId
       ? { id: staffId }
       : email
@@ -83,7 +145,7 @@ export class AuthService {
       : null;
 
     if (!where) {
-      throw new BadRequestException("Must provide email or staffId");
+      throw new BadRequestException("Must provide email, staffId, memberPhone, or memberCode");
     }
 
     const staff = await this.prisma.staff.findFirst({

@@ -1,0 +1,24 @@
+{
+  "name": "EazyGym - بوابة الأعضاء",
+  "short_name": "EazyGym",
+  "description": "بوابة الأعضاء الذكية لمتابعة الاشتراكات وكود الدخول والحصص الرياضية",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F4F1",
+  "theme_color": "#14181F",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

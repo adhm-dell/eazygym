@@ -36,7 +36,7 @@ export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
   @Get()
-  @Roles("GYM_ADMIN", "RECEPTION", "SUPER_ADMIN")
+  @Roles("GYM_ADMIN", "RECEPTION", "MEMBER", "SUPER_ADMIN")
   @ApiOperation({ summary: "List subscriptions with filtering" })
   async listSubscriptions(
     @Req() req: any,
@@ -45,10 +45,11 @@ export class SubscriptionsController {
     @Query("memberId") memberId?: string,
     @Query("coachId") coachId?: string
   ) {
+    const finalMemberId = req.user?.role === "MEMBER" ? (req.user?.sub || req.user?.id) : memberId;
     return this.subscriptionsService.list(req.gymId, {
       status,
       kind,
-      memberId,
+      memberId: finalMemberId,
       coachId,
     });
   }

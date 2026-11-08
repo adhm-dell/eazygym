@@ -18,3 +18,4 @@ export const breaksApi = {
   endBreak: (breakId: string) =>
     http.post<any>(`/coach-breaks/${breakId}/end`, {}),
 };
+

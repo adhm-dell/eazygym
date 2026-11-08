@@ -21,3 +21,4 @@ export class DashboardController {
     return this.dashboardService.getDashboard(user.gymId);
   }
 }
+

@@ -31,7 +31,7 @@ export class ClassesController {
   constructor(private readonly classesService: ClassesService) {}
 
   @Get("class-schedules")
-  @Roles("SUPER_ADMIN", "GYM_ADMIN")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "COACH", "MEMBER")
   async listSchedules(@CurrentUser() user: any) {
     return this.classesService.listSchedules(user.gymId);
   }
@@ -66,7 +66,7 @@ export class ClassesController {
   }
 
   @Get("classes/today")
-  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "COACH")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "COACH", "MEMBER")
   async getTodayClasses(@CurrentUser() user: any) {
     return this.classesService.getTodayClasses(user.gymId);
   }

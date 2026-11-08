@@ -7,6 +7,8 @@ import {
   Res,
   UseGuards,
   UnauthorizedException,
+  HttpCode,
+  HttpStatus,
 } from "@nestjs/common";
 import { Response, Request } from "express";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
@@ -31,10 +33,16 @@ export class AuthController {
   @Post("switch")
   @ApiOperation({ summary: "Switch user in development/portal and return access token" })
   async switchUser(
-    @Body() body: { email?: string; staffId?: string },
+    @Body() body: { email?: string; staffId?: string; memberPhone?: string; memberId?: string; memberCode?: string },
     @Res({ passthrough: true }) res: Response
   ) {
-    const result = await this.authService.switchUser(body.email, body.staffId);
+    const result = await this.authService.switchUser(
+      body.email,
+      body.staffId,
+      body.memberPhone,
+      body.memberId,
+      body.memberCode
+    );
     res.cookie("refresh_token", result.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
