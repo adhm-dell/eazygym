@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import { translateErrorCode, getDictionary } from "@gym/i18n";
 
 describe("Phase 11 / B11 Acceptance: Error Code i18n Mapping", () => {
@@ -130,3 +131,4 @@ describe("Phase 11 / B11 Acceptance: Error Code i18n Mapping", () => {
     expect(translateErrorCode("NON_EXISTENT_CODE_123", "en")).toBe("An unexpected error occurred");
   });
 });
+
