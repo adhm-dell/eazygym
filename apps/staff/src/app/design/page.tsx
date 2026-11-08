@@ -29,13 +29,66 @@ import {
   type ColumnDef,
 } from "@gym/ui";
 import Link from "next/link";
-import {
-  MOCK_MEMBERS,
-  MOCK_PLANS,
-  MOCK_SUBSCRIPTIONS,
-  type Member,
-} from "@gym/mock-data";
+import type { Member } from "@gym/contracts";
 import { getDictionary, type Locale } from "@gym/i18n";
+
+const SAMPLE_MEMBERS: Member[] = [
+  {
+    id: "mem_01",
+    gymId: "gym_cairo_01",
+    code: "100245",
+    name: "محمد أحمد",
+    phone: "01011122233",
+    email: "mohamed@test.com",
+    birthDate: null,
+    gender: "MALE",
+    notes: null,
+    isBlocked: false,
+    blockedReason: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mem_02",
+    gymId: "gym_cairo_01",
+    code: "100202",
+    name: "محمود حسن",
+    phone: "01012345672",
+    email: null,
+    birthDate: null,
+    gender: "MALE",
+    notes: null,
+    isBlocked: false,
+    blockedReason: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "mem_03",
+    gymId: "gym_cairo_01",
+    code: "100303",
+    name: "سارة إسماعيل",
+    phone: "01012345673",
+    email: null,
+    birthDate: null,
+    gender: "FEMALE",
+    notes: null,
+    isBlocked: true,
+    blockedReason: "مخالفة اللائحة",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const SAMPLE_PLANS = [
+  { id: "plan_01", name: "اشتراك جيم 3 شهور" },
+  { id: "plan_02", name: "برايفت تدريب خاص 12 جلسة" },
+];
+
+const SAMPLE_SUBSCRIPTIONS = [
+  { id: "sub_01", memberId: "mem_01", planId: "plan_01", status: "ACTIVE" },
+  { id: "sub_02", memberId: "mem_02", planId: "plan_02", status: "ACTIVE" },
+];
 import {
   Users,
   CreditCard,
@@ -75,7 +128,7 @@ export default function DesignSystemPage() {
   const [tableState, setTableState] = useState<"normal" | "loading" | "error" | "empty">("normal");
 
   // Combobox options
-  const memberOptions = MOCK_MEMBERS.map((m) => ({
+  const memberOptions = SAMPLE_MEMBERS.map((m) => ({
     value: m.id,
     label: `${m.name} (${m.code})`,
     description: m.phone,
@@ -106,8 +159,8 @@ export default function DesignSystemPage() {
       id: "plan",
       header: locale === "ar" ? "الخطة والاشتراك" : "Plan",
       cell: ({ row }) => {
-        const sub = MOCK_SUBSCRIPTIONS.find((s) => s.memberId === row.original.id);
-        const plan = sub ? MOCK_PLANS.find((p) => p.id === sub.planId) : null;
+        const sub = SAMPLE_SUBSCRIPTIONS.find((s) => s.memberId === row.original.id);
+        const plan = sub ? SAMPLE_PLANS.find((p) => p.id === sub.planId) : null;
         return (
           <span className="text-xs">
             {plan ? plan.name : locale === "ar" ? "بدون اشتراك" : "No Plan"}
@@ -122,7 +175,7 @@ export default function DesignSystemPage() {
         if (row.original.isBlocked) {
           return <StatusBadge status="BLOCKED" locale={locale} size="sm" />;
         }
-        const sub = MOCK_SUBSCRIPTIONS.find((s) => s.memberId === row.original.id);
+        const sub = SAMPLE_SUBSCRIPTIONS.find((s) => s.memberId === row.original.id);
         if (!sub) {
           return <StatusBadge status="NO_SUBSCRIPTION" locale={locale} size="sm" />;
         }
@@ -467,7 +520,7 @@ export default function DesignSystemPage() {
 
           <DataTable
             columns={columns}
-            data={tableState === "empty" ? [] : MOCK_MEMBERS}
+            data={tableState === "empty" ? [] : SAMPLE_MEMBERS}
             isLoading={tableState === "loading"}
             error={tableState === "error" ? (locale === "ar" ? "تعذر جلب بيانات المشتركين" : "Failed to load members") : null}
             onRetry={() => setTableState("normal")}

@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, useToast } from "@gym/ui";
-import { mockClient } from "@gym/mock-data";
 import { Lock, Mail } from "lucide-react";
 
 import { loginUser } from "../../../lib/api";
@@ -21,14 +20,6 @@ export default function StaffLoginPage() {
 
     try {
       const res = await loginUser(email, password || "123456");
-      const emailToStaffId: Record<string, string> = {
-        "reception@powercore.gym": "staff_reception",
-        "bar@powercore.gym": "staff_cashier",
-        "admin@powercore.gym": "staff_gym_admin",
-        "owner@powercore.gym": "staff_super_admin",
-      };
-      const targetStaffId = emailToStaffId[email] || "staff_gym_admin";
-      mockClient.switchActiveUser(targetStaffId);
 
       toast({
         title: "تم تسجيل الدخول بنجاح",

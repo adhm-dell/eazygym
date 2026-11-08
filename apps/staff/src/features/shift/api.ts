@@ -1,5 +1,5 @@
 import { http, setStoredToken } from "../../lib/api";
-import type { CreateExpenseDto, ShiftStatus } from "@gym/mock-data";
+import type { CreateExpenseDto, ShiftStatus } from "@gym/contracts";
 
 export const shiftApi = {
   getCurrentShift: () => http.get<any>("/shifts/current").catch(() => null),

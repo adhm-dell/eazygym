@@ -21,7 +21,7 @@ import { formatMoney } from "../../../lib/money";
 import { CloseShiftDialog } from "../../../features/shift/components/close-shift-dialog";
 import { ShiftReportModal } from "../../../features/shift/components/shift-report-modal";
 import { AddExpenseDialog } from "../../../features/shift/components/add-expense-dialog";
-import type { Shift, ShiftReport, Staff } from "@gym/mock-data";
+import type { Shift, ShiftReport, Staff } from "@gym/contracts";
 
 export default function ShiftManagementPage() {
   const { toast } = useToast();

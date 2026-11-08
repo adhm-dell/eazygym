@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { UserCheck, UserPlus, AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { membersApi } from "../api";
-import type { Subscription, Member, Visitor } from "@gym/mock-data";
+import type { Subscription, Member, Visitor } from "@gym/contracts";
 
 interface VisitorCheckinDialogProps {
   member: Member;

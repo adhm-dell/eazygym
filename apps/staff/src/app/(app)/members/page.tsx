@@ -20,7 +20,7 @@ import { CreateMemberDialog } from "../../../features/members/components/create-
 import { BlockMemberDialog } from "../../../features/members/components/block-member-dialog";
 import { FreezeDialog } from "../../../features/members/components/freeze-dialog";
 import { UnfreezeDialog } from "../../../features/members/components/unfreeze-dialog";
-import type { Member, Staff, Subscription } from "@gym/mock-data";
+import type { Member, Staff, Subscription } from "@gym/contracts";
 
 export default function MembersListPage() {
   const [members, setMembers] = useState<Member[]>([]);

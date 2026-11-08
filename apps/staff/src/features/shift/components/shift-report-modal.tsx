@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Dialog, Button } from "@gym/ui";
 import { formatMoney } from "../../../lib/money";
 import { Printer } from "lucide-react";
-import type { ShiftReport } from "@gym/mock-data";
+import type { ShiftReport } from "@gym/contracts";
 
 interface ShiftReportModalProps {
   isOpen: boolean;

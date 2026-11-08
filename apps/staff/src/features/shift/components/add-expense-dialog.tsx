@@ -6,7 +6,7 @@ import { shiftApi } from "../api";
 import { useShift } from "../../../lib/shift-context";
 import { toMinor } from "@gym/domain";
 import { DollarSign, AlertTriangle, ShieldAlert } from "lucide-react";
-import type { Expense } from "@gym/mock-data";
+import type { Expense } from "@gym/contracts";
 
 interface AddExpenseDialogProps {
   isOpen: boolean;

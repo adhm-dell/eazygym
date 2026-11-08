@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Snowflake, AlertCircle, CheckCircle2 } from "lucide-react";
 import { canFreeze, type FreezeState, type FreezeDenial } from "@gym/domain";
 import { membersApi } from "../api";
-import type { Subscription, Member } from "@gym/mock-data";
+import type { Subscription, Member } from "@gym/contracts";
 
 interface FreezeDialogProps {
   subscription: Subscription;

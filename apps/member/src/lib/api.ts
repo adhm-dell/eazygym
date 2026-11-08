@@ -22,7 +22,9 @@ export function getStoredToken(): string | null {
     if (local) return local;
 
     // Fallback to cookie
-    const match = document.cookie.match(new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`));
+    const match = document.cookie.match(
+      new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`),
+    );
     if (match && match[3]) {
       return decodeURIComponent(match[3]);
     }
@@ -111,7 +113,10 @@ async function ensureToken(): Promise<string> {
   if (existing) return existing;
 
   // No auto-login! Require real authentication.
-  if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+  if (
+    typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/login")
+  ) {
     window.location.href = "/login";
   }
   return "";
@@ -119,11 +124,13 @@ async function ensureToken(): Promise<string> {
 
 export async function memberRequest<T = any>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const token = await ensureToken();
 
-  const url = path.startsWith("http") ? path : `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
+  const url = path.startsWith("http")
+    ? path
+    : `/api/v1${path.startsWith("/") ? path : `/${path}`}`;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -136,7 +143,10 @@ export async function memberRequest<T = any>(
 
   if (res.status === 401) {
     clearStoredAuth();
-    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+    if (
+      typeof window !== "undefined" &&
+      !window.location.pathname.startsWith("/login")
+    ) {
       window.location.href = "/login";
     }
     throw new Error("انتهت جلسة تسجيل الدخول، يرجى الدخول مرة أخرى");
@@ -154,7 +164,10 @@ export async function memberRequest<T = any>(
 export const memberApi = {
   getMe: () => memberRequest<any>("/auth/me"),
   getSubscriptions: () => memberRequest<any[]>("/subscriptions"),
-  getWallet: (memberId: string) => memberRequest<{ balance: number; transactions: any[] }>(`/members/${memberId}/wallet`),
+  getWallet: (memberId: string) =>
+    memberRequest<{ balance: number; transactions: any[] }>(
+      `/members/${memberId}/wallet`,
+    ),
   getTodayClasses: () => memberRequest<any[]>("/classes/today"),
   getClassSchedules: () => memberRequest<any[]>("/class-schedules"),
 
@@ -167,7 +180,9 @@ export const memberApi = {
   unfreezeSubscription: (subscriptionId: string, note?: string) =>
     memberRequest(`/subscriptions/${subscriptionId}/unfreeze`, {
       method: "POST",
-      body: JSON.stringify({ note: note || "فك التجميد بواسطة العضو عبر البوابة" }),
+      body: JSON.stringify({
+        note: note || "فك التجميد بواسطة العضو عبر البوابة",
+      }),
     }),
 };
 

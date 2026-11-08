@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Edit3, AlertCircle, CheckCircle2 } from "lucide-react";
 import { membersApi } from "../api";
-import type { Member } from "@gym/mock-data";
+import type { Member } from "@gym/contracts";
 
 interface EditMemberDialogProps {
   member: Member;

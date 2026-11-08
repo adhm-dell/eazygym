@@ -13,7 +13,7 @@ import { useShift } from "../../../lib/shift-context";
 import { shiftApi } from "../../../features/shift/api";
 import { formatMoney } from "../../../lib/money";
 import { AddExpenseDialog } from "../../../features/shift/components/add-expense-dialog";
-import type { Expense } from "@gym/mock-data";
+import type { Expense } from "@gym/contracts";
 
 export default function ExpensesPage() {
   const { toast } = useToast();

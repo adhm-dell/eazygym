@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { XCircle, AlertCircle } from "lucide-react";
 import { membersApi } from "../api";
-import type { Subscription, Member } from "@gym/mock-data";
+import type { Subscription, Member } from "@gym/contracts";
 
 interface CancelSubscriptionDialogProps {
   subscription: Subscription;

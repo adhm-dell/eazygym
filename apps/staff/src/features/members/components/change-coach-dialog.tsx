@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle2, ArrowRightLeft } from "lucide-react";
 import { formatMoney } from "../../../lib/money";
 import { membersApi } from "../api";
-import type { Subscription, Member, Staff } from "@gym/mock-data";
+import type { Subscription, Member, Staff } from "@gym/contracts";
 
 interface ChangeCoachDialogProps {
   subscription: Subscription;

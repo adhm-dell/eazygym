@@ -12,7 +12,7 @@ import {
   type AccessLog,
   type ClassScheduleWithDetails,
   type ScanResult,
-} from "@gym/mock-data";
+} from "@gym/contracts";
 import { scanApi } from "../../features/scan/api";
 import { useShift } from "../../lib/shift-context";
 import {

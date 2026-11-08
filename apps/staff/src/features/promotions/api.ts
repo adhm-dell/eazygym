@@ -1,5 +1,9 @@
-﻿import { apiClient } from '../../lib/api';
+import { http } from "../../lib/api";
+import type { CreatePromotionDto, UpdatePromotionDto } from "@gym/contracts";
 
 export const promotionsApi = {
-  // Feature API endpoints stub
+  listPromotions: () => http.get<any[]>("/promotions"),
+  getPromotion: (id: string) => http.get<any>(`/promotions/${id}`),
+  createPromotion: (dto: CreatePromotionDto) => http.post<any>("/promotions", dto),
+  updatePromotion: (id: string, dto: UpdatePromotionDto) => http.patch<any>(`/promotions/${id}`, dto),
 };

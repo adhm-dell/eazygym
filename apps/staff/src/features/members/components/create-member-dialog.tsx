@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { UserPlus, AlertCircle, CheckCircle2 } from "lucide-react";
 import { membersApi } from "../api";
-import type { Member } from "@gym/mock-data";
+import type { Member } from "@gym/contracts";
 
 interface CreateMemberDialogProps {
   isOpen: boolean;

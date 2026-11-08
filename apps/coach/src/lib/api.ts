@@ -1,5 +1,3 @@
-import { mockClient } from "@gym/mock-data";
-
 const TOKEN_KEY = "coach_access_token";
 const USER_KEY = "coach_active_user";
 const COOKIE_NAME = "gym_coach_token";
@@ -140,4 +138,4 @@ export const http = {
   delete: <T>(url: string) => makeRequest<T>(url, "DELETE"),
 };
 
-export const apiClient = Object.assign(mockClient, http);
+export const apiClient = http;

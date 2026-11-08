@@ -1,5 +1,3 @@
-import { mockClient } from "@gym/mock-data";
-
 const TOKEN_KEY = "gym_access_token";
 const USER_KEY = "gym_active_user";
 const COOKIE_NAME = "gym_staff_token";
@@ -147,4 +145,4 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
   });
 }
 
-export const apiClient = Object.assign(mockClient, http);
+export const apiClient = http;

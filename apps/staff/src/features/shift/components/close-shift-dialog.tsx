@@ -12,7 +12,7 @@ import {
   Coins,
   Info,
 } from "lucide-react";
-import type { Shift, ShiftReport } from "@gym/mock-data";
+import type { Shift, ShiftReport } from "@gym/contracts";
 
 interface CloseShiftDialogProps {
   isOpen: boolean;

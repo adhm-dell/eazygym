@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { DollarSign, AlertCircle, CheckCircle2, Banknote, Smartphone, CreditCard } from "lucide-react";
 import { formatMoney } from "../../../lib/money";
 import { membersApi } from "../api";
-import type { InvoiceDetail, Member } from "@gym/mock-data";
+import type { InvoiceDetail, Member } from "@gym/contracts";
 
 interface CollectBalanceDialogProps {
   invoice: InvoiceDetail;

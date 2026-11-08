@@ -1,4 +1,4 @@
-import { apiClient } from "../../lib/api";
+import { http } from "../../lib/api";
 import type {
   CreateCoachShiftDto,
   RequestCoachBreakDto,
@@ -100,19 +100,19 @@ export const coachOpsApi = {
     const params = new URLSearchParams();
     if (coachId) params.append("coachId", coachId);
     if (dayOfWeek !== undefined) params.append("dayOfWeek", dayOfWeek.toString());
-    return apiClient.get<CoachShiftItem[]>(`/coach-shifts?${params.toString()}`);
+    return http.get<CoachShiftItem[]>(`/coach-shifts?${params.toString()}`);
   },
 
   createShift: (dto: CreateCoachShiftDto) => {
-    return apiClient.post<CoachShiftItem>("/coach-shifts", dto);
+    return http.post<CoachShiftItem>("/coach-shifts", dto);
   },
 
   deactivateShift: (id: string) => {
-    return apiClient.delete(`/coach-shifts/${id}`);
+    return http.delete(`/coach-shifts/${id}`);
   },
 
   getCoachesOnShift: () => {
-    return apiClient.get<{ onShiftCoachIds: string[]; coaches: Array<{ id: string; name: string; role: string }> }>(
+    return http.get<{ onShiftCoachIds: string[]; coaches: Array<{ id: string; name: string; role: string }> }>(
       "/coaches/on-shift"
     );
   },
@@ -120,70 +120,70 @@ export const coachOpsApi = {
   // Breaks
   getBreaks: (coachId?: string) => {
     const params = coachId ? `?coachId=${coachId}` : "";
-    return apiClient.get<{ breaks: CoachBreakItem[]; activeBreak: CoachBreakItem | null }>(
+    return http.get<{ breaks: CoachBreakItem[]; activeBreak: CoachBreakItem | null }>(
       `/coach-breaks${params}`
     );
   },
 
   requestBreak: (dto: RequestCoachBreakDto) => {
-    return apiClient.post<CoachBreakItem>("/coach-breaks", dto);
+    return http.post<CoachBreakItem>("/coach-breaks", dto);
   },
 
   approveBreak: (id: string) => {
-    return apiClient.post<CoachBreakItem>(`/coach-breaks/${id}/approve`);
+    return http.post<CoachBreakItem>(`/coach-breaks/${id}/approve`);
   },
 
   rejectBreak: (id: string, dto: RejectCoachBreakDto) => {
-    return apiClient.post<CoachBreakItem>(`/coach-breaks/${id}/reject`, dto);
+    return http.post<CoachBreakItem>(`/coach-breaks/${id}/reject`, dto);
   },
 
   endBreak: (id: string) => {
-    return apiClient.post<CoachBreakItem>(`/coach-breaks/${id}/end`);
+    return http.post<CoachBreakItem>(`/coach-breaks/${id}/end`);
   },
 
   notifyReturn: (coachId: string) => {
-    return apiClient.post("/coach-breaks/notify-return", { coachId });
+    return http.post("/coach-breaks/notify-return", { coachId });
   },
 
   // Rotation & Assignments
   getRotationQueue: () => {
-    return apiClient.get<Array<{ id: string; coachId: string; position: number; coach: { id: string; name: string; email: string; isActive: boolean } }>>(
+    return http.get<Array<{ id: string; coachId: string; position: number; coach: { id: string; name: string; email: string; isActive: boolean } }>>(
       "/coach-rotation-queue"
     );
   },
 
   getAssignments: (status?: string) => {
     const params = status ? `?status=${status}` : "";
-    return apiClient.get<RotationAssignmentItem[]>(`/fitness-assignments${params}`);
+    return http.get<RotationAssignmentItem[]>(`/fitness-assignments${params}`);
   },
 
   acceptAssignment: (id: string) => {
-    return apiClient.post(`/fitness-assignments/${id}/accept`);
+    return http.post(`/fitness-assignments/${id}/accept`);
   },
 
   rejectAssignment: (id: string, dto: RejectFitnessAssignmentDto) => {
-    return apiClient.post(`/fitness-assignments/${id}/reject`, dto);
+    return http.post(`/fitness-assignments/${id}/reject`, dto);
   },
 
   assignManually: (profileId: string, dto: AssignFitnessProfileDto) => {
-    return apiClient.post(`/fitness-profiles/${profileId}/assign`, dto);
+    return http.post(`/fitness-profiles/${profileId}/assign`, dto);
   },
 
   // Fitness Profiles & Assessments
   getFitnessProfile: (memberId: string) => {
-    return apiClient.get<any>(`/members/${memberId}/fitness-profile`);
+    return http.get<any>(`/members/${memberId}/fitness-profile`);
   },
 
   updateFitnessProfile: (memberId: string, dto: UpdateFitnessProfileDto) => {
-    return apiClient.patch(`/members/${memberId}/fitness-profile`, dto);
+    return http.patch(`/members/${memberId}/fitness-profile`, dto);
   },
 
   getAssessments: (memberId: string) => {
-    return apiClient.get<any[]>(`/members/${memberId}/assessments`);
+    return http.get<any[]>(`/members/${memberId}/assessments`);
   },
 
   createAssessment: (memberId: string, dto: CreateFitnessAssessmentDto) => {
-    return apiClient.post(`/members/${memberId}/assessments`, dto);
+    return http.post(`/members/${memberId}/assessments`, dto);
   },
 
   // Sessions
@@ -192,34 +192,34 @@ export const coachOpsApi = {
     if (query?.coachId) params.append("coachId", query.coachId);
     if (query?.fromDate) params.append("fromDate", query.fromDate);
     if (query?.toDate) params.append("toDate", query.toDate);
-    return apiClient.get<CoachSessionItem[]>(`/coach-sessions?${params.toString()}`);
+    return http.get<CoachSessionItem[]>(`/coach-sessions?${params.toString()}`);
   },
 
   createSession: (dto: CreateCoachSessionDto) => {
-    return apiClient.post<CoachSessionItem>("/coach-sessions", dto);
+    return http.post<CoachSessionItem>("/coach-sessions", dto);
   },
 
   addParticipant: (sessionId: string, dto: AddSessionParticipantDto) => {
-    return apiClient.post(`/coach-sessions/${sessionId}/participants`, dto);
+    return http.post(`/coach-sessions/${sessionId}/participants`, dto);
   },
 
   recordAttendance: (sessionId: string, dto: RecordSessionAttendanceDto) => {
-    return apiClient.post<{ session: CoachSessionItem; ptDeductionsCount: number; freeDeductionsCount: number }>(
+    return http.post<{ session: CoachSessionItem; ptDeductionsCount: number; freeDeductionsCount: number }>(
       `/coach-sessions/${sessionId}/attendance`,
       dto
     );
   },
 
   recordNoShow: (sessionId: string) => {
-    return apiClient.post(`/coach-sessions/${sessionId}/no-show`);
+    return http.post(`/coach-sessions/${sessionId}/no-show`);
   },
 
   cancelSession: (sessionId: string) => {
-    return apiClient.post(`/coach-sessions/${sessionId}/cancel`);
+    return http.post(`/coach-sessions/${sessionId}/cancel`);
   },
 
   getTrainees: (coachId: string) => {
-    return apiClient.get<any[]>(`/coaches/${coachId}/trainees`);
+    return http.get<any[]>(`/coaches/${coachId}/trainees`);
   },
 };
 

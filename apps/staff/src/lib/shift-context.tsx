@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { type Shift, type Staff } from "@gym/mock-data";
+import { type Shift, type Staff } from "@gym/contracts";
 import { shiftApi } from "../features/shift/api";
 import { useToast } from "@gym/ui";
 

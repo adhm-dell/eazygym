@@ -51,7 +51,7 @@ import type {
   Staff,
   ClassScheduleWithDetails,
   InvoiceDetail,
-} from "@gym/mock-data";
+} from "@gym/contracts";
 
 interface CartLine {
   cartId: string;

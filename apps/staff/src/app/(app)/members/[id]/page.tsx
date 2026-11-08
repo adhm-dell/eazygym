@@ -26,7 +26,7 @@ import { LogSessionDialog } from "../../../../features/members/components/log-se
 import { VisitorCheckinDialog } from "../../../../features/members/components/visitor-checkin-dialog";
 import { CollectBalanceDialog } from "../../../../features/members/components/collect-balance-dialog";
 import { MemberFitnessTab } from "../../../../features/members/components/member-fitness-tab";
-import type { MemberProfileDetail, Subscription, InvoiceDetail } from "@gym/mock-data";
+import type { MemberProfileDetail, Subscription, InvoiceDetail } from "@gym/contracts";
 
 export default function MemberProfilePage() {
   const params = useParams();

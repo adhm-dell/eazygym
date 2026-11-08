@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Play, AlertCircle, CheckCircle2 } from "lucide-react";
 import { settleFreeze, endDateAfterFreeze } from "@gym/domain";
 import { membersApi } from "../api";
-import type { Subscription, Member } from "@gym/mock-data";
+import type { Subscription, Member } from "@gym/contracts";
 
 interface UnfreezeDialogProps {
   subscription: Subscription;

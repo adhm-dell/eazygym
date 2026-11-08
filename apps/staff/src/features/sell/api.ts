@@ -13,7 +13,7 @@ import type {
   CashVoucher,
   Staff,
   ClassScheduleWithDetails,
-} from "@gym/mock-data";
+} from "@gym/contracts";
 
 export const sellApi = {
   listPlans: async (): Promise<Plan[]> => http.get<Plan[]>("/plans"),

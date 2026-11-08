@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Dumbbell, AlertCircle, CheckCircle2 } from "lucide-react";
 import { membersApi } from "../api";
-import type { Subscription, Member } from "@gym/mock-data";
+import type { Subscription, Member } from "@gym/contracts";
 
 interface LogSessionDialogProps {
   subscription: Subscription;
