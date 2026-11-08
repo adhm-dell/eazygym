@@ -120,7 +120,7 @@ export class NotificationsService {
         where: {
           gymId: data.gymId,
           recipientId: data.recipientId,
-          dedupeKey: data.dedupeKey,
+          dedupeKey: data.dedupeKey || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
         },
       });
       if (existing) return existing;
@@ -134,7 +134,7 @@ export class NotificationsService {
         type: data.type,
         title: data.title,
         body: data.body,
-        dedupeKey: data.dedupeKey,
+        dedupeKey: data.dedupeKey || `notif_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       },
     });
   }

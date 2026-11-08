@@ -29,7 +29,7 @@ export class JobsService {
       for (const brk of activeBreaks) {
         if (!brk.startedAt) continue;
         const diffMinutes = Math.floor((now.getTime() - brk.startedAt.getTime()) / (60 * 1000));
-        const limitMinutes = brk.durationMinutes || 20;
+        const limitMinutes = (brk as any).durationMinutes || 20;
 
         if (diffMinutes > limitMinutes) {
           overruns++;
