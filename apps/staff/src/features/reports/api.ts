@@ -49,3 +49,57 @@ export async function markNotificationRead(id: string): Promise<any> {
 export async function markAllNotificationsRead(): Promise<any> {
   return http.post<any>("/notifications/read-all", {});
 }
+
+/**
+ * Live notification subscriber using Server-Sent Events (SSE) with automatic fallback to polling.
+ */
+export function subscribeToNotifications(
+  onNotification: (data: any) => void,
+  fallbackPollMs = 15000
+): () => void {
+  let isClosed = false;
+  let pollTimer: NodeJS.Timeout | null = null;
+  let eventSource: EventSource | null = null;
+
+  const startPolling = () => {
+    if (pollTimer || isClosed) return;
+    pollTimer = setInterval(async () => {
+      try {
+        const notifs = await fetchNotifications();
+        onNotification(notifs);
+      } catch {
+        // ignore polling errors
+      }
+    }, fallbackPollMs);
+  };
+
+  try {
+    if (typeof window !== "undefined" && window.EventSource) {
+      eventSource = new EventSource("/api/v1/notifications/stream");
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          onNotification(parsed);
+        } catch {
+          // ignore parse errors
+        }
+      };
+      eventSource.onerror = () => {
+        // Fallback to polling if SSE disconnected
+        eventSource?.close();
+        eventSource = null;
+        startPolling();
+      };
+    } else {
+      startPolling();
+    }
+  } catch {
+    startPolling();
+  }
+
+  return () => {
+    isClosed = true;
+    if (eventSource) eventSource.close();
+    if (pollTimer) clearInterval(pollTimer);
+  };
+}

@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Param, Req, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Param, Sse, MessageEvent, UseGuards } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
+import { Observable } from "rxjs";
 import { NotificationsService } from "./notifications.service";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
@@ -12,6 +13,12 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
+
+  @Sse("stream")
+  @ApiOperation({ summary: "Live notification stream over SSE" })
+  stream(@CurrentUser() user: any): Observable<MessageEvent> {
+    return this.notificationsService.getStream(user.gymId, user.sub, user.role);
+  }
 
   @Get()
   @ApiOperation({ summary: "Get live notifications and unread count" })

@@ -41,6 +41,7 @@ import {
   fetchCoachPerformance,
   fetchAuditLogs,
   fetchNotifications,
+  subscribeToNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from "../../../features/reports/api";
@@ -162,6 +163,21 @@ export default function AdminDashboardPage() {
       loadNotificationsAndAudit();
     }
   }, [activeTab, reportDate]);
+
+  // Live SSE stream with polling fallback for notifications
+  useEffect(() => {
+    const unsubscribe = subscribeToNotifications((incoming) => {
+      if (incoming && incoming.unreadCount !== undefined) {
+        setNotifications(incoming);
+      } else if (incoming && incoming.id) {
+        setNotifications((prev) => ({
+          unreadCount: prev.unreadCount + 1,
+          items: [incoming, ...prev.items],
+        }));
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Handlers for payroll
   const handleCreateRun = async () => {

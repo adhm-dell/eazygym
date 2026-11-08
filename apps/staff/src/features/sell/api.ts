@@ -49,17 +49,27 @@ export const sellApi = {
   },
   listClassSchedules: async (): Promise<ClassScheduleWithDetails[]> =>
     http.get<ClassScheduleWithDetails[]>("/classes/today").catch(() => []),
-  createInvoice: async (dto: CreateInvoiceDto): Promise<InvoiceDetail> =>
-    http.post<InvoiceDetail>("/invoices", dto),
+  createInvoice: async (dto: CreateInvoiceDto, idempotencyKey?: string): Promise<InvoiceDetail> => {
+    const key = idempotencyKey || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    return http.post<InvoiceDetail>("/invoices", dto, key ? { "idempotency-key": key } : undefined);
+  },
   listInvoices: async (): Promise<InvoiceDetail[]> => http.get<InvoiceDetail[]>("/invoices"),
   getInvoice: async (id: string): Promise<InvoiceDetail | null> =>
     http.get<InvoiceDetail>(`/invoices/${id}`).catch(() => null),
-  collectPayment: async (invoiceId: string, dto: CollectPaymentDto): Promise<InvoiceDetail> =>
-    http.post<InvoiceDetail>(`/invoices/${invoiceId}/payments`, dto),
+  collectPayment: async (
+    invoiceId: string,
+    dto: CollectPaymentDto,
+    idempotencyKey?: string
+  ): Promise<InvoiceDetail> => {
+    const key = idempotencyKey || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    return http.post<InvoiceDetail>(`/invoices/${invoiceId}/payments`, dto, key ? { "idempotency-key": key } : undefined);
+  },
   approveDiscount: async (invoiceId: string): Promise<InvoiceDetail> =>
     http.post<InvoiceDetail>(`/invoices/${invoiceId}/approve-discount`, {}),
   voidInvoice: async (invoiceId: string, reason: string): Promise<InvoiceDetail> =>
     http.post<InvoiceDetail>(`/invoices/${invoiceId}/void`, { reason }),
-  createVoucher: async (dto: CreateVoucherDto): Promise<CashVoucher> =>
-    http.post<CashVoucher>("/vouchers", dto),
+  createVoucher: async (dto: CreateVoucherDto, idempotencyKey?: string): Promise<CashVoucher> => {
+    const key = idempotencyKey || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : undefined);
+    return http.post<CashVoucher>("/vouchers", dto, key ? { "idempotency-key": key } : undefined);
+  },
 };

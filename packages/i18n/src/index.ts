@@ -9,3 +9,9 @@ export function getDictionary(locale: Locale): TranslationDict {
   return locale === "en" ? en : ar;
 }
 
+export function translateErrorCode(code: string, locale: Locale = "ar"): string {
+  const dict = getDictionary(locale);
+  const errors = (dict as any).errors || {};
+  return errors[code] || (locale === "ar" ? "حدث خطأ غير متوقع" : "An unexpected error occurred");
+}
+

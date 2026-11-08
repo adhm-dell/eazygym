@@ -76,11 +76,13 @@ async function makeRequest<T>(
   url: string,
   method: string,
   body?: any,
-  isRetry = false
+  isRetry = false,
+  extraHeaders?: Record<string, string>
 ): Promise<T> {
   const token = await ensureToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -121,11 +123,16 @@ async function makeRequest<T>(
  * Real HTTP API Client for Staff Portal calling /api/v1 (proxied to NestJS on port 4000).
  */
 export const http = {
-  get: <T>(url: string) => makeRequest<T>(url, "GET"),
-  post: <T>(url: string, body?: any) => makeRequest<T>(url, "POST", body),
-  patch: <T>(url: string, body?: any) => makeRequest<T>(url, "PATCH", body),
-  put: <T>(url: string, body?: any) => makeRequest<T>(url, "PUT", body),
-  delete: <T>(url: string) => makeRequest<T>(url, "DELETE"),
+  get: <T>(url: string, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "GET", undefined, false, extraHeaders),
+  post: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "POST", body, false, extraHeaders),
+  patch: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "PATCH", body, false, extraHeaders),
+  put: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "PUT", body, false, extraHeaders),
+  delete: <T>(url: string, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "DELETE", undefined, false, extraHeaders),
 };
 
 export async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
