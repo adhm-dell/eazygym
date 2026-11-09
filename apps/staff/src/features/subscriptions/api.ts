@@ -140,3 +140,4 @@ export const subscriptionsApi = {
     dto: { payments: { method: "CASH" | "INSTAPAY" | "CARD"; amount: number; reference?: string | null }[] }
   ) => http.post<any>(`/invoices/${invoiceId}/payments`, dto),
 };
+

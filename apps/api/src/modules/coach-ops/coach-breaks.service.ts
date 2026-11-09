@@ -22,10 +22,15 @@ import {
   type BreakStatus,
   type CoachShiftRow,
 } from "@gym/domain";
+import { NotificationRecipientType } from "@gym/db";
+import { NotificationsService } from "../notifications/notifications.service";
 
 @Injectable()
 export class CoachBreaksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService
+  ) {}
 
   private async getGymSettings(gymId: string) {
     const gym = await this.prisma.gym.findUnique({
@@ -145,16 +150,14 @@ export class CoachBreaksService {
 
     // Notify if PENDING
     if (status === "PENDING") {
-      await this.prisma.notification.create({
-        data: {
-          gymId,
-          recipientType: "ADMIN_BROADCAST",
-          recipientId: gymId,
-          type: "BREAK_REQUESTED",
-          title: "طلب استراحة مدرب",
-          body: `المدرب طلب استراحة: ${dto.reason || "بدون سبب"}`,
-          dedupeKey: `break-req:${record.id}`,
-        },
+      await this.notificationsService.createNotification({
+        gymId,
+        recipientType: NotificationRecipientType.ADMIN_BROADCAST,
+        recipientId: gymId,
+        type: "BREAK_REQUESTED",
+        title: "طلب استراحة مدرب",
+        body: `المدرب طلب استراحة: ${dto.reason || "بدون سبب"}`,
+        dedupeKey: `break-req:${record.id}`,
       });
     }
 

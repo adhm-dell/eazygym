@@ -5,10 +5,12 @@ import request from "supertest";
 import cookieParser from "cookie-parser";
 import { AppModule } from "../src/app.module";
 import { AllExceptionsFilter } from "../src/common/filters/http-exception.filter";
+import { PrismaService } from "../src/prisma/prisma.service";
 
 describe("B05 Access, Classes & Visitors Acceptance Tests", () => {
   let app: INestApplication;
   let server: any;
+  let prisma: PrismaService;
   let adminToken = "";
   let receptionToken = "";
 
@@ -23,6 +25,7 @@ describe("B05 Access, Classes & Visitors Acceptance Tests", () => {
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
     server = app.getHttpServer();
+    prisma = app.get(PrismaService);
 
     // Login Admin
     const adminLogin = await request(server)
@@ -485,5 +488,186 @@ describe("B05 Access, Classes & Visitors Acceptance Tests", () => {
 
     expect(freezeRes.status).toBe(422);
     expect(freezeRes.body.code).toBe("PAYMENT_OVERDUE");
+  });
+
+  it("9. Phase 06f: Changing classEntryMode to SCHEDULED allows access without started class", async () => {
+    const today = new Date();
+    const todayDayOfWeek = today.getDay();
+
+    // 1. Create schedule for today spanning the whole day
+    const schedRes = await request(server)
+      .post("/api/v1/class-schedules")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: `كلاس وضع الجدولة ${Date.now()}`,
+        coachId: "staff_coach",
+        dayOfWeek: todayDayOfWeek,
+        startTime: "00:00",
+        endTime: "23:59",
+        capacity: 20,
+      });
+    expect(schedRes.status).toBe(201);
+    const scheduleId = schedRes.body.id;
+
+    // 2. Member with class subscription
+    const phone = "010" + Math.floor(10000000 + Math.random() * 90000000).toString();
+    const memRes = await request(server)
+      .post("/api/v1/members")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ name: "عضو فحص الجدولة", phone, gender: "FEMALE" });
+    const member = memRes.body;
+
+    await request(server)
+      .post("/api/v1/invoices")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        memberId: member.id,
+        items: [
+          {
+            kind: "SUBSCRIPTION",
+            planId: "plan_crossfit_1m",
+            quantity: 1,
+            subscription: {
+              classSlotIds: [scheduleId],
+            },
+          },
+        ],
+        payments: [{ method: "CASH", amount: 120000 }],
+        useWallet: false,
+      })
+      .expect(201);
+
+    // 3. Ensure mode is RECEPTION_STARTS
+    await request(server)
+      .patch("/api/v1/gym/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ classEntryMode: "RECEPTION_STARTS" })
+      .expect(200);
+
+    // 4. Scan before class start -> CLASS_NOT_STARTED
+    const scan1 = await request(server)
+      .post("/api/v1/access/scan")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ code: member.code });
+
+    expect(scan1.status).toBe(201);
+    expect(scan1.body.allowed).toBe(false);
+    expect(scan1.body.reason).toBe("CLASS_NOT_STARTED");
+
+    // 5. Change mode to SCHEDULED
+    await request(server)
+      .patch("/api/v1/gym/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ classEntryMode: "SCHEDULED", classCheckinEarlyMinutes: 15 })
+      .expect(200);
+
+    // 6. Scan same member with advanced timestamp to bypass debounce -> ACTIVE!
+    const futureScanTime = new Date(Date.now() + 15000).toISOString();
+    const scan2 = await request(server)
+      .post("/api/v1/access/scan")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ code: member.code, timestamp: futureScanTime });
+
+    expect(scan2.status).toBe(201);
+    expect(scan2.body.allowed).toBe(true);
+    expect(scan2.body.reason).toBe("ACTIVE");
+
+    // Reset back
+    await request(server)
+      .patch("/api/v1/gym/settings")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ classEntryMode: "RECEPTION_STARTS" });
+  });
+
+  it("10. Phase 06f: Deactivating the only admin returns LAST_ADMIN", async () => {
+    // 1. SuperAdmin creates a new gym with its first admin
+    const superLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ email: "owner@powercore.gym", password: "123456" });
+    const superToken = superLogin.body.accessToken;
+
+    const uniqueSlug = `gym-last-admin-${Date.now()}`;
+    const uniqueEmail = `admin-${Date.now()}@testgym.gym`;
+
+    const createGymRes = await request(server)
+      .post("/api/v1/admin/gyms")
+      .set("Authorization", `Bearer ${superToken}`)
+      .send({
+        name: "فرع تجربة لاست أدمن",
+        slug: uniqueSlug,
+        admin: {
+          name: "مدير وحيد",
+          email: uniqueEmail,
+          password: "password123",
+        },
+      });
+    expect(createGymRes.status).toBe(201);
+    const adminStaffId = createGymRes.body.admin.id;
+
+    // Login as that admin
+    const adminLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ email: uniqueEmail, password: "password123" });
+    const localAdminToken = adminLogin.body.accessToken;
+
+    // Attempt to deactivate that admin -> 422 LAST_ADMIN
+    const deactRes = await request(server)
+      .patch(`/api/v1/staff/${adminStaffId}`)
+      .set("Authorization", `Bearer ${localAdminToken}`)
+      .send({ isActive: false });
+
+    expect(deactRes.status).toBe(422);
+    expect(deactRes.body.code).toBe("LAST_ADMIN");
+  });
+
+  it("11. Phase 06f: A new break request produces a live notification for admins", async () => {
+    // 1. Login coach
+    const coachLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ email: "coach.ahmed@powercore.gym", password: "123456" });
+    const coachToken = coachLogin.body.accessToken;
+    const coachId = coachLogin.body.user.id;
+    const gymId = coachLogin.body.user.gymId;
+
+    // 2. Ensure coach has an active shift and clean break state
+    await prisma.coachBreak.deleteMany({ where: { gymId } });
+    await prisma.coachShift.deleteMany({ where: { coachId } });
+    for (let day = 0; day < 7; day++) {
+      await prisma.coachShift.create({
+        data: {
+          gymId,
+          coachId,
+          dayOfWeek: day,
+          startTime: "00:00",
+          endTime: "23:59",
+          isActive: true,
+        },
+      });
+    }
+
+    // 3. Coach requests a break
+    const breakReason = `استراحة صلاة وغداء ${Date.now()}`;
+    const breakRes = await request(server)
+      .post("/api/v1/coach-breaks")
+      .set("Authorization", `Bearer ${coachToken}`)
+      .send({
+        coachId,
+        reason: breakReason,
+      });
+
+    expect(breakRes.status).toBe(201);
+
+    // 4. Admin checks notifications -> received BREAK_REQUESTED
+    const notifsRes = await request(server)
+      .get("/api/v1/notifications")
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(notifsRes.status).toBe(200);
+    expect(notifsRes.body.items).toBeDefined();
+    const breakNotif = notifsRes.body.items.find(
+      (n: any) => n.type === "BREAK_REQUESTED" && n.body.includes(breakReason)
+    );
+    expect(breakNotif).toBeDefined();
+    expect(breakNotif.title).toBe("طلب استراحة مدرب");
   });
 });

@@ -20,11 +20,15 @@ import {
   Package,
   Tag,
   CreditCard,
+  UserCheck,
+  Settings,
+  Globe,
 } from "lucide-react";
 import { cn, Button } from "@gym/ui";
 import { ShiftProvider, useShift } from "../../lib/shift-context";
 import { clearStoredAuth } from "../../lib/api";
 import { OpenShiftDialog } from "../../features/shift/components/open-shift-dialog";
+import { NotificationHeaderBell } from "../../features/notifications/components/notification-header-bell";
 
 interface NavItem {
   href: string;
@@ -46,7 +50,12 @@ const allNavItems: NavItem[] = [
   { href: "/classes", label: "الحصص", icon: CalendarDays, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/shift", label: "الوردية", icon: Clock, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/expenses", label: "المصروفات", icon: DollarSign, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/design", label: "دليل التصميم", icon: Palette, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
+  { href: "/staff", label: "الموظفين", icon: UserCheck, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
+  { href: "/settings", label: "الإعدادات", icon: Settings, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
+  { href: "/platform", label: "إدارة المنصة", icon: Globe, roles: ["SUPER_ADMIN"] },
+  ...(process.env.NODE_ENV !== "production"
+    ? [{ href: "/design", label: "دليل التصميم", icon: Palette, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] }]
+    : []),
 ];
 
 function SidebarUserFooter() {
@@ -179,38 +188,53 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Viewport */}
-      <div className="flex-1 min-w-0 overflow-x-hidden">
-        {isForbidden ? (
-          <div className="p-8 max-w-lg mx-auto text-center mt-20 space-y-4 bg-white border border-[#E1E5DF] rounded-2xl shadow-sm" dir="rtl">
-            <div className="h-14 w-14 rounded-full bg-[#FDF2F2] text-[#B3261E] mx-auto flex items-center justify-center font-bold">
-              <ShieldAlert className="h-7 w-7" />
-            </div>
-            <h2 className="text-xl font-bold text-[#14181F]">غير مصرح بالدخول (403 Forbidden)</h2>
-            <p className="text-sm text-[#5B6470] leading-relaxed">
-              هذه الصفحة مخصصة للمدير (GYM_ADMIN) أو المالك. دورك الحالي في النظام هو:{" "}
-              <b className="text-[#14181F]">{userRole}</b> ولا يملك الصلاحية للوصول إلى هذا القسم.
-            </p>
-            <div className="pt-2 flex justify-center gap-3">
-              <Button
-                variant="lime"
-                onClick={async () => {
-                  await switchUser("admin@powercore.gym");
-                  window.location.reload();
-                }}
-                className="font-bold rounded-xl"
-              >
-                تبديل إلى حساب المدير (أدمن)
-              </Button>
-              <Link href="/">
-                <Button variant="outline" className="font-bold rounded-xl border-[#E1E5DF]">
-                  العودة للرئيسية
-                </Button>
-              </Link>
-            </div>
+      <div className="flex-1 min-w-0 overflow-x-hidden flex flex-col">
+        {/* Top Header Bar */}
+        <header className="h-14 border-b border-[#E1E5DF] bg-white px-6 flex items-center justify-between shrink-0 z-10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[#5B6470]">
+              فرع المعادي الرئيسي
+            </span>
           </div>
-        ) : (
-          children
-        )}
+
+          <div className="flex items-center gap-3">
+            <NotificationHeaderBell />
+          </div>
+        </header>
+
+        <main className="flex-1 min-w-0">
+          {isForbidden ? (
+            <div className="p-8 max-w-lg mx-auto text-center mt-20 space-y-4 bg-white border border-[#E1E5DF] rounded-2xl shadow-sm" dir="rtl">
+              <div className="h-14 w-14 rounded-full bg-[#FDF2F2] text-[#B3261E] mx-auto flex items-center justify-center font-bold">
+                <ShieldAlert className="h-7 w-7" />
+              </div>
+              <h2 className="text-xl font-bold text-[#14181F]">غير مصرح بالدخول (403 Forbidden)</h2>
+              <p className="text-sm text-[#5B6470] leading-relaxed">
+                هذه الصفحة مخصصة للمدير (GYM_ADMIN) أو المالك. دورك الحالي في النظام هو:{" "}
+                <b className="text-[#14181F]">{userRole}</b> ولا يملك الصلاحية للوصول إلى هذا القسم.
+              </p>
+              <div className="pt-2 flex justify-center gap-3">
+                <Button
+                  variant="lime"
+                  onClick={async () => {
+                    await switchUser("admin@powercore.gym");
+                    window.location.reload();
+                  }}
+                  className="font-bold rounded-xl"
+                >
+                  تبديل إلى حساب المدير (أدمن)
+                </Button>
+                <Link href="/">
+                  <Button variant="outline" className="font-bold rounded-xl border-[#E1E5DF]">
+                    العودة للرئيسية
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
 
       <OpenShiftDialog />

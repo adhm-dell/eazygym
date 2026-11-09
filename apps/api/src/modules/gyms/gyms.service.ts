@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import type { UpdateGymSettingsDto } from "@gym/contracts";
@@ -195,8 +196,8 @@ export class GymsService {
       });
     }
 
-    // Default password hash for "123456"
-    const passwordHash = "$2a$10$wE9l1O1Wk3jK9T8mG7sBMe9b7G/iH3M5O9dJ0vG5A8jK3Y9hB8bSe";
+    const rawPassword = dto.admin.password || "123456";
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
 
     return this.prisma.$transaction(async (tx) => {
       const gym = await tx.gym.create({
