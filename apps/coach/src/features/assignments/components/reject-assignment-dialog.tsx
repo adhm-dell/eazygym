@@ -51,7 +51,7 @@ export function RejectAssignmentDialog({
       isOpen={isOpen}
       onClose={onClose}
       title="الاعتذار عن تدريب العضو"
-      description={`الاعتذار عن قبول العضو: ${assignment.member.name} (${assignment.member.phone})`}
+      description={`الاعتذار عن قبول العضو: ${assignment.member?.name || "عضو"} (${assignment.member?.phone || "-"})`}
       footer={
         <div className="flex gap-2 justify-end w-full">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="text-xs">

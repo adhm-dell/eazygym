@@ -215,7 +215,7 @@ export default function CoachHomePage() {
         type: "PRIVATE",
         startTime: now.toISOString(),
         endTime: end.toISOString(),
-        notes: `جلسة خاصة للمتدرب: ${trainee.member.name}`,
+        notes: `جلسة خاصة للمتدرب: ${trainee.member?.name || "متدرب"}`,
       });
 
       // Add participant
@@ -353,8 +353,10 @@ export default function CoachHomePage() {
                   {assignments.map((ass) => (
                     <div key={ass.id} className="p-2.5 rounded-xl bg-[#F2F4F1] flex items-center justify-between text-xs">
                       <div>
-                        <p className="font-bold text-[#14181F]">{ass.member.name}</p>
-                        <p className="text-[11px] text-[#5B6470]">جلسة قياس بدني وتوجيه</p>
+                        <p className="font-bold text-[#14181F]">{ass.member?.name || "عضو جديد"}</p>
+                        <p className="text-[11px] text-[#5B6470]">
+                          جلسة قياس بدني وتوجيه{ass.member?.phone ? ` · ${ass.member.phone}` : ""}
+                        </p>
                       </div>
                       <div className="flex gap-1.5">
                         <button
@@ -421,7 +423,7 @@ export default function CoachHomePage() {
                   {trainees.slice(0, 3).map((t) => (
                     <div key={t.id} className="flex items-center justify-between p-2 rounded-xl bg-[#F2F4F1] text-xs">
                       <div>
-                        <p className="font-bold text-[#14181F]">{t.member.name}</p>
+                        <p className="font-bold text-[#14181F]">{t.member?.name || "متدرب"}</p>
                         <p className="text-[10px] text-[#5B6470]">
                           باقي {t.subscription?.sessionsRemaining ?? 6} جلسات
                         </p>
@@ -486,8 +488,8 @@ export default function CoachHomePage() {
                             className="flex items-center justify-between cursor-pointer"
                           >
                             <div>
-                              <p className="text-xs font-bold text-[#14181F]">{t.member.name}</p>
-                              <p className="text-[11px] text-[#5B6470]">كود: {t.member.code} · هاتف: {t.member.phone}</p>
+                              <p className="text-xs font-bold text-[#14181F]">{t.member?.name || "متدرب"}</p>
+                              <p className="text-[11px] text-[#5B6470]">كود: {t.member?.code || "-"} · هاتف: {t.member?.phone || "-"}</p>
                             </div>
                             <Badge variant={isExpanded ? "lime" : "g"}>
                               {t.subscription?.sessionsRemaining ?? 6} جلسات
@@ -814,7 +816,7 @@ export default function CoachHomePage() {
           isOpen={isAddAssessmentOpen}
           onClose={() => setIsAddAssessmentOpen(false)}
           memberId={selectedTrainee.memberId}
-          memberName={selectedTrainee.member.name}
+          memberName={selectedTrainee.member?.name || "المتدرب"}
           onSuccess={refreshTraineeAssessments}
         />
       )}
