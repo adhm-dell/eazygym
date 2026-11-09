@@ -26,6 +26,7 @@ import type {
   ChangeCoachDto,
   LogPtSessionDto,
 } from "@gym/contracts";
+import { FitnessProfilesService } from "../coach-ops/fitness-profiles.service";
 
 @Injectable()
 export class SubscriptionsService {
@@ -34,7 +35,9 @@ export class SubscriptionsService {
     private readonly auditService: AuditService,
     private readonly commissionsService: CommissionsService,
     @Inject(forwardRef(() => InvoicesService))
-    private readonly invoicesService: InvoicesService
+    private readonly invoicesService: InvoicesService,
+    @Inject(forwardRef(() => FitnessProfilesService))
+    private readonly fitnessProfilesService: FitnessProfilesService
   ) {}
 
   /**
@@ -215,6 +218,33 @@ export class SubscriptionsService {
         });
       }
     }
+
+    // First-time subscription: trigger fitness profile & coach rotation
+    const existingProfile = await tx.fitnessProfile.findUnique({
+      where: { memberId: params.memberId },
+    });
+
+    let rotationResult: any = null;
+    if (!existingProfile) {
+      const member = await tx.member.findUnique({
+        where: { id: params.memberId },
+        select: { name: true },
+      });
+      const fitRes = await this.fitnessProfilesService.createIfFirst(
+        params.gymId,
+        params.memberId,
+        sub.id,
+        tx,
+        {
+          memberName: member?.name,
+          planName: params.plan.name,
+        },
+        params.now
+      );
+      rotationResult = fitRes.rotation;
+    }
+
+    (sub as any).rotation = rotationResult;
 
     return sub;
   }

@@ -39,6 +39,7 @@ import {
   type Minor,
 } from "@gym/domain";
 import { sellApi } from "../../../features/sell/api";
+import { coachOpsApi } from "../../../features/coach-ops/api";
 import { useShift } from "../../../lib/shift-context";
 import { formatMoney } from "../../../lib/money";
 import type {
@@ -135,6 +136,33 @@ export default function PosSellPage() {
   const [collectBalanceModalOpen, setCollectBalanceModalOpen] = useState(false);
   const [vouchersModalOpen, setVouchersModalOpen] = useState(false);
   const [recentInvoicesList, setRecentInvoicesList] = useState<InvoiceDetail[]>([]);
+
+  // Manual coach assignment from rotation result
+  const [manualAssignProfileId, setManualAssignProfileId] = useState<string | null>(null);
+  const [selectedManualCoachId, setSelectedManualCoachId] = useState<string>("");
+  const [isManualAssignLoading, setIsManualAssignLoading] = useState(false);
+
+  const handleConfirmManualAssign = async () => {
+    if (!manualAssignProfileId || !selectedManualCoachId) return;
+    setIsManualAssignLoading(true);
+    try {
+      await coachOpsApi.assignManually(manualAssignProfileId, { coachId: selectedManualCoachId });
+      toast({
+        title: "تم تعيين المدرب بنجاح",
+        description: "تم تعيين المدرب ومنح الجلسات المجانية للعضو الجديد",
+        variant: "success",
+      });
+      setManualAssignProfileId(null);
+    } catch (err: any) {
+      toast({
+        title: "فشل تعيين المدرب",
+        description: err.message || "حدث خطأ أثناء التعيين اليدوي",
+        variant: "error",
+      });
+    } finally {
+      setIsManualAssignLoading(false);
+    }
+  };
 
   // Collect Balance state
   const [selectedInvoiceToPay, setSelectedInvoiceToPay] = useState<InvoiceDetail | null>(null);
@@ -723,6 +751,22 @@ export default function PosSellPage() {
         description: `فاتورة رقم #${invoice.number} · تم تحصيل ${formatMoney(invoice.collectedAmount)}`,
         variant: "success",
       });
+
+      if (invoice.rotation) {
+        if (invoice.rotation.status === "PENDING") {
+          toast({
+            title: "ترشيح المدرب في الدور",
+            description: `تم ترشيح الكابتن ${invoice.rotation.coachName} للمتدرب الجديد، بانتظار موافقته`,
+            variant: "success",
+          });
+        } else {
+          toast({
+            title: "تنبيه: لا يوجد مدرب متاح على الوردية",
+            description: "تعذر ترشيح كابتن في الدور، يرجى التعيين اليدوي للمتدرب الجديد",
+            variant: "warning",
+          });
+        }
+      }
     } catch (err: any) {
       toast({
         title: "فشل إتمام البيع",
@@ -1736,6 +1780,47 @@ export default function PosSellPage() {
 
           {/* Printable Layout Container */}
           <div className="py-2">
+            {completedInvoice?.rotation && (
+              <div className="mb-4 text-start">
+                {completedInvoice.rotation.status === "PENDING" ? (
+                  <div className="bg-[#E3F5EA] text-[#1B7F4B] p-3.5 rounded-xl border border-[#1B7F4B]/30 flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 shrink-0 text-[#1B7F4B]" />
+                    <div>
+                      <p className="font-bold text-sm">
+                        تم ترشيح الكابتن {completedInvoice.rotation.coachName} للمتدرب الجديد، بانتظار موافقته
+                      </p>
+                      <p className="text-xs opacity-80 mt-0.5">
+                        تم إرسال إشعار فوري للمدرب، وستتم إضافة العضو لقائمة متدربيه ومنحه الجلسات المجانية فور القبول.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 text-amber-900 p-3.5 rounded-xl border border-amber-200 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+                      <div>
+                        <p className="font-bold text-sm">تعذر ترشيح كابتن تلقائياً</p>
+                        <p className="text-xs opacity-80 mt-0.5">
+                          لا يوجد مدربين متاحين على الوردية حالياً
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (completedInvoice.rotation?.profileId) {
+                          setManualAssignProfileId(completedInvoice.rotation.profileId);
+                          setSelectedManualCoachId(coaches[0]?.id || "");
+                        }
+                      }}
+                      className="bg-[#14181F] text-[#C6F24E] hover:bg-black font-bold text-xs shrink-0"
+                    >
+                      تعيين كابتن يدوياً
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
             {printFormat === "80mm" ? (
               /* 80mm Thermal Receipt Layout */
               <div className="bg-white border-2 border-dashed border-[#E1E5DF] p-4 rounded-xl max-w-sm mx-auto font-mono text-[13px] text-center">
@@ -1886,6 +1971,55 @@ export default function PosSellPage() {
               </div>
             )}
           </div>
+      </Dialog>
+
+      {/* MANUAL ASSIGN COACH DIALOG */}
+      <Dialog
+        isOpen={!!manualAssignProfileId}
+        onClose={() => setManualAssignProfileId(null)}
+        title="تعيين كابتن يدوياً للمتدرب الجديد"
+        maxWidth="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={() => setManualAssignProfileId(null)}
+              disabled={isManualAssignLoading}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleConfirmManualAssign}
+              disabled={isManualAssignLoading || !selectedManualCoachId}
+              className="bg-[#14181F] text-[#C6F24E] hover:bg-black font-bold"
+            >
+              {isManualAssignLoading ? "جاري التعيين..." : "تأكيد التعيين"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3 py-2 text-start">
+          <p className="text-xs text-[#5B6470]">
+            اختر المدرب الذي سيتم تكليفه بمتابعة المتدرب الجديد ومنحه الجلسات المجانية المحددة في النظام:
+          </p>
+          <div>
+            <label className="text-xs font-bold text-[#14181F] block mb-1">
+              الكابتن المكلّف:
+            </label>
+            <select
+              value={selectedManualCoachId}
+              onChange={(e) => setSelectedManualCoachId(e.target.value)}
+              className="w-full text-xs font-bold p-2.5 bg-white border border-[#E1E5DF] rounded-xl outline-none focus:ring-2 focus:ring-[#C6F24E]"
+            >
+              <option value="">-- اختر المدرب --</option>
+              {coaches.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.isActive ? "" : "(غير نشط)"}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </Dialog>
 
       {/* MODAL 3: COLLECT BALANCE (تحصيل متبقي) */}

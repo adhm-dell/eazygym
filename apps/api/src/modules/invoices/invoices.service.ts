@@ -495,11 +495,20 @@ export class InvoicesService {
         await this.commissionsService.recomputeAllocation(tx, gymId, sub.id);
       }
 
+      let invoiceRotation: any = null;
+      for (const sub of createdSubscriptions) {
+        if ((sub as any).rotation) {
+          invoiceRotation = (sub as any).rotation;
+          break;
+        }
+      }
+
       return {
         ...invoice,
         items: createdItems,
         payments: createdPayments,
         subscriptions: createdSubscriptions,
+        rotation: invoiceRotation || undefined,
       };
     });
 
@@ -523,7 +532,11 @@ export class InvoicesService {
       },
     });
 
-    return this.getById(gymId, result.id);
+    const fullInvoice = await this.getById(gymId, result.id);
+    return {
+      ...fullInvoice,
+      rotation: result.rotation,
+    };
   }
 
   async list(gymId: string, filters: any = {}) {

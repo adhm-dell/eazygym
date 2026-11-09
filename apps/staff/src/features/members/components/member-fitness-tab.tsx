@@ -3,7 +3,16 @@
 import React, { useState, useEffect } from "react";
 import { coachOpsApi } from "../../coach-ops/api";
 import { Button, Input, useToast } from "@gym/ui";
-import { Activity, Plus, TrendingUp, HeartPulse, Scale, Check } from "lucide-react";
+import {
+  Plus,
+  HeartPulse,
+  Scale,
+  CheckCircle2,
+  XCircle,
+  RotateCcw,
+  Clock,
+  UserCheck,
+} from "lucide-react";
 
 interface MemberFitnessTabProps {
   memberId: string;
@@ -109,6 +118,8 @@ export function MemberFitnessTab({ memberId }: MemberFitnessTabProps) {
   };
 
   const latestAssess = assessments[0];
+  const currentAcceptedAssignment = profile?.assignments?.find((a: any) => a.status === "ACCEPTED");
+  const pendingAssignment = profile?.assignments?.find((a: any) => a.status === "PENDING");
 
   return (
     <div className="space-y-6">
@@ -166,9 +177,17 @@ export function MemberFitnessTab({ memberId }: MemberFitnessTabProps) {
             <HeartPulse className="h-5 w-5 text-gray-900" />
             <h3 className="font-bold text-sm text-gray-900">الملف البدني والصحي للعضو</h3>
           </div>
-          {profile?.assignments?.[0] && (
+          {currentAcceptedAssignment ? (
+            <span className="text-xs text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full font-bold">
+              المدرب المعتمد: {currentAcceptedAssignment.coach?.name}
+            </span>
+          ) : pendingAssignment ? (
+            <span className="text-xs text-amber-800 bg-amber-100 px-3 py-1 rounded-full font-bold">
+              بانتظار موافقة: {pendingAssignment.coach?.name}
+            </span>
+          ) : (
             <span className="text-xs text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full font-medium">
-              المدرب المسؤول: {profile.assignments[0].coach?.name || "مدرب معتمد"}
+              لا يوجد مدرب معين حالياً
             </span>
           )}
         </div>
@@ -223,6 +242,90 @@ export function MemberFitnessTab({ memberId }: MemberFitnessTabProps) {
             </Button>
           </div>
         </form>
+      </div>
+
+      {/* Assignment History Timeline */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-gray-900" />
+            <h3 className="font-bold text-sm text-gray-900">
+              سجل تكليفات وترشيحات المدربين ({profile?.assignments?.length || 0})
+            </h3>
+          </div>
+          <span className="text-xs text-gray-500">
+            تاريخ التكليفات السابقة والاعتذارات
+          </span>
+        </div>
+
+        {!profile?.assignments || profile.assignments.length === 0 ? (
+          <p className="text-xs text-gray-500 text-center py-4">
+            لم يتم تسجيل أي تكليفات مدربين لهذا العضو بعد
+          </p>
+        ) : (
+          <div className="relative ps-6 space-y-4 before:absolute before:top-2 before:bottom-2 before:start-2.5 before:w-0.5 before:bg-gray-200">
+            {profile.assignments.map((a: any) => {
+              const isAccepted = a.status === "ACCEPTED";
+              const isRejected = a.status === "REJECTED";
+              const isSuperseded = a.status === "SUPERSEDED";
+              const isPending = a.status === "PENDING";
+
+              return (
+                <div key={a.id} className="relative flex items-start gap-3">
+                  <span
+                    className={`absolute -start-6 top-1 h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] ${
+                      isAccepted
+                        ? "bg-emerald-600"
+                        : isRejected
+                        ? "bg-red-600"
+                        : isSuperseded
+                        ? "bg-gray-400"
+                        : "bg-amber-500"
+                    }`}
+                  >
+                    {isAccepted ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : isRejected ? (
+                      <XCircle className="h-3.5 w-3.5" />
+                    ) : isSuperseded ? (
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5" />
+                    )}
+                  </span>
+
+                  <div className="bg-[#F8FAF6] p-3 rounded-xl border border-gray-100 flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-900">
+                        {isAccepted && `تم قبول التكليف بواسطة الكابتن ${a.coach?.name || a.coachId}`}
+                        {isRejected && `اعتذر الكابتن ${a.coach?.name || a.coachId} عن التكليف`}
+                        {isSuperseded && `تم استبدال ترشيح الكابتن ${a.coach?.name || a.coachId}`}
+                        {isPending && `تم ترشيح الكابتن ${a.coach?.name || a.coachId} (بانتظار الموافقة)`}
+                      </span>
+                      <span className="text-[10px] text-gray-500">
+                        {new Date(a.createdAt).toLocaleDateString("ar-EG", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-[11px] text-gray-600">
+                      <span>المصدر: {a.source === "ROTATION" ? "تلقائي (الدور)" : "يدوي (الاستقبال)"}</span>
+                      {a.rejectionReason && (
+                        <span className="text-red-600 font-bold">
+                          · سبب الرفض: {a.rejectionReason}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* InBody Assessments History */}

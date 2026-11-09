@@ -72,22 +72,23 @@ describe("rotation queue", () => {
   const c = (id: string, p: Partial<{ isActive: boolean; onShift: boolean; onBreak: boolean }> = {}) => ({ id, isActive: true, onShift: true, onBreak: false, ...p });
   const q = (...ids: string[]) => ids.map((coachId, i) => ({ coachId, position: i + 1 }));
   it("lowest queue position among coaches on shift", () => {
-    expect(recommendCoach({ coaches: [c("a"), c("b"), c("c")], queue: q("b", "a", "c"), rejectedCoachIds: [] })).toEqual({ coachId: "b", usedFallback: false });
+    expect(recommendCoach({ coaches: [c("a"), c("b"), c("c")], queue: q("b", "a", "c"), rejectedCoachIds: [] })).toEqual({ coachId: "b", reason: "OK" });
   });
   it("skips coaches on break, off shift, inactive and ones who rejected this profile", () => {
     const r = recommendCoach({
       coaches: [c("a", { onBreak: true }), c("b", { onShift: false }), c("c", { isActive: false }), c("d"), c("e")],
       queue: q("a", "b", "c", "d", "e"), rejectedCoachIds: ["d"],
     });
-    expect(r.coachId).toBe("e");
+    expect(r).toEqual({ coachId: "e", reason: "OK" });
   });
   it("a coach missing from the queue goes first", () => {
-    expect(recommendCoach({ coaches: [c("a"), c("new")], queue: q("a"), rejectedCoachIds: [] }).coachId).toBe("new");
+    expect(recommendCoach({ coaches: [c("a"), c("new")], queue: q("a"), rejectedCoachIds: [] })).toEqual({ coachId: "new", reason: "OK" });
   });
-  it("falls back to coaches off shift when nobody is on shift, and to null when nobody is eligible", () => {
-    const r = recommendCoach({ coaches: [c("a", { onShift: false }), c("b", { onShift: false })], queue: q("b", "a"), rejectedCoachIds: [] });
-    expect(r).toEqual({ coachId: "b", usedFallback: true });
-    expect(recommendCoach({ coaches: [c("a", { onBreak: true })], queue: [], rejectedCoachIds: [] }).coachId).toBeNull();
+  it("returns NO_COACH_ON_SHIFT when nobody is on shift, and NO_ELIGIBLE_COACH when all on-shift coaches are unavailable", () => {
+    const rNoShift = recommendCoach({ coaches: [c("a", { onShift: false }), c("b", { onShift: false })], queue: q("b", "a"), rejectedCoachIds: [] });
+    expect(rNoShift).toEqual({ coachId: null, reason: "NO_COACH_ON_SHIFT" });
+    const rNoEligible = recommendCoach({ coaches: [c("a", { onBreak: true })], queue: [], rejectedCoachIds: [] });
+    expect(rNoEligible).toEqual({ coachId: null, reason: "NO_ELIGIBLE_COACH" });
   });
   it("moveToBack pushes the coach behind everyone", () => {
     const next = moveToBack(q("a", "b", "c"), "a");

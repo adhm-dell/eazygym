@@ -73,7 +73,10 @@ export default function CoachHomePage() {
 
   // Live Assignments (Fitness Profile)
   const [assignments, setAssignments] = useState<FitnessAssignment[]>([]);
+  const [pastAssignments, setPastAssignments] = useState<FitnessAssignment[]>([]);
   const [rejectingAssignment, setRejectingAssignment] = useState<FitnessAssignment | null>(null);
+  const [isAcceptingId, setIsAcceptingId] = useState<string | null>(null);
+  const [showPastAssignments, setShowPastAssignments] = useState(false);
 
   // Action status message
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -95,12 +98,13 @@ export default function CoachHomePage() {
   // Load live data
   const loadInitialData = async () => {
     try {
-      const [comm, trList, clsList, brkRes, assList, sessList, shfList] = await Promise.all([
+      const [comm, trList, clsList, brkRes, assList, allAssList, sessList, shfList] = await Promise.all([
         fetchMyCommission(commYear, commMonth).catch(() => null),
         traineesApi.getMyTrainees().catch(() => []),
         classesApi.getTodayClasses().catch(() => []),
         breaksApi.getBreaks().catch(() => ({ breaks: [], activeBreak: null })),
-        assignmentsApi.getAssignments().catch(() => []),
+        assignmentsApi.getAssignments("PENDING").catch(() => []),
+        assignmentsApi.getAllAssignments().catch(() => []),
         sessionsApi.getMySessions().catch(() => []),
         shiftsApi.getMyShifts().catch(() => []),
       ]);
@@ -113,6 +117,9 @@ export default function CoachHomePage() {
         setActiveBreak(brkRes.activeBreak || null);
       }
       if (assList) setAssignments(assList);
+      if (allAssList) {
+        setPastAssignments(allAssList.filter((a) => a.status !== "PENDING"));
+      }
       if (sessList) setSessions(sessList);
       if (shfList) setShifts(shfList);
     } catch {
@@ -122,6 +129,8 @@ export default function CoachHomePage() {
 
   useEffect(() => {
     loadInitialData();
+    const interval = setInterval(loadInitialData, 20000); // 20s live update
+    return () => clearInterval(interval);
   }, [commYear, commMonth]);
 
   // Load trainee assessments when selecting trainee
@@ -196,12 +205,15 @@ export default function CoachHomePage() {
   };
 
   const handleAcceptAssignment = async (id: string) => {
+    setIsAcceptingId(id);
     try {
       await assignmentsApi.acceptAssignment(id);
-      showFeedback("تم قبول المتدرب الجديد بنجاح وإضافته إلى قائمتك");
+      showFeedback("تم قبول المتدرب الجديد بنجاح وإضافته إلى قائمتك ومنح حصة التوجيه المجانية");
       await loadInitialData();
     } catch (err: any) {
       showFeedback(err.message || "تعذر قبول المتدرب", true);
+    } finally {
+      setIsAcceptingId(null);
     }
   };
 
@@ -340,44 +352,162 @@ export default function CoachHomePage() {
                 </div>
               )}
 
-              {/* Pending Member Assignments Inbox */}
-              {assignments.length > 0 && (
-                <section className="bg-white border-2 border-[#C6F24E] rounded-[16px] p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
-                      <Flame className="h-4 w-4 text-amber-500" />
-                      <span>متدربين جدد بحاجة لموافقتك ({assignments.length})</span>
-                    </span>
+              {/* Member Assignments Inbox (Always visible) */}
+              <section className="bg-white border-2 border-[#C6F24E] rounded-[18px] p-4 space-y-3 shadow-sm text-start">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                    <Flame className="h-4 w-4 text-amber-500" />
+                    <span>متدربين جدد بحاجة لموافقتك ({assignments.length})</span>
+                  </span>
+                  {assignments.length > 0 ? (
                     <Badge variant="lime">جديد</Badge>
+                  ) : (
+                    <span className="text-[10px] text-[#5B6470] font-medium">محدث تلقائياً</span>
+                  )}
+                </div>
+
+                {assignments.length === 0 ? (
+                  <div className="p-4 text-center text-[#5B6470] bg-[#F8FAF6] rounded-xl border border-dashed border-[#E1E5DF]">
+                    <p className="text-xs font-medium">لا توجد طلبات جديدة حالياً</p>
+                    <span className="text-[10px] text-[#5B6470] mt-0.5 block">
+                      سيصلك تنبيه فوري عند قيام الاستقبال ببيع اشتراك وتدوير المتدرب إلى دورك
+                    </span>
                   </div>
-                  {assignments.map((ass) => (
-                    <div key={ass.id} className="p-2.5 rounded-xl bg-[#F2F4F1] flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-[#14181F]">{ass.member?.name || "عضو جديد"}</p>
-                        <p className="text-[11px] text-[#5B6470]">
-                          جلسة قياس بدني وتوجيه{ass.member?.phone ? ` · ${ass.member.phone}` : ""}
-                        </p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {assignments.map((ass) => (
+                      <div
+                        key={ass.id}
+                        className="p-3 rounded-xl bg-[#F8FAF6] border border-[#E1E5DF] space-y-2 text-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-sm text-[#14181F]">
+                              {ass.member?.name || "عضو جديد"}
+                            </p>
+                            <p className="text-[11px] text-[#5B6470]">
+                              {ass.member?.phone ? `${ass.member.phone} · ` : ""}
+                              الباقة:{" "}
+                              <span className="font-bold text-[#14181F]">
+                                {ass.planName || "اشتراك جديد"}
+                              </span>
+                            </p>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 shrink-0">
+                            في انتظارك
+                          </span>
+                        </div>
+
+                        {/* Goals / Injuries / Medical notes if present */}
+                        {(ass.goals || ass.medicalConditions || ass.injuries || ass.notes) && (
+                          <div className="p-2 bg-white rounded-lg border border-[#E1E5DF] text-[11px] space-y-1">
+                            {ass.goals && (
+                              <p className="text-[#14181F]">
+                                <strong className="text-[#5B6470]">الهدف:</strong> {ass.goals}
+                              </p>
+                            )}
+                            {ass.medicalConditions && (
+                              <p className="text-amber-800">
+                                <strong>حالة صحية:</strong> {ass.medicalConditions}
+                              </p>
+                            )}
+                            {ass.injuries && (
+                              <p className="text-red-700">
+                                <strong>إصابات:</strong> {ass.injuries}
+                              </p>
+                            )}
+                            {ass.notes && (
+                              <p className="text-[#5B6470]">
+                                <strong>ملاحظات:</strong> {ass.notes}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Free sessions info + actions */}
+                        <div className="flex items-center justify-between pt-1 border-t border-[#E1E5DF]/60">
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
+                            🎁 سيحصل على {ass.freeSessionsCount || 1} جلسة مجانية عند القبول
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={isAcceptingId === ass.id}
+                              onClick={() => handleAcceptAssignment(ass.id)}
+                              className="px-3 py-1 bg-[#14181F] text-[#C6F24E] rounded-lg font-bold text-xs hover:bg-black disabled:opacity-50 cursor-pointer"
+                            >
+                              {isAcceptingId === ass.id ? "جاري..." : "قبول"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isAcceptingId === ass.id}
+                              onClick={() => setRejectingAssignment(ass)}
+                              className="px-2.5 py-1 bg-white text-[#B3261E] border border-[#E1E5DF] rounded-lg text-xs font-semibold hover:bg-red-50 disabled:opacity-50 cursor-pointer"
+                            >
+                              اعتذار
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleAcceptAssignment(ass.id)}
-                          className="px-2.5 py-1 bg-[#14181F] text-[#C6F24E] rounded-lg font-bold text-xs hover:bg-black cursor-pointer"
-                        >
-                          قبول
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRejectingAssignment(ass)}
-                          className="px-2 py-1 bg-white text-[#B3261E] border border-[#E1E5DF] rounded-lg text-xs hover:bg-red-50 cursor-pointer"
-                        >
-                          اعتذار
-                        </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Past Requests History Accordion / Section */}
+                {pastAssignments.length > 0 && (
+                  <div className="pt-2 border-t border-[#E1E5DF]">
+                    <button
+                      type="button"
+                      onClick={() => setShowPastAssignments(!showPastAssignments)}
+                      className="text-[11px] text-[#5B6470] font-bold flex items-center justify-between w-full hover:text-[#14181F] cursor-pointer"
+                    >
+                      <span>سجل طلبات التدريب السابقة ({pastAssignments.length})</span>
+                      <span>{showPastAssignments ? "إخفاء ▲" : "عرض ▼"}</span>
+                    </button>
+
+                    {showPastAssignments && (
+                      <div className="mt-2 space-y-1.5">
+                        {pastAssignments.map((pa) => (
+                          <div
+                            key={pa.id}
+                            className="p-2 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between text-[11px]"
+                          >
+                            <div>
+                              <span className="font-bold text-[#14181F]">
+                                {pa.member?.name || "عضو"}
+                              </span>
+                              <span className="text-gray-500 text-[10px] block">
+                                {pa.planName} ·{" "}
+                                {new Date(pa.createdAt).toLocaleDateString("ar-EG")}
+                              </span>
+                              {pa.rejectionReason && (
+                                <span className="text-[10px] text-red-600 block">
+                                  سبب الاعتذار: {pa.rejectionReason}
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                pa.status === "ACCEPTED"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : pa.status === "REJECTED"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-200 text-gray-700 line-through"
+                              }`}
+                            >
+                              {pa.status === "ACCEPTED"
+                                ? "مقبول"
+                                : pa.status === "REJECTED"
+                                ? "معتذر عنه"
+                                : "مستبدل"}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </section>
-              )}
+                    )}
+                  </div>
+                )}
+              </section>
 
               {/* Hero Commission Card */}
               <section className="bg-[#14181F] text-white rounded-[18px] p-4 shadow-sm">

@@ -42,6 +42,20 @@ export interface CoachBreakItem {
   };
 }
 
+export interface CoachQueueItem {
+  id: string;
+  coachId: string;
+  position: number;
+  onShift?: boolean;
+  onBreak?: boolean;
+  coach: {
+    id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
+  };
+}
+
 export interface RotationAssignmentItem {
   id: string;
   profileId: string;
@@ -50,6 +64,7 @@ export interface RotationAssignmentItem {
   status: "PENDING" | "ACCEPTED" | "REJECTED" | "SUPERSEDED";
   rejectionReason?: string | null;
   createdAt: string;
+  respondedAt?: string | null;
   coach: {
     id: string;
     name: string;
@@ -58,11 +73,22 @@ export interface RotationAssignmentItem {
   profile: {
     id: string;
     memberId: string;
+    goals?: string | null;
+    medicalConditions?: string | null;
+    injuries?: string | null;
+    notes?: string | null;
     member: {
       id: string;
       name: string;
       phone: string;
       code: string;
+      subscriptions?: Array<{
+        id: string;
+        plan?: {
+          id: string;
+          name: string;
+        };
+      }>;
     };
   };
 }
@@ -147,14 +173,18 @@ export const coachOpsApi = {
 
   // Rotation & Assignments
   getRotationQueue: () => {
-    return http.get<Array<{ id: string; coachId: string; position: number; coach: { id: string; name: string; email: string; isActive: boolean } }>>(
-      "/coach-rotation-queue"
-    );
+    return http.get<CoachQueueItem[]>("/coach-rotation-queue");
   },
 
   getAssignments: (status?: string) => {
     const params = status ? `?status=${status}` : "";
     return http.get<RotationAssignmentItem[]>(`/fitness-assignments${params}`);
+  },
+
+  getAssignmentsSummary: () => {
+    return http.get<{ pending: number; noCoachAvailable: number; rejectedToday: number }>(
+      "/fitness-assignments/summary"
+    );
   },
 
   acceptAssignment: (id: string) => {

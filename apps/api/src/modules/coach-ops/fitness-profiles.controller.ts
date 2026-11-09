@@ -34,6 +34,12 @@ import {
 export class FitnessProfilesController {
   constructor(private readonly fitnessService: FitnessProfilesService) {}
 
+  @Get("fitness-assignments/summary")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION")
+  async getSummary(@CurrentUser() user: any) {
+    return this.fitnessService.getSummary(user.gymId);
+  }
+
   @Get("fitness-assignments")
   @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "COACH")
   async getAssignments(
@@ -103,7 +109,7 @@ export class FitnessProfilesController {
   }
 
   @Get("coach-rotation-queue")
-  @Roles("SUPER_ADMIN", "GYM_ADMIN")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION")
   async getRotationQueue(@CurrentUser() user: any) {
     return this.fitnessService.getRotationQueue(user.gymId);
   }

@@ -25,8 +25,8 @@ import {
 export class FitnessProfilesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getGymSettings(gymId: string) {
-    const gym = await this.prisma.gym.findUnique({
+  private async getGymSettings(gymId: string, client: any = this.prisma) {
+    const gym = await client.gym.findUnique({
       where: { id: gymId },
       select: {
         id: true,
@@ -40,14 +40,21 @@ export class FitnessProfilesService {
     };
   }
 
-  async createIfFirst(gymId: string, memberId: string, subscriptionId?: string) {
-    let profile = await this.prisma.fitnessProfile.findUnique({
+  async createIfFirst(
+    gymId: string,
+    memberId: string,
+    subscriptionId?: string,
+    client: any = this.prisma,
+    meta?: { memberName?: string; planName?: string },
+    overrideNow?: Date
+  ) {
+    let profile = await client.fitnessProfile.findUnique({
       where: { memberId },
     });
 
-    if (profile) return profile;
+    if (profile) return { isNew: false, profile, rotation: null };
 
-    profile = await this.prisma.fitnessProfile.create({
+    profile = await client.fitnessProfile.create({
       data: {
         gymId,
         memberId,
@@ -55,50 +62,65 @@ export class FitnessProfilesService {
       },
     });
 
-    await this.triggerRotation(gymId, profile.id);
-    return profile;
+    const rotation = await this.triggerRotation(gymId, profile.id, overrideNow, client, meta);
+    return { isNew: true, profile, rotation };
   }
 
-  async triggerRotation(gymId: string, profileId: string, overrideNow?: Date) {
+  async triggerRotation(
+    gymId: string,
+    profileId: string,
+    overrideNow?: Date,
+    client: any = this.prisma,
+    meta?: { memberName?: string; planName?: string }
+  ) {
     const now = overrideNow || new Date();
-    const settings = await this.getGymSettings(gymId);
+    const settings = await this.getGymSettings(gymId, client);
+
+    const profile = await client.fitnessProfile.findUnique({
+      where: { id: profileId },
+      include: {
+        member: { select: { id: true, name: true, phone: true } },
+      },
+    });
+    const memberName = meta?.memberName || profile?.member?.name || "عضو جديد";
+    const planName = meta?.planName;
 
     // 1. Fetch active coaches
-    const coaches = await this.prisma.staff.findMany({
+    const coaches = await client.staff.findMany({
       where: { gymId, role: "COACH", isActive: true },
     });
 
     if (coaches.length === 0) {
-      await this.prisma.notification.create({
+      await client.notification.create({
         data: {
           gymId,
           recipientType: "ADMIN_BROADCAST",
           recipientId: gymId,
           type: "NO_COACH_AVAILABLE",
           title: "لا يوجد مدرب متاح",
-          body: "تعذر ترشيح مدرب للمشترك الجديد لعدم وجود مدربين مسجلين",
+          body: `تعذر ترشيح مدرب للعضو ${memberName}: لا يوجد مدربين مسجلين في الجيم`,
           dedupeKey: `no-coach:${profileId}:${now.getTime()}`,
         },
       });
-      return { assigned: false, reason: "NO_COACH_AVAILABLE" };
+      return { profileId, status: "NO_COACH_AVAILABLE" as const, reason: "NO_COACH_ON_SHIFT" };
     }
 
     // 2. Shifts & breaks
     const [allShifts, activeBreaks] = await Promise.all([
-      this.prisma.coachShift.findMany({
+      client.coachShift.findMany({
         where: { gymId, isActive: true },
       }),
-      this.prisma.coachBreak.findMany({
+      client.coachBreak.findMany({
         where: { gymId, status: "ACTIVE" },
       }),
     ]);
 
-    const activeBreakCoachIds = new Set(activeBreaks.map((b) => b.coachId));
+    const activeBreakCoachIds = new Set(activeBreaks.map((b: any) => b.coachId));
 
-    const rotationCoaches: RotationCoach[] = coaches.map((c) => {
+    const rotationCoaches: RotationCoach[] = coaches.map((c: any) => {
       const coachShifts: CoachShiftRow[] = allShifts
-        .filter((s) => s.coachId === c.id)
-        .map((s) => ({
+        .filter((s: any) => s.coachId === c.id)
+        .map((s: any) => ({
           coachId: s.coachId,
           dayOfWeek: s.dayOfWeek,
           startTime: s.startTime,
@@ -118,18 +140,18 @@ export class FitnessProfilesService {
     });
 
     // 3. Rejected coaches for this profile
-    const rejectedAssignments = await this.prisma.fitnessProfileAssignment.findMany({
+    const rejectedAssignments = await client.fitnessProfileAssignment.findMany({
       where: { profileId, status: "REJECTED" },
       select: { coachId: true },
     });
-    const rejectedCoachIds = rejectedAssignments.map((a) => a.coachId);
+    const rejectedCoachIds = rejectedAssignments.map((a: any) => a.coachId);
 
     // 4. Queue
-    const queueEntries = await this.prisma.coachRotationQueue.findMany({
+    const queueEntries = await client.coachRotationQueue.findMany({
       where: { gymId },
       orderBy: { position: "asc" },
     });
-    const queue: QueueEntry[] = queueEntries.map((q) => ({
+    const queue: QueueEntry[] = queueEntries.map((q: any) => ({
       coachId: q.coachId,
       position: q.position,
     }));
@@ -142,24 +164,35 @@ export class FitnessProfilesService {
     });
 
     if (!recommendation.coachId) {
-      await this.prisma.notification.create({
+      const reasonText =
+        recommendation.reason === "NO_COACH_ON_SHIFT"
+          ? "لا يوجد أي مدرب على الوردية حالياً"
+          : "جميع المدربين على الوردية في استراحة أو اعتذروا عن تدريب هذا العضو";
+
+      await client.notification.create({
         data: {
           gymId,
           recipientType: "ADMIN_BROADCAST",
           recipientId: gymId,
           type: "NO_COACH_AVAILABLE",
-          title: "لا يوجد مدرب متاح",
-          body: "تعذر ترشيح مدرب للمشترك الجديد لعدم توفر مدربين مطابقين للشروط حالياً",
+          title: "لا يوجد مدرب متاح للتدريب والمتابعة",
+          body: `تعذر ترشيح مدرب للعضو ${memberName} [${recommendation.reason}]: ${reasonText}`,
           dedupeKey: `no-coach:${profileId}:${now.getTime()}`,
         },
       });
-      return { assigned: false, reason: "NO_COACH_AVAILABLE" };
+
+      return {
+        profileId,
+        status: "NO_COACH_AVAILABLE" as const,
+        reason: recommendation.reason,
+      };
     }
 
     const assignedCoachId = recommendation.coachId;
+    const assignedCoach = coaches.find((c: any) => c.id === assignedCoachId);
 
     // 6. Create Assignment & moveToBack in Queue
-    const assignment = await this.prisma.fitnessProfileAssignment.create({
+    const assignment = await client.fitnessProfileAssignment.create({
       data: {
         gymId,
         profileId,
@@ -171,30 +204,67 @@ export class FitnessProfilesService {
 
     const updatedQueue = moveToBack(queue, assignedCoachId);
     for (const q of updatedQueue) {
-      await this.prisma.coachRotationQueue.upsert({
+      await client.coachRotationQueue.upsert({
         where: { gymId_coachId: { gymId, coachId: q.coachId } },
         create: { gymId, coachId: q.coachId, position: q.position },
         update: { position: q.position },
       });
     }
 
-    await this.prisma.notification.create({
+    const notifBody = planName
+      ? `تم ترشيح العضو الجديد ${memberName} لك (${planName}). يرجى مراجعة الطلب وقبوله أو الاعتذار.`
+      : `تم ترشيح العضو الجديد ${memberName} لك في جدول التدريب والمتابعة.`;
+
+    await client.notification.create({
       data: {
         gymId,
         recipientType: "STAFF",
         recipientId: assignedCoachId,
         type: "NEW_MEMBER_ASSIGNMENT",
         title: "ترشيح عضو جديد",
-        body: "تم ترشيح عضو جديد لك في جدول التدريب والمتابعة",
-        dedupeKey: `fit-assign:${assignment.id}`,
+        body: notifBody,
+        dedupeKey: `assign:${assignment.id}`,
       },
     });
 
     return {
-      assigned: true,
-      coachId: assignedCoachId,
+      profileId,
       assignmentId: assignment.id,
-      usedFallback: recommendation.usedFallback,
+      coachId: assignedCoachId,
+      coachName: assignedCoach?.name || assignedCoachId,
+      status: "PENDING" as const,
+    };
+  }
+
+  async getSummary(gymId: string) {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [pending, noCoachAvailable, rejectedToday] = await Promise.all([
+      this.prisma.fitnessProfileAssignment.count({
+        where: { gymId, status: "PENDING" },
+      }),
+      this.prisma.fitnessProfile.count({
+        where: {
+          gymId,
+          assignments: {
+            none: { status: { in: ["ACCEPTED", "PENDING"] } },
+          },
+        },
+      }),
+      this.prisma.fitnessProfileAssignment.count({
+        where: {
+          gymId,
+          status: "REJECTED",
+          respondedAt: { gte: startOfToday },
+        },
+      }),
+    ]);
+
+    return {
+      pending,
+      noCoachAvailable,
+      rejectedToday,
     };
   }
 
@@ -209,9 +279,26 @@ export class FitnessProfilesService {
       include: {
         coach: { select: { id: true, name: true, email: true } },
         profile: {
-          include: {
+          select: {
+            id: true,
+            memberId: true,
+            goals: true,
+            medicalConditions: true,
+            injuries: true,
+            notes: true,
+            createdAt: true,
             member: {
-              select: { id: true, name: true, phone: true, code: true },
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                code: true,
+                subscriptions: {
+                  take: 1,
+                  orderBy: { createdAt: "desc" },
+                  include: { plan: { select: { id: true, name: true } } },
+                },
+              },
             },
           },
         },
@@ -349,6 +436,14 @@ export class FitnessProfilesService {
     const settings = await this.getGymSettings(gymId);
 
     return this.prisma.$transaction(async (tx) => {
+      // Check if free sessions were already granted for this profile
+      const previousAccepted = await tx.fitnessProfileAssignment.findFirst({
+        where: { profileId, status: "ACCEPTED" },
+      });
+
+      const shouldGrant = !previousAccepted;
+      const freeSessionsToGrant = shouldGrant ? settings.freeSessions : 0;
+
       // Mark all pending assignments as SUPERSEDED
       await tx.fitnessProfileAssignment.updateMany({
         where: { profileId, status: "PENDING" },
@@ -382,7 +477,7 @@ export class FitnessProfilesService {
           where: { id: existingTrainee.id },
           data: {
             isActive: true,
-            freeSessionsGranted: { increment: settings.freeSessions },
+            ...(freeSessionsToGrant > 0 ? { freeSessionsGranted: { increment: freeSessionsToGrant } } : {}),
           },
         });
       } else {
@@ -392,7 +487,7 @@ export class FitnessProfilesService {
             coachId: dto.coachId,
             memberId: profile.memberId,
             isActive: true,
-            freeSessionsGranted: settings.freeSessions,
+            freeSessionsGranted: freeSessionsToGrant,
             freeSessionsUsed: 0,
           },
         });
@@ -473,12 +568,46 @@ export class FitnessProfilesService {
   }
 
   async getRotationQueue(gymId: string) {
-    return this.prisma.coachRotationQueue.findMany({
-      where: { gymId },
-      orderBy: { position: "asc" },
-      include: {
-        coach: { select: { id: true, name: true, email: true, role: true, isActive: true } },
-      },
+    const settings = await this.getGymSettings(gymId);
+    const now = new Date();
+
+    const [queue, allShifts, activeBreaks] = await Promise.all([
+      this.prisma.coachRotationQueue.findMany({
+        where: { gymId },
+        orderBy: { position: "asc" },
+        include: {
+          coach: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+        },
+      }),
+      this.prisma.coachShift.findMany({
+        where: { gymId, isActive: true },
+      }),
+      this.prisma.coachBreak.findMany({
+        where: { gymId, status: "ACTIVE" },
+      }),
+    ]);
+
+    const activeBreakCoachIds = new Set(activeBreaks.map((b) => b.coachId));
+
+    return queue.map((item: any) => {
+      const coachShifts: CoachShiftRow[] = allShifts
+        .filter((s: any) => s.coachId === item.coachId)
+        .map((s: any) => ({
+          coachId: s.coachId,
+          dayOfWeek: s.dayOfWeek,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          isActive: s.isActive,
+        }));
+
+      const onShift = isOnShift(coachShifts, now, settings.timezone);
+      const onBreak = activeBreakCoachIds.has(item.coachId);
+
+      return {
+        ...item,
+        onShift,
+        onBreak,
+      };
     });
   }
 

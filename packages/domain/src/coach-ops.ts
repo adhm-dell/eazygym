@@ -99,27 +99,22 @@ export interface QueueEntry {
   position: number; // lower = next
 }
 
-/**
- * Eligible = active, not on break, has not already rejected THIS profile.
- * First choice: eligible coaches on shift now. Fallback (nobody on shift): all eligible coaches.
- * Among candidates: a coach missing from the queue goes first (new coach), else the lowest position.
- */
+export type RotationReason = "OK" | "NO_COACH_ON_SHIFT" | "NO_ELIGIBLE_COACH";
+
 export function recommendCoach(input: {
   coaches: RotationCoach[];
   queue: QueueEntry[];
   rejectedCoachIds: string[];
-}): { coachId: string | null; usedFallback: boolean } {
-  const eligible = input.coaches.filter((c) => c.isActive && !c.onBreak && !input.rejectedCoachIds.includes(c.id));
-  const onShift = eligible.filter((c) => c.onShift);
-  const usedFallback = onShift.length === 0;
-  const pool = usedFallback ? eligible : onShift;
-  if (pool.length === 0) return { coachId: null, usedFallback };
-
+}): { coachId: string | null; reason: RotationReason } {
+  const onShift = input.coaches.filter((c) => c.isActive && c.onShift);
+  if (onShift.length === 0) return { coachId: null, reason: "NO_COACH_ON_SHIFT" };
+  const eligible = onShift.filter((c) => !c.onBreak && !input.rejectedCoachIds.includes(c.id));
+  if (eligible.length === 0) return { coachId: null, reason: "NO_ELIGIBLE_COACH" };
   const pos = new Map(input.queue.map((q) => [q.coachId, q.position]));
-  const missing = pool.find((c) => !pos.has(c.id));
-  if (missing) return { coachId: missing.id, usedFallback };
-  const next = [...pool].sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0))[0]!;
-  return { coachId: next.id, usedFallback };
+  const missing = eligible.find((c) => !pos.has(c.id));
+  if (missing) return { coachId: missing.id, reason: "OK" };
+  const next = [...eligible].sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0))[0]!;
+  return { coachId: next.id, reason: "OK" };
 }
 
 /** After a coach is recommended, accepts or rejects, he goes to the back of the line. */

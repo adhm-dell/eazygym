@@ -984,6 +984,13 @@ export interface InvoiceDetail extends Invoice {
   activationShortfall?: Minor;
   createdByName?: string;
   pendingApproval?: boolean;
+  rotation?: {
+    profileId: string;
+    assignmentId?: string;
+    coachId?: string;
+    coachName?: string;
+    status: "PENDING" | "NO_COACH_AVAILABLE";
+  };
 }
 
 export interface Shift {

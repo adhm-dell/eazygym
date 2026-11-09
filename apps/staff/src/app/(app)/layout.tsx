@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -29,6 +29,7 @@ import { ShiftProvider, useShift } from "../../lib/shift-context";
 import { clearStoredAuth } from "../../lib/api";
 import { OpenShiftDialog } from "../../features/shift/components/open-shift-dialog";
 import { NotificationHeaderBell } from "../../features/notifications/components/notification-header-bell";
+import { coachOpsApi } from "../../features/coach-ops/api";
 
 interface NavItem {
   href: string;
@@ -133,6 +134,27 @@ function SidebarUserFooter() {
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { currentUser, isLoading, switchUser } = useShift();
+  const [coachBadgeCount, setCoachBadgeCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchBadge = async () => {
+      try {
+        const summary = await coachOpsApi.getAssignmentsSummary();
+        if (mounted && summary) {
+          setCoachBadgeCount((summary.pending || 0) + (summary.noCoachAvailable || 0));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchBadge();
+    const interval = setInterval(fetchBadge, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const userRole = currentUser?.role || "GYM_ADMIN";
 
@@ -179,6 +201,11 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
               >
                 <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[#C6F24E]" : "text-[#C9CFD6]")} />
                 <span>{item.label}</span>
+                {item.href === "/coach-ops" && coachBadgeCount > 0 && (
+                  <span className="ms-auto bg-[#C6F24E] text-[#14181F] text-[11px] font-black px-1.5 py-0.5 rounded-full">
+                    {coachBadgeCount}
+                  </span>
+                )}
               </Link>
             );
           })}
