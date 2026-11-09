@@ -351,4 +351,27 @@ describe("B03 Invoices, Payments, Wallet & B04 Subscriptions Acceptance Tests", 
     expect(sameCoachRes.status).toBe(422);
     expect(sameCoachRes.body.code).toBe("INVALID_COACH");
   });
+
+  it("7. Acceptance: Renew subscription chains start date after existing end date", async () => {
+    const subsRes = await request(server)
+      .get(`/api/v1/subscriptions?memberId=${memberId}&kind=GYM`)
+      .set("Authorization", `Bearer ${receptionToken}`);
+
+    const existingSub = subsRes.body[0];
+    expect(existingSub).toBeDefined();
+
+    const renewRes = await request(server)
+      .post(`/api/v1/subscriptions/${existingSub.id}/renew`)
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({});
+
+    expect(renewRes.status).toBe(201);
+    expect(renewRes.body.message).toBe("Subscription renewed successfully");
+    expect(renewRes.body.subscription).toBeDefined();
+
+    const newSub = renewRes.body.subscription;
+    const existingEnd = new Date(existingSub.endDate).getTime();
+    const newStart = new Date(newSub.startDate).getTime();
+    expect(Math.abs(newStart - existingEnd)).toBeLessThanOrEqual(1000);
+  });
 });

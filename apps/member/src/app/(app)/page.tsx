@@ -27,7 +27,19 @@ import {
   Sparkles,
   CalendarDays,
   RotateCcw,
+  Bell,
+  Receipt,
+  CreditCard,
 } from "lucide-react";
+
+const FREEZE_DENIAL_MESSAGES: Record<string, string> = {
+  FREEZE_NOT_ALLOWED: "التجميد غير متاح لهذه الباقة وفقاً للائحة الاشتراك",
+  COUNT_EXHAUSTED: "استنفذت الحد الأقصى لعدد مرات التجميد المسموح بها في باقتك",
+  DAYS_EXHAUSTED: "استنفذت إجمالي عدد أيام التجميد المتاحة في خطتك",
+  PAYMENT_OVERDUE: "لا يمكن التجميد لوجود أقساط متأخرة مستحقة، يرجى السداد في الاستقبال أولاً",
+  INSUFFICIENT_DAYS_REMAINING: "أيام التجميد المطلوبة تتجاوز الأيام المتبقية في اشتراكك",
+  ALREADY_FROZEN: "الاشتراك مجمد بالفعل حالياً",
+};
 
 export default function MemberPortalPage() {
   const router = useRouter();
@@ -38,6 +50,11 @@ export default function MemberPortalPage() {
   // State
   const [member, setMember] = useState<any>(null);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadNotifsCount, setUnreadNotifsCount] = useState<number>(0);
+  const [showNotificationsMenu, setShowNotificationsMenu] = useState<boolean>(false);
+  const [expandedPaymentSubId, setExpandedPaymentSubId] = useState<string | null>(null);
   const [wallet, setWallet] = useState<{ balance: number; transactions: any[] }>({ balance: 0, transactions: [] });
   const [todayClasses, setTodayClasses] = useState<any[]>([]);
   const [classSchedules, setClassSchedules] = useState<any[]>([]);
@@ -87,6 +104,15 @@ export default function MemberPortalPage() {
       // 2. Fetch Subscriptions
       const subs = await memberApi.getSubscriptions().catch(() => []);
       setSubscriptions(subs);
+
+      // Invoices for payment history
+      const invs = await memberApi.getInvoices().catch(() => []);
+      setInvoices(invs);
+
+      // Notifications
+      const notifsRes = await memberApi.getNotifications().catch(() => ({ items: [], unreadCount: 0 }));
+      setNotifications(notifsRes?.items || []);
+      setUnreadNotifsCount(notifsRes?.unreadCount || 0);
 
       // 3. Fetch Wallet
       const wal = await memberApi.getWallet(m.id).catch(() => ({ balance: m.walletBalance || 0, transactions: [] }));
@@ -160,7 +186,9 @@ export default function MemberPortalPage() {
       setActionMessage({ text: `تم تجميد اشتراكك بنجاح لمدة ${freezeDays} أيام` });
       await loadMemberData();
     } catch (e: any) {
-      setActionMessage({ text: e.message || "تعذر تجميد الاشتراك", isError: true });
+      const denialCode = e.code || e.message;
+      const text = FREEZE_DENIAL_MESSAGES[denialCode] || e.message || "تعذر تجميد الاشتراك";
+      setActionMessage({ text, isError: true });
     } finally {
       setFreezeLoading(false);
     }
@@ -174,7 +202,8 @@ export default function MemberPortalPage() {
       setActionMessage({ text: "تم فك تجميد الاشتراك وإعادة تفعيله بنجاح!" });
       await loadMemberData();
     } catch (e: any) {
-      setActionMessage({ text: e.message || "تعذر فك التجميد", isError: true });
+      const text = e.code === "NOT_FROZEN" ? "الاشتراك غير مجمد حالياً" : e.message || "تعذر فك التجميد";
+      setActionMessage({ text, isError: true });
     } finally {
       setFreezeLoading(false);
     }
@@ -239,6 +268,21 @@ export default function MemberPortalPage() {
               </span>
             )}
 
+            {/* Notifications Bell */}
+            <button
+              type="button"
+              onClick={() => setShowNotificationsMenu(!showNotificationsMenu)}
+              className="relative p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              title="الإشعارات والتنبيهات"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadNotifsCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#C6F24E] text-[#14181F] text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                  {unreadNotifsCount}
+                </span>
+              )}
+            </button>
+
             {/* Quick Switch Dropdown */}
             <button
               type="button"
@@ -263,6 +307,52 @@ export default function MemberPortalPage() {
             </button>
           </div>
         </div>
+
+        {/* Notifications Panel Overlay */}
+        {showNotificationsMenu && (
+          <div className="absolute top-[64px] left-3 right-3 bg-white text-[#14181F] border border-[#E1E5DF] rounded-2xl shadow-2xl p-3 z-40 space-y-2 animate-in fade-in slide-in-from-top-2 max-h-[340px] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#E1E5DF] pb-2">
+              <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                <Bell className="h-4 w-4 text-[#C6F24E] fill-[#14181F]" />
+                <span>إشعارات العضوية ({notifications.length})</span>
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  await memberApi.markAllNotificationsRead().catch(() => {});
+                  setUnreadNotifsCount(0);
+                  setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                }}
+                className="text-[10px] text-emerald-700 hover:underline font-bold"
+              >
+                تحديد الكل كمقروء
+              </button>
+            </div>
+
+            <div className="space-y-1.5 overflow-y-auto flex-1">
+              {notifications.length === 0 ? (
+                <p className="text-center py-6 text-xs text-[#5B6470]">لا توجد إشعارات جديدة حالياً.</p>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`p-2.5 rounded-xl border text-xs transition-all ${
+                      n.isRead ? "bg-[#F9FAF8] border-[#E1E5DF] opacity-75" : "bg-emerald-50/60 border-emerald-200 font-medium"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <b className="text-[11px] text-[#14181F]">{n.title}</b>
+                      <span className="text-[9px] text-[#5B6470]">
+                        {new Date(n.createdAt).toLocaleDateString("ar-EG")}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-[#5B6470]">{n.body}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Dropdown Menu for Quick Switch between Seeded Members */}
         {showSwitchMenu && (
@@ -570,6 +660,80 @@ export default function MemberPortalPage() {
                       <b className="text-[#B3261E]">متبقي: {formatMoney(s.remaining)}</b>
                     ) : (
                       <b className="text-emerald-700">مدفوع بالكامل ✓</b>
+                    )}
+                  </div>
+
+                  {/* Payment History Toggle per Subscription */}
+                  <div className="pt-2 border-t border-[#E1E5DF]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedPaymentSubId(expandedPaymentSubId === s.id ? null : s.id)
+                      }
+                      className="text-xs text-[#5B6470] hover:text-[#14181F] font-bold flex items-center justify-between w-full py-1 cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Receipt className="h-3.5 w-3.5 text-[#14181F]" />
+                        <span>سجل المدفوعات والأقساط</span>
+                      </span>
+                      {expandedPaymentSubId === s.id ? (
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+
+                    {expandedPaymentSubId === s.id && (
+                      <div className="mt-2 space-y-2 bg-[#F9FAF8] p-2.5 rounded-xl border border-[#E1E5DF] text-xs">
+                        {(() => {
+                          const linkedInvoices = invoices.filter(
+                            (inv) =>
+                              inv.items?.some((it: any) => it.planId === s.planId) ||
+                              inv.subscriptionId === s.id
+                          );
+                          const allPayments = linkedInvoices.flatMap((inv) =>
+                            (inv.payments || []).map((p: any) => ({
+                              ...p,
+                              invoiceNumber: inv.number,
+                            }))
+                          );
+
+                          if (allPayments.length === 0) {
+                            return (
+                              <p className="text-[11px] text-[#5B6470] text-center py-2">
+                                إجمالي المسدد: {formatMoney(s.price - s.remaining)} (لا توجد إيصالات سداد مسجلة حديثاً)
+                              </p>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between text-[11px] text-[#5B6470] pb-1 border-b border-[#E1E5DF]">
+                                <span>المدفوع: <b className="text-emerald-700">{formatMoney(s.price - s.remaining)}</b></span>
+                                <span>المتبقي: <b className={s.remaining > 0 ? "text-red-600" : "text-emerald-700"}>{formatMoney(s.remaining)}</b></span>
+                              </div>
+                              {allPayments.map((p: any) => (
+                                <div
+                                  key={p.id}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-white border border-[#E1E5DF] text-[11px]"
+                                >
+                                  <div>
+                                    <span className="font-bold text-[#14181F] block">
+                                      {formatMoney(p.amount)}
+                                    </span>
+                                    <span className="text-[10px] text-[#5B6470]">
+                                      {p.method === "CASH" ? "نقداً (Cash)" : p.method === "CARD" ? "بطاقة بنكية" : "إنستاباي (InstaPay)"} · فاتورة #{p.invoiceNumber}
+                                    </span>
+                                  </div>
+                                  <span className="font-mono text-[10px] text-[#5B6470]">
+                                    {new Date(p.createdAt).toLocaleDateString("ar-EG")}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     )}
                   </div>
 

@@ -149,4 +149,21 @@ export class SubscriptionsController {
       dto
     );
   }
+
+  @Post(":id/renew")
+  @Roles("GYM_ADMIN", "RECEPTION", "SUPER_ADMIN")
+  @ApiOperation({ summary: "Renew subscription (chains immediately after current period)" })
+  async renewSubscription(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: any
+  ) {
+    return this.subscriptionsService.renew(
+      req.gymId,
+      req.user?.id || req.user?.sub,
+      req.user?.role,
+      id,
+      dto || {}
+    );
+  }
 }

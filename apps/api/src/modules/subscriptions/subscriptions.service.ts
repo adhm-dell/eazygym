@@ -3,10 +3,13 @@ import {
   NotFoundException,
   BadRequestException,
   UnprocessableEntityException,
+  forwardRef,
+  Inject,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { CommissionsService } from "../commissions/commissions.service";
+import { InvoicesService } from "../invoices/invoices.service";
 import {
   activationDecision,
   isOverdue,
@@ -29,7 +32,9 @@ export class SubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
-    private readonly commissionsService: CommissionsService
+    private readonly commissionsService: CommissionsService,
+    @Inject(forwardRef(() => InvoicesService))
+    private readonly invoicesService: InvoicesService
   ) {}
 
   /**
@@ -954,5 +959,104 @@ export class SubscriptionsService {
         classSlots,
       };
     });
+  }
+
+  async renew(
+    gymId: string,
+    actorId: string,
+    actorRole: string,
+    subscriptionId: string,
+    dto: {
+      planId?: string;
+      coachId?: string;
+      payments?: { method: "CASH" | "CARD" | "INSTAPAY" | "WALLET"; amount: number; reference?: string | null }[];
+      notes?: string;
+    }
+  ) {
+    const existing = await this.prisma.subscription.findFirst({
+      where: { id: subscriptionId, gymId },
+      include: {
+        plan: true,
+        member: true,
+        assignments: { where: { toDate: null } },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "NOT_FOUND",
+        message: "Subscription not found",
+      });
+    }
+
+    if (existing.status === "CANCELLED") {
+      throw new UnprocessableEntityException({
+        statusCode: 422,
+        code: "SUBSCRIPTION_CANCELLED",
+        message: "Cannot renew a cancelled subscription",
+      });
+    }
+
+    const targetPlanId = dto.planId || existing.planId;
+    const plan = await this.prisma.plan.findFirst({
+      where: { id: targetPlanId, gymId, isActive: true },
+    });
+
+    if (!plan) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "PLAN_NOT_FOUND",
+        message: "Plan not found or inactive",
+      });
+    }
+
+    // Chaining rule: If existing.endDate > now, chain immediately from that date, otherwise start now
+    const now = new Date();
+    const startDate = existing.endDate > now ? existing.endDate.toISOString() : now.toISOString();
+
+    const planPrice = decimalToPiasters(plan.price);
+    const payments = dto.payments?.length
+      ? dto.payments
+      : [{ method: "CASH" as const, amount: planPrice }];
+
+    const invoice = await this.invoicesService.create(
+      gymId,
+      actorId,
+      actorRole,
+      {
+        memberId: existing.memberId,
+        items: [
+          {
+            kind: "SUBSCRIPTION",
+            planId: plan.id,
+            quantity: 1,
+            subscription: {
+              startDate,
+              coachId: dto.coachId || existing.assignments[0]?.coachId || undefined,
+            },
+          },
+        ],
+        payments,
+        useWallet: false,
+        note: dto.notes || `تجديد اشتراك #${existing.id.slice(0, 8)}`,
+      }
+    );
+
+    const renewedSub = await this.prisma.subscription.findFirst({
+      where: {
+        gymId,
+        memberId: existing.memberId,
+        planId: plan.id,
+      },
+      orderBy: { createdAt: "desc" },
+      include: { plan: true },
+    });
+
+    return {
+      message: "Subscription renewed successfully",
+      invoice,
+      subscription: renewedSub,
+    };
   }
 }

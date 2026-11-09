@@ -7,10 +7,12 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:e2e": "playwright test",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
     "eslint": "^8.57.1",

@@ -1,7 +1,5 @@
-const MEMBER_TOKEN_KEY = "eazygym_member_token";
 const MEMBER_DATA_KEY = "eazygym_member_data";
 const MEMBER_OFFLINE_QR_KEY = "eazygym_member_offline_qr";
-const COOKIE_NAME = "gym_member_token";
 
 export interface StoredOfflineMember {
   id: string;
@@ -16,39 +14,33 @@ export interface StoredOfflineMember {
   lastUpdated: string;
 }
 
-export function getStoredToken(): string | null {
-  if (typeof window !== "undefined") {
-    const local = localStorage.getItem(MEMBER_TOKEN_KEY);
-    if (local) return local;
+// In-memory short-lived access token as per B00_BACKEND_RULES.md
+let memoryAccessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
-    // Fallback to cookie
-    const match = document.cookie.match(
-      new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`),
-    );
-    if (match && match[3]) {
-      return decodeURIComponent(match[3]);
-    }
-  }
-  return null;
+export function getStoredToken(): string | null {
+  return memoryAccessToken;
 }
 
 export function setStoredToken(token: string, member?: any) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(MEMBER_TOKEN_KEY, token);
-    if (member) {
+  memoryAccessToken = token;
+  if (typeof window !== "undefined" && member) {
+    try {
       localStorage.setItem(MEMBER_DATA_KEY, JSON.stringify(member));
+    } catch {
+      // ignore
     }
-    // Set cookie for Next.js middleware guard (7 days)
-    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
   }
 }
 
 export function clearStoredAuth() {
+  memoryAccessToken = null;
   if (typeof window !== "undefined") {
-    localStorage.removeItem(MEMBER_TOKEN_KEY);
     localStorage.removeItem(MEMBER_DATA_KEY);
-    // Clear cookie
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    fetch("/api/v1/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
   }
 }
 
@@ -68,7 +60,11 @@ export function getOfflineMember(): StoredOfflineMember | null {
 
 export function saveOfflineMember(data: StoredOfflineMember) {
   if (typeof window !== "undefined") {
-    localStorage.setItem(MEMBER_OFFLINE_QR_KEY, JSON.stringify(data));
+    try {
+      localStorage.setItem(MEMBER_OFFLINE_QR_KEY, JSON.stringify(data));
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -76,6 +72,7 @@ export async function loginMember(phone: string, password: string = "123456") {
   const res = await fetch("/api/v1/auth/member/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ phone, password }),
   });
 
@@ -94,6 +91,7 @@ export async function switchMember(memberPhone: string) {
   const res = await fetch("/api/v1/auth/switch", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ memberPhone }),
   });
 
@@ -108,11 +106,51 @@ export async function switchMember(memberPhone: string) {
   return data;
 }
 
-async function ensureToken(): Promise<string> {
-  const existing = getStoredToken();
-  if (existing) return existing;
+/**
+ * Silently refresh short-lived access token using httpOnly refresh cookie.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-  // No auto-login! Require real authentication.
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch("/api/v1/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        memoryAccessToken = null;
+        return null;
+      }
+
+      const json = await res.json();
+      const token = json.accessToken || json.data?.accessToken;
+      if (token) {
+        memoryAccessToken = token;
+        return token;
+      }
+      return null;
+    } catch {
+      memoryAccessToken = null;
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function ensureToken(): Promise<string> {
+  if (memoryAccessToken) return memoryAccessToken;
+
+  const refreshed = await refreshAccessToken();
+  if (refreshed) return refreshed;
+
   if (
     typeof window !== "undefined" &&
     !window.location.pathname.startsWith("/login")
@@ -125,6 +163,7 @@ async function ensureToken(): Promise<string> {
 export async function memberRequest<T = any>(
   path: string,
   options: RequestInit = {},
+  isRetry = false
 ): Promise<T> {
   const token = await ensureToken();
 
@@ -139,9 +178,19 @@ export async function memberRequest<T = any>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, { ...options, headers });
+  const res = await fetch(url, {
+    ...options,
+    credentials: "include",
+    headers,
+  });
 
-  if (res.status === 401) {
+  // Handle automatic refresh on 401
+  if (res.status === 401 && !isRetry) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      return memberRequest<T>(path, options, true);
+    }
+
     clearStoredAuth();
     if (
       typeof window !== "undefined" &&
@@ -154,7 +203,11 @@ export async function memberRequest<T = any>(
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || `Request failed: ${res.status}`);
+    const error: any = new Error(err.message || `Request failed: ${res.status}`);
+    error.statusCode = res.status;
+    error.code = err.code || err.message;
+    error.response = err;
+    throw error;
   }
 
   const json = await res.json();
@@ -164,6 +217,10 @@ export async function memberRequest<T = any>(
 export const memberApi = {
   getMe: () => memberRequest<any>("/auth/me"),
   getSubscriptions: () => memberRequest<any[]>("/subscriptions"),
+  getInvoices: () => memberRequest<any[]>("/invoices"),
+  getNotifications: () => memberRequest<{ items: any[]; unreadCount: number }>("/notifications"),
+  markNotificationRead: (id: string) => memberRequest(`/notifications/${id}/read`, { method: "POST" }),
+  markAllNotificationsRead: () => memberRequest("/notifications/read-all", { method: "POST" }),
   getWallet: (memberId: string) =>
     memberRequest<{ balance: number; transactions: any[] }>(
       `/members/${memberId}/wallet`,

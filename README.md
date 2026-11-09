@@ -1,19 +1,20 @@
 # EazyGym - Gym Management System
 
-NestJS + Prisma + PostgreSQL. This drop contains the data model and the
-business rules as **pure, tested functions** (no DB, no framework).
+NestJS + Prisma + PostgreSQL inside a Turborepo monorepo with Next.js applications (`@gym/staff`, `@gym/coach`, `@gym/member`).
+Contains the data model and all business rules as **pure, tested functions** in `@gym/domain` (no DB, no framework).
 
 ```
-prisma/schema.prisma        full data model
-src/domain/                 pure business rules (70 tests)
-  access.ts                 evaluateAccess: the ONE door decision
-  payments.ts               min upfront %, overdue suspension, wallet, overpayment
-  freeze.ts                 per-subscription freeze limits + settlement
-  commission.ts             milestones, waterfall allocation, tiers, transfer by days
-  class-session.ts          reception 'start class' rules
-  promotions.ts             promo codes, limits, per-item discount split
-  shift.ts                  expected cash, variance, close permissions
-  notifications.ts          expiry reminder thresholds + dedupe keys
+packages/db/prisma/schema.prisma full data model
+packages/domain/src/             pure business rules (88 tests)
+  access.ts                      evaluateAccess: the ONE door decision
+  payments.ts                    min upfront %, overdue suspension, wallet, overpayment
+  freeze.ts                      per-subscription freeze limits + settlement
+  commission.ts                  milestones, waterfall allocation, tiers, transfer by days
+  class-session.ts               reception 'start class' rules
+  coach-ops.ts                   shifts, breaks, rotation queue, attendance, assessments
+  promotions.ts                  promo codes, limits, per-item discount split
+  shift.ts                       expected cash, variance, close permissions
+  notifications.ts               expiry reminder thresholds + dedupe keys
 ```
 
 ## Business rules (as decided)

@@ -1,42 +1,46 @@
-const TOKEN_KEY = "gym_access_token";
 const USER_KEY = "gym_active_user";
-const COOKIE_NAME = "gym_staff_token";
 
-let cachedToken: string | null = null;
+// In-memory short-lived access token as per B00_BACKEND_RULES.md
+let memoryAccessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
 export function getStoredToken(): string | null {
-  if (typeof window !== "undefined") {
-    const local = localStorage.getItem(TOKEN_KEY);
-    if (local) return local;
-
-    // Check cookie fallback
-    const match = document.cookie.match(new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`));
-    if (match && match[3]) {
-      return decodeURIComponent(match[3]);
-    }
-  }
-  return cachedToken;
+  return memoryAccessToken;
 }
 
 export function setStoredToken(token: string, user?: any) {
-  cachedToken = token;
-  if (typeof window !== "undefined") {
-    localStorage.setItem(TOKEN_KEY, token);
-    if (user) {
+  memoryAccessToken = token;
+  if (typeof window !== "undefined" && user) {
+    try {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } catch {
+      // ignore
     }
-    // Set cookie for Next.js middleware guard (7 days)
-    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
   }
 }
 
-export function clearStoredAuth() {
-  cachedToken = null;
+export function getStoredUser(): any | null {
   if (typeof window !== "undefined") {
-    localStorage.removeItem(TOKEN_KEY);
+    const raw = localStorage.getItem(USER_KEY);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+export function clearStoredAuth() {
+  memoryAccessToken = null;
+  if (typeof window !== "undefined") {
     localStorage.removeItem(USER_KEY);
-    // Clear cookie
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    fetch("/api/v1/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
   }
 }
 
@@ -44,6 +48,7 @@ export async function loginUser(email: string, password: string = "123456") {
   const res = await fetch("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
 
@@ -61,11 +66,54 @@ export async function loginUser(email: string, password: string = "123456") {
   return data;
 }
 
-async function ensureToken(): Promise<string> {
-  const existing = getStoredToken();
-  if (existing) return existing;
+/**
+ * Silently refresh the short-lived access token using httpOnly refresh cookie.
+ * Deduplicates concurrent refresh requests using refreshPromise.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-  // No auto-login! Require real authentication.
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch("/api/v1/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        memoryAccessToken = null;
+        return null;
+      }
+
+      const json = await res.json();
+      const token = json.accessToken || json.data?.accessToken;
+      if (token) {
+        memoryAccessToken = token;
+        return token;
+      }
+      return null;
+    } catch {
+      memoryAccessToken = null;
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function ensureToken(): Promise<string> {
+  if (memoryAccessToken) return memoryAccessToken;
+
+  // Attempt silent refresh via httpOnly refresh cookie
+  const refreshed = await refreshAccessToken();
+  if (refreshed) return refreshed;
+
+  // No active session -> redirect to /login
   if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
     window.location.href = "/login";
   }
@@ -91,11 +139,17 @@ async function makeRequest<T>(
   const res = await fetch(`/api/v1${url}`, {
     method,
     headers,
+    credentials: "include",
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  // Handle automatic refresh on 401
   if (res.status === 401 && !isRetry) {
-    // Token may have expired, clear auth and redirect to login
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      return makeRequest<T>(url, method, body, true, extraHeaders);
+    }
+
     clearStoredAuth();
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
@@ -148,6 +202,7 @@ export async function apiFetch(url: string, init?: RequestInit): Promise<Respons
   const endpoint = url.startsWith("/api/v1") ? url : `/api/v1${url.startsWith("/") ? url : `/${url}`}`;
   return fetch(endpoint, {
     ...init,
+    credentials: "include",
     headers,
   });
 }

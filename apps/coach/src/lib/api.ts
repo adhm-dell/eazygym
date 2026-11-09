@@ -1,21 +1,11 @@
-const TOKEN_KEY = "coach_access_token";
 const USER_KEY = "coach_active_user";
-const COOKIE_NAME = "gym_coach_token";
 
-let cachedToken: string | null = null;
+// In-memory short-lived access token as per B00_BACKEND_RULES.md
+let memoryAccessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
 export function getStoredToken(): string | null {
-  if (typeof window !== "undefined") {
-    const local = localStorage.getItem(TOKEN_KEY);
-    if (local) return local;
-
-    // Check cookie fallback
-    const match = document.cookie.match(new RegExp(`(^|;\\s*)(${COOKIE_NAME})=([^;]*)`));
-    if (match && match[3]) {
-      return decodeURIComponent(match[3]);
-    }
-  }
-  return cachedToken;
+  return memoryAccessToken;
 }
 
 export function getStoredUser(): any | null {
@@ -33,24 +23,24 @@ export function getStoredUser(): any | null {
 }
 
 export function setStoredToken(token: string, user?: any) {
-  cachedToken = token;
-  if (typeof window !== "undefined") {
-    localStorage.setItem(TOKEN_KEY, token);
-    if (user) {
+  memoryAccessToken = token;
+  if (typeof window !== "undefined" && user) {
+    try {
       localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } catch {
+      // ignore
     }
-    // Set cookie for Next.js middleware guard (7 days)
-    document.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
   }
 }
 
 export function clearStoredAuth() {
-  cachedToken = null;
+  memoryAccessToken = null;
   if (typeof window !== "undefined") {
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    // Clear cookie
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+    fetch("/api/v1/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {});
   }
 }
 
@@ -58,6 +48,7 @@ export async function loginCoach(email: string = "coach.ahmed@powercore.gym", pa
   const res = await fetch("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
 
@@ -75,11 +66,51 @@ export async function loginCoach(email: string = "coach.ahmed@powercore.gym", pa
   return data;
 }
 
-async function ensureToken(): Promise<string> {
-  const existing = getStoredToken();
-  if (existing) return existing;
+/**
+ * Silently refresh the short-lived access token using httpOnly refresh cookie.
+ */
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
 
-  // No auto-login! Require real authentication.
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch("/api/v1/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        memoryAccessToken = null;
+        return null;
+      }
+
+      const json = await res.json();
+      const token = json.accessToken || json.data?.accessToken;
+      if (token) {
+        memoryAccessToken = token;
+        return token;
+      }
+      return null;
+    } catch {
+      memoryAccessToken = null;
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function ensureToken(): Promise<string> {
+  if (memoryAccessToken) return memoryAccessToken;
+
+  const refreshed = await refreshAccessToken();
+  if (refreshed) return refreshed;
+
   if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
     window.location.href = "/login";
   }
@@ -90,11 +121,13 @@ async function makeRequest<T>(
   url: string,
   method: string,
   body?: any,
-  isRetry = false
+  isRetry = false,
+  extraHeaders?: Record<string, string>
 ): Promise<T> {
   const token = await ensureToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...extraHeaders,
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -103,10 +136,17 @@ async function makeRequest<T>(
   const res = await fetch(`/api/v1${url}`, {
     method,
     headers,
+    credentials: "include",
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  // Handle automatic refresh on 401
   if (res.status === 401 && !isRetry) {
+    const refreshedToken = await refreshAccessToken();
+    if (refreshedToken) {
+      return makeRequest<T>(url, method, body, true, extraHeaders);
+    }
+
     clearStoredAuth();
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
       window.location.href = "/login";
@@ -131,11 +171,16 @@ async function makeRequest<T>(
 }
 
 export const http = {
-  get: <T>(url: string) => makeRequest<T>(url, "GET"),
-  post: <T>(url: string, body?: any) => makeRequest<T>(url, "POST", body),
-  patch: <T>(url: string, body?: any) => makeRequest<T>(url, "PATCH", body),
-  put: <T>(url: string, body?: any) => makeRequest<T>(url, "PUT", body),
-  delete: <T>(url: string) => makeRequest<T>(url, "DELETE"),
+  get: <T>(url: string, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "GET", undefined, false, extraHeaders),
+  post: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "POST", body, false, extraHeaders),
+  patch: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "PATCH", body, false, extraHeaders),
+  put: <T>(url: string, body?: any, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "PUT", body, false, extraHeaders),
+  delete: <T>(url: string, extraHeaders?: Record<string, string>) =>
+    makeRequest<T>(url, "DELETE", undefined, false, extraHeaders),
 };
 
 export const apiClient = http;
