@@ -5,10 +5,13 @@ import request from "supertest";
 import cookieParser from "cookie-parser";
 import { AppModule } from "../src/app.module";
 import { AllExceptionsFilter } from "../src/common/filters/http-exception.filter";
+import { PrismaService } from "../src/prisma/prisma.service";
+import { evaluatePromotion } from "@gym/domain";
 
 describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests", () => {
   let app: INestApplication;
   let server: any;
+  let prisma: PrismaService;
   let adminToken = "";
   let receptionToken = "";
   let createdPlanId = "";
@@ -28,6 +31,7 @@ describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests",
     app.useGlobalFilters(new AllExceptionsFilter());
     await app.init();
     server = app.getHttpServer();
+    prisma = app.get(PrismaService);
 
     // Login Admin
     const adminLogin = await request(server)
@@ -137,6 +141,35 @@ describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests",
 
     expect(getRes.status).toBe(200);
     expect(getRes.body.isActive).toBe(false);
+
+    // Verify archived plan does not appear in active plans (POS sell tab query)
+    const activePlansRes = await request(server)
+      .get("/api/v1/plans?active=true")
+      .set("Authorization", `Bearer ${receptionToken}`);
+    expect(activePlansRes.status).toBe(200);
+    expect(activePlansRes.body.some((p: any) => p.id === createdPlanId)).toBe(false);
+  });
+
+  it("5b. Plans: Admin can restore an archived plan and it reappears in active plans", async () => {
+    const restoreRes = await request(server)
+      .post(`/api/v1/plans/${createdPlanId}/restore`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(restoreRes.status).toBe(201);
+
+    const getRes = await request(server)
+      .get(`/api/v1/plans/${createdPlanId}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.isActive).toBe(true);
+
+    // Verify restored plan reappears in active plans
+    const activePlansRes = await request(server)
+      .get("/api/v1/plans?active=true")
+      .set("Authorization", `Bearer ${receptionToken}`);
+    expect(activePlansRes.status).toBe(200);
+    expect(activePlansRes.body.some((p: any) => p.id === createdPlanId)).toBe(true);
   });
 
   it("6. Services: Create and list pos-sellable services", async () => {
@@ -152,16 +185,43 @@ describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests",
     expect(res.status).toBe(201);
     expect(res.body.name).toBe(dynamicServiceName);
     expect(res.body.price).toBe(15000);
+    const serviceId = res.body.id;
 
+    // Duplicate service name -> 409 SERVICE_EXISTS
+    const duplicateRes = await request(server)
+      .post("/api/v1/services")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: dynamicServiceName,
+        price: 20000,
+        sellableAtPos: true,
+      });
+    expect(duplicateRes.status).toBe(409);
+    expect(duplicateRes.body.code).toBe("SERVICE_EXISTS");
+
+    // List active services -> appears
     const listRes = await request(server)
-      .get("/api/v1/services")
+      .get("/api/v1/services?active=true")
       .set("Authorization", `Bearer ${receptionToken}`);
 
     expect(listRes.status).toBe(200);
     expect(listRes.body.some((s: any) => s.name === dynamicServiceName)).toBe(true);
+
+    // Deactivate service -> disappears from active list
+    const deactivateRes = await request(server)
+      .patch(`/api/v1/services/${serviceId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ isActive: false });
+    expect(deactivateRes.status).toBe(200);
+
+    const listAfterDeactivate = await request(server)
+      .get("/api/v1/services?active=true")
+      .set("Authorization", `Bearer ${receptionToken}`);
+    expect(listAfterDeactivate.status).toBe(200);
+    expect(listAfterDeactivate.body.some((s: any) => s.id === serviceId)).toBe(false);
   });
 
-  it("7. Products: Create retail product with stock and update inventory", async () => {
+  it("7. Products: Create retail product with stock, handle duplicate and update inventory", async () => {
     const res = await request(server)
       .post("/api/v1/products")
       .set("Authorization", `Bearer ${adminToken}`)
@@ -175,6 +235,18 @@ describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests",
     expect(res.body.name).toBe(dynamicProductName);
     expect(res.body.stock).toBe(50);
     const prodId = res.body.id;
+
+    // Duplicate product name -> 409 PRODUCT_EXISTS
+    const duplicateRes = await request(server)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: dynamicProductName,
+        price: 9000,
+        stock: 10,
+      });
+    expect(duplicateRes.status).toBe(409);
+    expect(duplicateRes.body.code).toBe("PRODUCT_EXISTS");
 
     // Update stock
     const updateRes = await request(server)
@@ -276,5 +348,206 @@ describe("B02 Catalog (Plans, Services, Products, Promotions) Acceptance Tests",
 
     expect(res.status).toBe(422);
     expect(res.body.code).toBe("INACTIVE");
+  });
+
+  it("13. Phase 06c Acceptance: Code-only promo limited to one plan, 1 use per member", async () => {
+    // 1. Create a plan first to link to
+    const planRes = await request(server)
+      .post("/api/v1/plans")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: `باقة قبول العروض ${Date.now()}`,
+        kind: "GYM",
+        price: 150000, // 1,500.00 EGP
+        durationDays: 30,
+      })
+      .expect(201);
+    const targetPlanId = planRes.body.id;
+
+    // 2. Create code-only promo restricted to that plan with perMemberLimit = 1
+    const oneOffCode = `ONEOFF_${Date.now()}`;
+    const promoRes = await request(server)
+      .post("/api/v1/promotions")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "عرض خاص باقة محددة واستخدام واحد",
+        code: oneOffCode,
+        type: "PERCENT",
+        value: 20, // 20%
+        itemKinds: ["SUBSCRIPTION"],
+        planIds: [targetPlanId],
+        perMemberLimit: 1,
+      })
+      .expect(201);
+    const promoId = promoRes.body.id;
+
+    // 3. POS preview for that plan with correct code -> applies
+    const validPreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: oneOffCode,
+        memberId: "mem_01",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: targetPlanId, total: 150000 }],
+      })
+      .expect(201);
+
+    expect(validPreview.body.applicable).toBe(true);
+    expect(validPreview.body.discount).toBe(30000); // 20% of 150,000 = 30,000
+    expect(validPreview.body.perItem).toEqual([{ id: "cart_item_1", discount: 30000 }]);
+
+    // 4. POS preview for that plan without code or with wrong code -> shows WRONG_CODE
+    const wrongCodePreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: "INCORRECT_CODE",
+        memberId: "mem_01",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: targetPlanId, total: 150000 }],
+      })
+      .expect(422);
+
+    expect(wrongCodePreview.body.code).toBe("WRONG_CODE");
+
+    // Also calling without code -> WRONG_CODE
+    const noCodePreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: "NONE_EXISTENT",
+        memberId: "mem_01",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: targetPlanId, total: 150000 }],
+      })
+      .expect(422);
+
+    expect(noCodePreview.body.code).toBe("WRONG_CODE");
+
+    // 5. POS preview with a different plan -> NOTHING_ELIGIBLE
+    const diffPlanPreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: oneOffCode,
+        memberId: "mem_01",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: "some_other_plan_id", total: 150000 }],
+      })
+      .expect(422);
+
+    expect(diffPlanPreview.body.code).toBe("NOTHING_ELIGIBLE");
+
+    // 6. Record a redemption for mem_01 in database on a dedicated new invoice
+    const invRes = await request(server)
+      .post("/api/v1/invoices")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        memberId: "mem_01",
+        items: [
+          {
+            kind: "SUBSCRIPTION",
+            planId: targetPlanId,
+            quantity: 1,
+            subscription: {
+              startDate: new Date().toISOString(),
+            },
+          },
+        ],
+        payments: [{ method: "CASH", amount: 150000 }],
+        useWallet: false,
+      })
+      .expect(201);
+
+    await prisma.promotionRedemption.create({
+      data: {
+        gymId: "gym_cairo_01",
+        promotionId: promoId,
+        memberId: "mem_01",
+        invoiceId: invRes.body.id,
+        amount: 300, // 300 EGP (decimal)
+      },
+    });
+
+    // 7. POS preview for mem_01 who used it -> MEMBER_LIMIT_REACHED
+    const limitReachedRes = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: oneOffCode,
+        memberId: "mem_01",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: targetPlanId, total: 150000 }],
+      })
+      .expect(422);
+
+    expect(limitReachedRes.body.code).toBe("MEMBER_LIMIT_REACHED");
+
+    // 8. But another member mem_02 who has not used it yet CAN still apply it
+    const otherMemberPreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: oneOffCode,
+        memberId: "mem_02",
+        items: [{ id: "cart_item_1", kind: "SUBSCRIPTION", planId: targetPlanId, total: 150000 }],
+      })
+      .expect(201);
+
+    expect(otherMemberPreview.body.applicable).toBe(true);
+    expect(otherMemberPreview.body.discount).toBe(30000);
+  });
+
+  it("14. Phase 06c Acceptance: Dialog preview (evaluatePromotion) and POS give identical numbers", async () => {
+    // Arbitrary multi-item cart
+    const cart = [
+      { id: "cart_1", kind: "SUBSCRIPTION" as const, planId: "plan_pt_12", total: 300000 },
+      { id: "cart_2", kind: "SERVICE" as const, total: 35000 },
+      { id: "cart_3", kind: "PRODUCT" as const, total: 8500 },
+    ];
+
+    const promoCode = `PROMO_IDENT_${Date.now()}`;
+    await request(server)
+      .post("/api/v1/promotions")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "عرض تطابق الحسابات",
+        code: promoCode,
+        type: "PERCENT",
+        value: 15,
+        maxDiscount: 50000,
+        minSubtotal: 100000,
+        itemKinds: ["SUBSCRIPTION", "SERVICE"],
+      })
+      .expect(201);
+
+    // Call POS preview endpoint
+    const apiPreview = await request(server)
+      .post("/api/v1/promotions/preview")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        code: promoCode,
+        items: cart,
+      })
+      .expect(201);
+
+    // Call local evaluatePromotion (same function as Dialog preview)
+    const localResult = evaluatePromotion({
+      promo: {
+        type: "PERCENT",
+        value: 15,
+        maxDiscount: 50000,
+        minSubtotal: 100000,
+        itemKinds: ["SUBSCRIPTION", "SERVICE"],
+        planIds: [],
+        isActive: true,
+        code: promoCode,
+      },
+      items: cart,
+      now: new Date(),
+      enteredCode: promoCode,
+      totalRedemptions: 0,
+      memberRedemptions: 0,
+    });
+
+    expect(apiPreview.body.applicable).toBe(localResult.applicable);
+    expect(apiPreview.body.discount).toBe(localResult.discount);
+    expect(apiPreview.body.perItem).toEqual(localResult.perItem);
   });
 });

@@ -3,6 +3,7 @@ import type {
   CreateInvoiceDto,
   CollectPaymentDto,
   CreateVoucherDto,
+  PromotionPreviewDto,
   InvoiceDetail,
   Product,
   Service,
@@ -16,11 +17,18 @@ import type {
 } from "@gym/contracts";
 
 export const sellApi = {
-  listPlans: async (): Promise<Plan[]> => http.get<Plan[]>("/plans"),
-  listServices: async (): Promise<Service[]> => http.get<Service[]>("/services"),
-  listProducts: async (): Promise<Product[]> => http.get<Product[]>("/products"),
+  listPlans: async (): Promise<Plan[]> => http.get<Plan[]>("/plans?active=true"),
+  listServices: async (): Promise<Service[]> => http.get<Service[]>("/services?active=true"),
+  listProducts: async (): Promise<Product[]> => http.get<Product[]>("/products?active=true"),
   listPromotions: async (): Promise<Promotion[]> =>
     http.get<Promotion[]>("/promotions").catch(() => []),
+  previewPromotion: async (dto: PromotionPreviewDto): Promise<{
+    applicable: boolean;
+    promotionId: string;
+    promotionName: string;
+    discount: number;
+    perItem: { id: string; discount: number }[];
+  }> => http.post("/promotions/preview", dto),
   listMembers: async (): Promise<Member[]> => {
     const res = await http.get<any>("/members?limit=100");
     const items = Array.isArray(res) ? res : (res?.items || []);

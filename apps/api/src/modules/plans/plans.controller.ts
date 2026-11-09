@@ -79,4 +79,11 @@ export class PlansController {
   async archivePlan(@Req() req: any, @Param("id") id: string) {
     return this.plansService.archive(req.gymId, req.user?.id || req.user?.sub, id);
   }
+
+  @Post(":id/restore")
+  @Roles("GYM_ADMIN", "SUPER_ADMIN")
+  @ApiOperation({ summary: "Restore archived plan" })
+  async restorePlan(@Req() req: any, @Param("id") id: string) {
+    return this.plansService.restore(req.gymId, req.user?.id || req.user?.sub, id);
+  }
 }

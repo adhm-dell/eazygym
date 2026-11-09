@@ -14,6 +14,7 @@ export * from "./components/status-badge";
 export * from "./components/stat-card";
 export * from "./components/dialog";
 export * from "./components/sheet";
+export * from "./components/switch";
 export * from "./components/toast";
 export * from "./components/full-screen-result";
 export * from "./components/date-range";

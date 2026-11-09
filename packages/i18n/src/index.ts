@@ -15,3 +15,21 @@ export function translateErrorCode(code: string, locale: Locale = "ar"): string 
   return errors[code] || (locale === "ar" ? "حدث خطأ غير متوقع" : "An unexpected error occurred");
 }
 
+export function useTranslation(locale: Locale = "ar") {
+  const dict = getDictionary(locale);
+  const t = (key: string): string => {
+    const parts = key.split(".");
+    let current: any = dict;
+    for (const part of parts) {
+      if (current && typeof current === "object" && part in current) {
+        current = current[part];
+      } else {
+        return key;
+      }
+    }
+    return typeof current === "string" ? current : key;
+  };
+  return { t, locale, dict };
+}
+
+

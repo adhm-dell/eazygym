@@ -90,6 +90,11 @@ export class PlansService {
         includedServices: {
           include: { service: true },
         },
+        _count: {
+          select: {
+            subscriptions: { where: { status: "ACTIVE" } },
+          },
+        },
       },
     });
 
@@ -113,6 +118,7 @@ export class PlansService {
       commissionable: p.commissionable,
       commissionMilestones: p.commissionMilestones,
       isActive: p.isActive,
+      activeSubscribersCount: (p as any)._count?.subscriptions ?? 0,
       includedServices: p.includedServices.map((is) => ({
         serviceId: is.serviceId,
         serviceName: is.service.name,
@@ -203,7 +209,16 @@ export class PlansService {
         freePtSessions: dto.freePtSessions ?? 0,
         commissionable,
         commissionMilestones: dto.commissionMilestones ?? 1,
-        isActive: true,
+        isActive: dto.isActive !== undefined ? dto.isActive : true,
+        includedServices:
+          dto.includedServices && dto.includedServices.length > 0
+            ? {
+                create: dto.includedServices.map((is) => ({
+                  serviceId: is.serviceId,
+                  quantity: is.quantity ?? null,
+                })),
+              }
+            : undefined,
       },
     });
 
@@ -250,11 +265,25 @@ export class PlansService {
     if (dto.freePtSessions !== undefined) data.freePtSessions = dto.freePtSessions;
     if (dto.commissionable !== undefined) data.commissionable = dto.commissionable;
     if (dto.commissionMilestones !== undefined) data.commissionMilestones = dto.commissionMilestones;
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
 
     const updated = await this.prisma.plan.update({
       where: { id },
       data,
     });
+
+    if (dto.includedServices !== undefined) {
+      await this.prisma.planService.deleteMany({ where: { planId: id } });
+      if (dto.includedServices.length > 0) {
+        await this.prisma.planService.createMany({
+          data: dto.includedServices.map((is) => ({
+            planId: id,
+            serviceId: is.serviceId,
+            quantity: is.quantity ?? null,
+          })),
+        });
+      }
+    }
 
     await this.auditService.log({
       gymId,
@@ -291,6 +320,35 @@ export class PlansService {
       gymId,
       actorId,
       action: "PLAN_ARCHIVE",
+      entityType: "Plan",
+      entityId: updated.id,
+    });
+
+    return { success: true };
+  }
+
+  async restore(gymId: string, actorId: string, id: string) {
+    const existing = await this.prisma.plan.findFirst({
+      where: { id, gymId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "NOT_FOUND",
+        message: "Plan not found",
+      });
+    }
+
+    const updated = await this.prisma.plan.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    await this.auditService.log({
+      gymId,
+      actorId,
+      action: "PLAN_RESTORE",
       entityType: "Plan",
       entityId: updated.id,
     });

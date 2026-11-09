@@ -370,17 +370,10 @@ export default function PosSellPage() {
   }, [cart]);
 
   // Promotions evaluation
-  const handleApplyPromoCode = (codeToApply?: string) => {
+  const handleApplyPromoCode = async (codeToApply?: string) => {
     const code = (codeToApply ?? promoCodeInput).trim();
     if (!code) return;
     setPromoError(null);
-
-    const promo = promotions.find((p) => p.code?.trim().toLowerCase() === code.toLowerCase());
-    if (!promo) {
-      setPromoError("كود الخصم غير موجود");
-      setAppliedPromo(null);
-      return;
-    }
 
     const domainCartItems: DomainCartItem[] = cart.map((item) => ({
       id: item.cartId,
@@ -389,51 +382,107 @@ export default function PosSellPage() {
       total: item.unitPrice * item.quantity,
     }));
 
-    const result = evaluatePromotion({
-      promo: {
-        type: promo.type,
-        value: promo.value,
-        maxDiscount: promo.maxDiscount,
-        minSubtotal: promo.minSubtotal,
-        itemKinds: promo.itemKinds,
-        planIds: promo.planIds || [],
-        startsAt: promo.startsAt ? new Date(promo.startsAt) : null,
-        endsAt: promo.endsAt ? new Date(promo.endsAt) : null,
-        maxUses: promo.maxUses,
-        perMemberLimit: promo.perMemberLimit,
-        isActive: promo.isActive,
-        code: promo.code,
-      },
-      items: domainCartItems,
-      now: new Date("2026-11-04T12:00:00Z"),
-      enteredCode: code,
-      totalRedemptions: promo.usedCount,
-      memberRedemptions: 0,
-    });
-
-    if (!result.applicable) {
-      const reasonMessages: Record<string, string> = {
-        INACTIVE: "العرض غير نشط",
-        NOT_STARTED: "العرض لم يبدأ بعد",
-        EXPIRED: "انتهت صلاحية هذا العرض الترويجي",
-        WRONG_CODE: "كود الخصم غير صحيح",
-        MAX_USES_REACHED: "تم استنفاد الحد الأقصى لاستخدام الكوبون",
-        MEMBER_LIMIT_REACHED: "العضو استنفد مرات الاستخدام المسموحة",
-        NOTHING_ELIGIBLE: "لا توجد عناصر في السلة مشمولة بهذا العرض",
-        BELOW_MIN_SUBTOTAL: `الحد الأدنى لتطبيق هذا الخصم هو ${formatMoney(promo.minSubtotal || 0)}`,
-      };
-      setPromoError(reasonMessages[result.reason || ""] || "لا يمكن تطبيق هذا العرض");
-      setAppliedPromo(null);
+    if (domainCartItems.length === 0) {
+      setPromoError("السلة فارغة، يرجى إضافة عناصر أولاً");
       return;
     }
 
-    setAppliedPromo(promo);
-    setManualDiscountActive(false);
-    toast({
-      title: "تم تطبيق الخصم بنجاح",
-      description: `${promo.name} (-${formatMoney(result.discount)})`,
-      variant: "success",
-    });
+    const reasonMessages: Record<string, string> = {
+      INACTIVE: "العرض غير نشط",
+      NOT_STARTED: "العرض لم يبدأ بعد",
+      EXPIRED: "انتهت صلاحية هذا العرض الترويجي",
+      WRONG_CODE: "كود الخصم غير صحيح",
+      MAX_USES_REACHED: "تم استنفاد الحد الأقصى لاستخدام الكوبون",
+      MEMBER_LIMIT_REACHED: "العضو استنفد مرات الاستخدام المسموحة",
+      NOTHING_ELIGIBLE: "لا توجد عناصر في السلة مشمولة بهذا العرض",
+      BELOW_MIN_SUBTOTAL: "إجمالي السلة أقل من الحد الأدنى لتطبيق هذا الخصم",
+    };
+
+    try {
+      const previewRes = await sellApi.previewPromotion({
+        code,
+        memberId: selectedMember?.id,
+        items: domainCartItems.map((i) => ({
+          id: i.id,
+          kind: i.kind,
+          planId: i.planId,
+          total: i.total,
+        })),
+      });
+
+      const promo =
+        promotions.find((p) => p.id === previewRes.promotionId) ||
+        promotions.find((p) => p.code?.trim().toLowerCase() === code.toLowerCase()) ||
+        ({
+          id: previewRes.promotionId,
+          name: previewRes.promotionName,
+          code,
+          type: "FIXED",
+          value: previewRes.discount,
+          itemKinds: [],
+          isActive: true,
+          usedCount: 0,
+        } as any);
+
+      setAppliedPromo(promo);
+      setManualDiscountActive(false);
+      toast({
+        title: "تم تطبيق الخصم بنجاح",
+        description: `${previewRes.promotionName} (-${formatMoney(previewRes.discount)})`,
+        variant: "success",
+      });
+    } catch (err: any) {
+      const errCode = err?.response?.data?.code || err?.code;
+      if (errCode && reasonMessages[errCode]) {
+        setPromoError(reasonMessages[errCode]);
+        setAppliedPromo(null);
+        return;
+      }
+
+      // Fallback to local evaluatePromotion if backend unavailable
+      const promo = promotions.find((p) => p.code?.trim().toLowerCase() === code.toLowerCase());
+      if (!promo) {
+        setPromoError("كود الخصم غير موجود");
+        setAppliedPromo(null);
+        return;
+      }
+
+      const result = evaluatePromotion({
+        promo: {
+          type: promo.type,
+          value: promo.value,
+          maxDiscount: promo.maxDiscount,
+          minSubtotal: promo.minSubtotal,
+          itemKinds: promo.itemKinds,
+          planIds: promo.planIds || [],
+          startsAt: promo.startsAt ? new Date(promo.startsAt) : null,
+          endsAt: promo.endsAt ? new Date(promo.endsAt) : null,
+          maxUses: promo.maxUses,
+          perMemberLimit: promo.perMemberLimit,
+          isActive: promo.isActive,
+          code: promo.code,
+        },
+        items: domainCartItems,
+        now: new Date(),
+        enteredCode: code,
+        totalRedemptions: promo.usedCount,
+        memberRedemptions: 0,
+      });
+
+      if (!result.applicable) {
+        setPromoError(reasonMessages[result.reason || ""] || "لا يمكن تطبيق هذا العرض");
+        setAppliedPromo(null);
+        return;
+      }
+
+      setAppliedPromo(promo);
+      setManualDiscountActive(false);
+      toast({
+        title: "تم تطبيق الخصم بنجاح",
+        description: `${promo.name} (-${formatMoney(result.discount)})`,
+        variant: "success",
+      });
+    }
   };
 
   // Discount calculation
@@ -464,7 +513,7 @@ export default function PosSellPage() {
           code: appliedPromo.code,
         },
         items: domainCartItems,
-        now: new Date("2026-11-04T12:00:00Z"),
+        now: new Date(),
         enteredCode: appliedPromo.code,
         totalRedemptions: appliedPromo.usedCount,
         memberRedemptions: 0,
@@ -1026,7 +1075,7 @@ export default function PosSellPage() {
             {/* PLANS TAB */}
             {activeTab === "plans" &&
               plans
-                .filter((p) => p.name.toLowerCase().includes(catalogSearch.toLowerCase()))
+                .filter((p) => p.isActive !== false && p.name.toLowerCase().includes(catalogSearch.toLowerCase()))
                 .map((plan) => (
                   <div
                     key={plan.id}
@@ -1082,7 +1131,7 @@ export default function PosSellPage() {
             {/* SERVICES TAB */}
             {activeTab === "services" &&
               services
-                .filter((s) => s.name.toLowerCase().includes(catalogSearch.toLowerCase()))
+                .filter((s) => s.isActive !== false && s.name.toLowerCase().includes(catalogSearch.toLowerCase()))
                 .map((srv) => (
                   <div
                     key={srv.id}
@@ -1115,7 +1164,7 @@ export default function PosSellPage() {
             {/* PRODUCTS TAB */}
             {activeTab === "products" &&
               products
-                .filter((p) => p.name.toLowerCase().includes(catalogSearch.toLowerCase()))
+                .filter((p) => p.isActive !== false && p.name.toLowerCase().includes(catalogSearch.toLowerCase()))
                 .map((prod) => (
                   <div
                     key={prod.id}

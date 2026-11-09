@@ -395,6 +395,12 @@ export type VoidExpenseDto = z.infer<typeof VoidExpenseSchema>;
 // Health & Catalog DTOs
 // ---------------------------------------------------------------------------
 
+export const PlanIncludedServiceItemSchema = z.object({
+  serviceId: z.string(),
+  quantity: z.number().int().nonnegative().nullable().optional(),
+});
+export type PlanIncludedServiceItemDto = z.infer<typeof PlanIncludedServiceItemSchema>;
+
 export const CreatePlanSchema = z.object({
   name: z.string().min(1),
   kind: PlanKindSchema,
@@ -412,6 +418,8 @@ export const CreatePlanSchema = z.object({
   freePtSessions: z.number().int().nonnegative().default(0),
   commissionable: z.boolean().optional(),
   commissionMilestones: z.number().int().positive().default(1),
+  isActive: z.boolean().optional(),
+  includedServices: z.array(PlanIncludedServiceItemSchema).optional(),
 });
 export type CreatePlanDto = z.infer<typeof CreatePlanSchema>;
 
@@ -727,6 +735,14 @@ export interface Plan {
   commissionable: boolean;
   commissionMilestones: number;
   isActive: boolean;
+  maxInvitations?: number;
+  freePtSessions?: number;
+  activeSubscribersCount?: number;
+  includedServices?: {
+    serviceId: string;
+    serviceName: string;
+    quantity: number | null;
+  }[];
   createdAt: string;
   updatedAt: string;
 }
