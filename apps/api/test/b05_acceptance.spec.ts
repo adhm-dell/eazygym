@@ -332,4 +332,85 @@ describe("B05 Access, Classes & Visitors Acceptance Tests", () => {
     expect(profileRes.status).toBe(200);
     expect(profileRes.body.attendances.length).toBe(2);
   });
+
+  it("7. Classes Exception: Cancelling today's occurrence returns CLASS_CANCELLED on scan & GET members", async () => {
+    const today = new Date();
+    const todayDayOfWeek = today.getDay();
+    const todayDateStr = today.toISOString().slice(0, 10);
+
+    // 1. Create Class Schedule for today
+    const schedRes = await request(server)
+      .post("/api/v1/class-schedules")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: `كلاس استثناء ${Date.now()}`,
+        coachId: "staff_coach",
+        dayOfWeek: todayDayOfWeek,
+        startTime: "00:00",
+        endTime: "23:59",
+        capacity: 20,
+      });
+    expect(schedRes.status).toBe(201);
+    const scheduleId = schedRes.body.id;
+
+    // 2. Member with CLASS subscription registered in this slot
+    const phone = "010" + Math.floor(10000000 + Math.random() * 90000000).toString();
+    const memRes = await request(server)
+      .post("/api/v1/members")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ name: "مشترك كلاس ملغي", phone, gender: "MALE" });
+    const member = memRes.body;
+
+    await request(server)
+      .post("/api/v1/invoices")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        memberId: member.id,
+        items: [
+          {
+            kind: "SUBSCRIPTION",
+            planId: "plan_crossfit_1m",
+            quantity: 1,
+            subscription: {
+              classSlotIds: [scheduleId],
+            },
+          },
+        ],
+        payments: [{ method: "CASH", amount: 120000 }],
+        useWallet: false,
+      })
+      .expect(201);
+
+    // 3. Verify member appears in GET /class-schedules/:id/members
+    const membersRes = await request(server)
+      .get(`/api/v1/class-schedules/${scheduleId}/members`)
+      .set("Authorization", `Bearer ${receptionToken}`);
+
+    expect(membersRes.status).toBe(200);
+    expect(Array.isArray(membersRes.body)).toBe(true);
+    expect(membersRes.body.length).toBe(1);
+    expect(membersRes.body[0].member.id).toBe(member.id);
+
+    // 4. Create Exception: Cancel today's occurrence
+    const exRes = await request(server)
+      .post(`/api/v1/class-schedules/${scheduleId}/exceptions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        date: todayDateStr,
+        isCancelled: true,
+      });
+
+    expect(exRes.status).toBe(201);
+    expect(exRes.body.isCancelled).toBe(true);
+
+    // 5. Scan member -> returns CLASS_CANCELLED
+    const scanRes = await request(server)
+      .post("/api/v1/access/scan")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ code: member.code });
+
+    expect(scanRes.status).toBe(201);
+    expect(scanRes.body.allowed).toBe(false);
+    expect(scanRes.body.reason).toBe("CLASS_CANCELLED");
+  });
 });

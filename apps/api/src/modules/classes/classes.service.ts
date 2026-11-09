@@ -21,13 +21,69 @@ export class ClassesService {
   ) {}
 
   async listSchedules(gymId: string) {
-    return this.prisma.classSchedule.findMany({
-      where: { gymId, isActive: true },
+    const schedules = await this.prisma.classSchedule.findMany({
+      where: { gymId },
       include: {
         coach: { select: { id: true, name: true } },
+        slots: {
+          include: {
+            subscription: {
+              include: {
+                member: { select: { id: true, code: true, name: true, phone: true } },
+              },
+            },
+          },
+        },
       },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
     });
+
+    return schedules.map((s) => ({
+      ...s,
+      registeredCount: s.slots.length,
+      members: s.slots.map((sl) => sl.subscription.member),
+    }));
+  }
+
+  async getScheduleMembers(gymId: string, scheduleId: string) {
+    const schedule = await this.prisma.classSchedule.findFirst({
+      where: { id: scheduleId, gymId },
+    });
+    if (!schedule) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "SCHEDULE_NOT_FOUND",
+        message: `Schedule ${scheduleId} not found`,
+      });
+    }
+
+    const slots = await this.prisma.subscriptionClassSlot.findMany({
+      where: {
+        classScheduleId: scheduleId,
+        subscription: {
+          gymId,
+        },
+      },
+      include: {
+        subscription: {
+          include: {
+            member: {
+              select: { id: true, code: true, name: true, phone: true, gender: true },
+            },
+            plan: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    return slots.map((s) => ({
+      subscriptionId: s.subscriptionId,
+      subscriptionStatus: s.subscription.status,
+      planName: s.subscription.plan.name,
+      member: s.subscription.member,
+    }));
   }
 
   async createSchedule(gymId: string, actorId: string, dto: CreateClassScheduleDto) {

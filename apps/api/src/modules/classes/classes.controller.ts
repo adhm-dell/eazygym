@@ -36,6 +36,12 @@ export class ClassesController {
     return this.classesService.listSchedules(user.gymId);
   }
 
+  @Get("class-schedules/:id/members")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION")
+  async getScheduleMembers(@CurrentUser() user: any, @Param("id") id: string) {
+    return this.classesService.getScheduleMembers(user.gymId, id);
+  }
+
   @Post("class-schedules")
   @Roles("SUPER_ADMIN", "GYM_ADMIN")
   async createSchedule(
