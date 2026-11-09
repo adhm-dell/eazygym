@@ -402,8 +402,7 @@ export function PromotionFormDialog({
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
-      maxWidth="2xl"
-      className="max-h-[92vh] flex flex-col"
+      maxWidth="3xl"
       title={
         <div className="flex items-center justify-between pb-2 border-b border-[#E1E5DF] flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -435,13 +434,13 @@ export function PromotionFormDialog({
         </div>
       }
       footer={
-        <div className="flex items-center justify-end gap-2.5 pt-2">
+        <div className="flex items-center justify-end gap-2.5 w-full">
           <Button
             type="button"
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-xl border-[#E1E5DF] font-medium"
+            className="rounded-xl border-[#E1E5DF] font-medium px-4 h-10"
           >
             {t("promotionsManagement.cancel") || "إلغاء"}
           </Button>
@@ -449,7 +448,7 @@ export function PromotionFormDialog({
             type="submit"
             form="promotion-form"
             disabled={isSubmitting}
-            className="rounded-xl font-bold bg-[#C6F24E] hover:bg-[#b5e03f] text-[#14181F]"
+            className="rounded-xl font-bold bg-[#C6F24E] hover:bg-[#b5e03f] text-[#14181F] px-5 h-10 shadow-sm"
           >
             {isSubmitting
               ? (isRtl ? "جاري الحفظ..." : "Saving...")
@@ -460,7 +459,7 @@ export function PromotionFormDialog({
         </div>
       }
     >
-      <div className="overflow-y-auto max-h-[70vh] pe-1 space-y-6" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="space-y-6" dir={isRtl ? "rtl" : "ltr"}>
         <form id="promotion-form" onSubmit={handleSubmit} className="space-y-6">
               {formError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-medium">
