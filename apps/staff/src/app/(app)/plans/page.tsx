@@ -18,9 +18,13 @@ import { PlanDetailDrawer } from "../../../features/plans/components/plan-detail
 import { ArchivePlanDialog } from "../../../features/plans/components/archive-plan-dialog";
 import { RestorePlanDialog } from "../../../features/plans/components/restore-plan-dialog";
 import { Button } from "@gym/ui";
+import { useShift } from "../../../lib/shift-context";
+import Link from "next/link";
 import type { Plan } from "@gym/contracts";
 
 export default function PlansPage() {
+  const { currentUser } = useShift();
+  const isAdmin = currentUser?.role === "GYM_ADMIN" || currentUser?.role === "SUPER_ADMIN";
   const [plans, setPlans] = useState<Plan[]>([]);
   const [gymDefaultUpfront, setGymDefaultUpfront] = useState<number>(30);
   const [isLoading, setIsLoading] = useState(true);
@@ -315,6 +319,27 @@ export default function PlansPage() {
       </div>
     );
   };
+
+  if (currentUser && !isAdmin) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center space-y-4 pt-16" dir="rtl">
+        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl space-y-3 shadow-subtle">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <h2 className="text-lg font-black text-red-900">غير مصرح بالدخول</h2>
+          <p className="text-xs text-red-700 leading-relaxed font-medium">
+            صفحة إدارة الباقات والاشتراكات مخصصة لمدير النادي فقط (GYM_ADMIN / SUPER_ADMIN). ليس لحساب الاستقبال صلاحية الوصول أو تعديل الباقات.
+          </p>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="text-xs font-bold border-red-300 hover:bg-red-100">
+                العودة لشاشة الدخول الرئيسية
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto" dir="rtl">

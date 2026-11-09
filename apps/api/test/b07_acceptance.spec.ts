@@ -276,12 +276,13 @@ describe("B07 Coach Operations Acceptance Tests", () => {
 
   describe("3. Rotation queue & Fitness profile assignments", () => {
     it("should recommend coaches in order, exclude rejecting coach, and support manual assignment", async () => {
-      // Ensure all 3 coaches have active shifts on Monday (day 1) 10:00-18:00
+      // Ensure all 3 coaches have active shifts for today covering full day
+      const todayDay = new Date().getDay();
       await prisma.coachShift.createMany({
         data: [
-          { gymId, coachId, dayOfWeek: 1, startTime: "10:00", endTime: "18:00", isActive: true },
-          { gymId, coachId: coach2Id, dayOfWeek: 1, startTime: "10:00", endTime: "18:00", isActive: true },
-          { gymId, coachId: coach3Id, dayOfWeek: 1, startTime: "10:00", endTime: "18:00", isActive: true },
+          { gymId, coachId, dayOfWeek: todayDay, startTime: "00:00", endTime: "23:59", isActive: true },
+          { gymId, coachId: coach2Id, dayOfWeek: todayDay, startTime: "00:00", endTime: "23:59", isActive: true },
+          { gymId, coachId: coach3Id, dayOfWeek: todayDay, startTime: "00:00", endTime: "23:59", isActive: true },
         ],
       });
 

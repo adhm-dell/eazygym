@@ -53,6 +53,10 @@ export const plansApi = {
     return http.get<Subscription[]>("/subscriptions").catch(() => []);
   },
 
+  getSubscribersByPlan: async (planId: string): Promise<Subscription[]> => {
+    return http.get<Subscription[]>(`/subscriptions?planId=${planId}`).catch(() => []);
+  },
+
   getGymSettings: async (): Promise<any> => {
     return http.get<any>("/gym/settings").catch(() => null);
   },

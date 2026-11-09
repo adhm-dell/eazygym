@@ -258,8 +258,8 @@ export function PlanFormSheet({
       onClose();
     } catch (err: any) {
       console.error("Plan save error:", err);
-      if (err?.code === "INVALID_PLAN" && err?.response?.details?.fields) {
-        const fields: string[] = err.response.details.fields;
+      const fields: string[] = err?.response?.details?.fields || err?.details?.fields || [];
+      if (err?.code === "INVALID_PLAN" && fields.length > 0) {
         fields.forEach((field) => {
           if (field === "commissionMilestones") {
             setError("commissionMilestones", {
@@ -285,6 +285,21 @@ export function PlanFormSheet({
             setError("sessionsPerWeek", {
               type: "server",
               message: "عدد الحصص الأسبوعية مطلوب لباقات الـ CLASS",
+            });
+          } else if (field === "minUpfrontPercent") {
+            setError("minUpfrontPercent", {
+              type: "server",
+              message: "نسبة الدفعة الأولى يجب أن تكون بين 0% و 100%",
+            });
+          } else if (field === "dueAfterDays") {
+            setError("dueAfterDays", {
+              type: "server",
+              message: "أيام مهلة السداد يجب أن تكون رقماً موجباً",
+            });
+          } else if (field === "dueAfterPercent") {
+            setError("dueAfterPercent", {
+              type: "server",
+              message: "نسبة مهلة السداد يجب أن تكون بين 0% و 100%",
             });
           }
         });

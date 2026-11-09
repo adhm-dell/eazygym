@@ -27,13 +27,12 @@ export function PlanDetailDrawer({ isOpen, onClose, plan }: PlanDetailDrawerProp
     if (isOpen && plan) {
       setLoading(true);
       plansApi
-        .listSubscriptions()
-        .then((all) => {
-          // Filter subscriptions belonging to this plan and active/frozen
-          const matching = all.filter(
+        .getSubscribersByPlan(plan.id)
+        .then((subs) => {
+          // Filter subscriptions active, frozen, or pending payment
+          const matching = (subs || []).filter(
             (s: any) =>
-              (s.planId === plan.id || s.plan?.id === plan.id) &&
-              (s.status === "ACTIVE" || s.status === "FROZEN" || s.status === "PENDING_PAYMENT")
+              s.status === "ACTIVE" || s.status === "FROZEN" || s.status === "PENDING_PAYMENT"
           );
           setSubscribers(matching);
         })
