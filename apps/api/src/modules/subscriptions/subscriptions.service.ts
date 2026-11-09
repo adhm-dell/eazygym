@@ -288,14 +288,31 @@ export class SubscriptionsService {
     }
   }
 
-  async list(gymId: string, filters: any) {
+  async list(gymId: string, filters: any = {}) {
     const where: any = { gymId };
-    if (filters.status) where.status = filters.status;
-    if (filters.kind) where.kind = filters.kind;
+    if (filters.status && filters.status !== "ALL") where.status = filters.status;
+    if (filters.kind && filters.kind !== "ALL") where.kind = filters.kind;
+    if (filters.planId && filters.planId !== "ALL") where.planId = filters.planId;
     if (filters.memberId) where.memberId = filters.memberId;
-    if (filters.coachId) {
+    if (filters.coachId && filters.coachId !== "ALL") {
       where.assignments = {
         some: { coachId: filters.coachId, toDate: null },
+      };
+    }
+    if (filters.startDate) {
+      where.startDate = { gte: new Date(filters.startDate) };
+    }
+    if (filters.endDate) {
+      where.endDate = { lte: new Date(filters.endDate) };
+    }
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.trim();
+      where.member = {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q } },
+          { code: { contains: q } },
+        ],
       };
     }
 
@@ -303,21 +320,39 @@ export class SubscriptionsService {
       where,
       orderBy: { createdAt: "desc" },
       include: {
-        member: { select: { id: true, name: true, phone: true, code: true } },
-        plan: { select: { id: true, name: true, kind: true } },
+        member: { select: { id: true, name: true, phone: true, code: true, isBlocked: true, blockedReason: true } },
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            kind: true,
+            dueAfterDays: true,
+            dueAfterPercent: true,
+            freezeMaxCount: true,
+            freezeMaxTotalDays: true,
+          },
+        },
         assignments: {
           where: { toDate: null },
           include: { coach: { select: { id: true, name: true } } },
         },
         invoiceItem: {
-          include: { allocations: true },
+          include: {
+            allocations: true,
+            invoice: {
+              include: {
+                payments: true,
+                items: true,
+              },
+            },
+          },
         },
         freezes: true,
       },
     });
 
     const now = new Date();
-    return items.map((s) => {
+    const mapped = items.map((s) => {
       const totalAmount = decimalToPiasters(s.price);
       const collected = (s.invoiceItem?.allocations || []).reduce(
         (sum, a) => sum + decimalToPiasters(a.amount),
@@ -326,10 +361,70 @@ export class SubscriptionsService {
       const remaining = Math.max(0, totalAmount - collected);
       const daysLeft = Math.max(0, Math.ceil((s.endDate.getTime() - now.getTime()) / 86400000));
 
+      const isFrozen = (s.freezes || []).some(
+        (f) => !f.endedAt && f.startedAt <= now
+      );
+
+      const overdueVal = isOverdue({
+        total: totalAmount,
+        collected,
+        startDate: s.startDate,
+        durationDays: s.durationDays,
+        now,
+        dueAfterDays: s.plan.dueAfterDays ?? undefined,
+        dueAfterPercent: s.plan.dueAfterPercent ? Number(s.plan.dueAfterPercent) : undefined,
+      });
+
+      // Matches scan access rule for PAYMENT_OVERDUE: active, not frozen, currently between start and end dates
+      const isSubOverdue =
+        s.status === "SUSPENDED_UNPAID" ||
+        (overdueVal && s.status === "ACTIVE" && now >= s.startDate && now <= s.endDate && !isFrozen);
+
+      const invoiceDetail = s.invoiceItem?.invoice
+        ? {
+            id: s.invoiceItem.invoice.id,
+            gymId: s.invoiceItem.invoice.gymId,
+            number: s.invoiceItem.invoice.number,
+            memberId: s.invoiceItem.invoice.memberId,
+            status: s.invoiceItem.invoice.status,
+            subtotal: decimalToPiasters(s.invoiceItem.invoice.subtotal),
+            discount: decimalToPiasters(s.invoiceItem.invoice.discount),
+            total: decimalToPiasters(s.invoiceItem.invoice.total),
+            note: s.invoiceItem.invoice.note,
+            createdById: s.invoiceItem.invoice.createdById,
+            shiftId: s.invoiceItem.invoice.shiftId,
+            createdAt: s.invoiceItem.invoice.createdAt.toISOString(),
+            items: (s.invoiceItem.invoice.items || []).map((i) => ({
+              id: i.id,
+              invoiceId: i.invoiceId,
+              kind: i.kind,
+              description: i.description,
+              quantity: i.quantity,
+              unitPrice: decimalToPiasters(i.unitPrice),
+              total: decimalToPiasters(i.total),
+              planId: i.planId,
+              serviceId: i.serviceId,
+              productId: i.productId,
+            })),
+            payments: (s.invoiceItem.invoice.payments || []).map((p) => ({
+              id: p.id,
+              invoiceId: p.invoiceId,
+              method: p.method,
+              amount: decimalToPiasters(p.amount),
+              reference: p.reference,
+              createdAt: p.createdAt.toISOString(),
+            })),
+            collectedAmount: collected,
+            remainingAmount: remaining,
+          }
+        : null;
+
       return {
         id: s.id,
         gymId: s.gymId,
+        memberId: s.memberId,
         member: s.member,
+        planId: s.planId,
         plan: s.plan,
         kind: s.kind,
         status: s.status,
@@ -345,11 +440,62 @@ export class SubscriptionsService {
         usedSessions: s.usedSessions,
         freezeRemainingCount: Math.max(0, s.freezeMaxCount - s.freezeUsedCount),
         freezeRemainingDays: Math.max(0, s.freezeMaxTotalDays - s.freezeUsedDays),
+        freezeMaxCount: s.freezeMaxCount,
+        freezeMaxTotalDays: s.freezeMaxTotalDays,
+        freezeUsedCount: s.freezeUsedCount,
+        freezeUsedDays: s.freezeUsedDays,
         activeCoach: s.assignments[0]?.coach || null,
+        currentCoach: s.assignments[0]?.coach || null,
         freezes: s.freezes,
+        isOverdue: isSubOverdue,
+        isFrozen,
+        invoice: invoiceDetail,
         createdAt: s.createdAt.toISOString(),
       };
     });
+
+    // Summary statistics calculated across all items for this gym/filter
+    const totalActive = mapped.filter((s) => s.status === "ACTIVE").length;
+    const totalExpiringSoon = mapped.filter(
+      (s) => s.status === "ACTIVE" && s.daysLeft <= 7 && s.daysLeft >= 0
+    ).length;
+    const totalOverdueAmount = mapped
+      .filter((s) => s.isOverdue)
+      .reduce((sum, s) => sum + s.remaining, 0);
+    const totalPendingPayment = mapped.filter((s) => s.status === "PENDING_PAYMENT").length;
+
+    // Filter memory criteria: expiringInDays, overdue
+    let filtered = mapped;
+    if (filters.expiringInDays !== undefined) {
+      filtered = filtered.filter(
+        (s) => s.status === "ACTIVE" && s.daysLeft <= filters.expiringInDays && s.daysLeft >= 0
+      );
+    }
+    if (filters.overdue) {
+      filtered = filtered.filter((s) => s.isOverdue);
+    }
+
+    if (filters.page !== undefined) {
+      const pageNum = Math.max(1, filters.page || 1);
+      const limitNum = Math.max(1, Math.min(100, filters.limit || 20));
+      const total = filtered.length;
+      const paginatedItems = filtered.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+      return {
+        items: paginatedItems,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        summary: {
+          totalActive,
+          totalExpiringSoon,
+          totalOverdueAmount,
+          totalPendingPayment,
+        },
+      };
+    }
+
+    return filtered;
   }
 
   async getMemberSubscriptions(gymId: string, memberId: string) {

@@ -19,6 +19,7 @@ import {
   Layers,
   Package,
   Tag,
+  CreditCard,
 } from "lucide-react";
 import { cn, Button } from "@gym/ui";
 import { ShiftProvider, useShift } from "../../lib/shift-context";
@@ -37,6 +38,7 @@ const allNavItems: NavItem[] = [
   { href: "/pos", label: "بيع (البار والخدمات)", icon: ShoppingCart, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/members", label: "الأعضاء", icon: Users, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
+  { href: "/subscriptions", label: "الاشتراكات", icon: CreditCard, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/plans", label: "الباقات", icon: Layers, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/catalog", label: "الخدمات والمنتجات", icon: Package, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/promotions", label: "العروض", icon: Tag, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },

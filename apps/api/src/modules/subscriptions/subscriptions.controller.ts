@@ -42,15 +42,31 @@ export class SubscriptionsController {
     @Req() req: any,
     @Query("status") status?: string,
     @Query("kind") kind?: string,
+    @Query("planId") planId?: string,
+    @Query("coachId") coachId?: string,
     @Query("memberId") memberId?: string,
-    @Query("coachId") coachId?: string
+    @Query("search") search?: string,
+    @Query("expiringInDays") expiringInDays?: string,
+    @Query("overdue") overdue?: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
   ) {
     const finalMemberId = req.user?.role === "MEMBER" ? (req.user?.sub || req.user?.id) : memberId;
     return this.subscriptionsService.list(req.gymId, {
       status,
       kind,
-      memberId: finalMemberId,
+      planId,
       coachId,
+      memberId: finalMemberId,
+      search,
+      expiringInDays: expiringInDays ? parseInt(expiringInDays, 10) : undefined,
+      overdue: overdue === "true" || overdue === "1",
+      startDate,
+      endDate,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
 

@@ -413,4 +413,77 @@ describe("B05 Access, Classes & Visitors Acceptance Tests", () => {
     expect(scanRes.body.allowed).toBe(false);
     expect(scanRes.body.reason).toBe("CLASS_CANCELLED");
   });
+
+  it("8. Subscriptions Management: Filtering overdue returns exactly scan PAYMENT_OVERDUE member, and freeze checks", async () => {
+    // 1. Create a plan with minUpfrontPercent=50, dueAfterDays=0 (due immediately after upfront)
+    const planRes = await request(server)
+      .post("/api/v1/plans")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: `باقة تقسيط فورية ${Date.now()}`,
+        kind: "GYM",
+        price: 100000,
+        durationDays: 30,
+        grantsFloorAccess: true,
+        minUpfrontPercent: 50,
+        dueAfterDays: 0,
+        freezeMaxCount: 2,
+        freezeMaxTotalDays: 15,
+      });
+    expect(planRes.status).toBe(201);
+    const plan = planRes.body;
+
+    // 2. Member buys with partial payment (50% upfront = 50,000 piasters)
+    const phone = "010" + Math.floor(10000000 + Math.random() * 90000000).toString();
+    const memRes = await request(server)
+      .post("/api/v1/members")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ name: "عضو متأخر السداد", phone, gender: "MALE" });
+    const member = memRes.body;
+
+    const invRes = await request(server)
+      .post("/api/v1/invoices")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({
+        memberId: member.id,
+        items: [{ kind: "SUBSCRIPTION", planId: plan.id, quantity: 1 }],
+        payments: [{ method: "CASH", amount: 50000 }],
+        useWallet: false,
+      })
+      .expect(201);
+
+    const subId = invRes.body.items[0].subscriptionId;
+
+    // 3. Scan member at the gate -> must return PAYMENT_OVERDUE!
+    const scanRes = await request(server)
+      .post("/api/v1/access/scan")
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ code: member.code });
+
+    expect(scanRes.status).toBe(201);
+    expect(scanRes.body.allowed).toBe(false);
+    expect(scanRes.body.reason).toBe("PAYMENT_OVERDUE");
+
+    // 4. Central Subscriptions screen GET /subscriptions?overdue=true
+    const overdueListRes = await request(server)
+      .get("/api/v1/subscriptions?overdue=true&page=1&limit=50")
+      .set("Authorization", `Bearer ${receptionToken}`);
+
+    expect(overdueListRes.status).toBe(200);
+    expect(overdueListRes.body.items).toBeDefined();
+    const found = overdueListRes.body.items.find((s: any) => s.id === subId);
+    expect(found).toBeDefined();
+    expect(found.member.id).toBe(member.id);
+    expect(found.isOverdue).toBe(true);
+    expect(found.remaining).toBe(50000);
+
+    // 5. Freezing this overdue subscription must be denied with PAYMENT_OVERDUE
+    const freezeRes = await request(server)
+      .post(`/api/v1/subscriptions/${subId}/freeze`)
+      .set("Authorization", `Bearer ${receptionToken}`)
+      .send({ days: 7, reason: "محاولة تجميد اشتراك متأخر" });
+
+    expect(freezeRes.status).toBe(422);
+    expect(freezeRes.body.code).toBe("PAYMENT_OVERDUE");
+  });
 });

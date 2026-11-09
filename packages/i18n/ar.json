@@ -581,5 +581,71 @@
       "5": "الجمعة",
       "6": "السبت"
     }
+  },
+  "subscriptionsManagement": {
+    "title": "إدارة الاشتراكات والعضويات",
+    "description": "شاشة موحدة لمتابعة جميع اشتراكات الأعضاء، إدارة التجميد، تحصيل المتبقي، تغيير المدربين، وجلسات التدريب",
+    "totalActive": "الاشتراكات النشطة",
+    "totalExpiringSoon": "تنتهي خلال 7 أيام",
+    "totalOverdueAmount": "مستحقات متأخرة",
+    "totalPendingPayment": "في انتظار الدفع",
+    "all": "الكل",
+    "quickFilters": {
+      "expiring7": "تنتهي خلال 7 أيام",
+      "overdue": "متأخرة",
+      "frozen": "مجمدة",
+      "pendingPayment": "في انتظار الدفع"
+    },
+    "filters": {
+      "searchPlaceholder": "بحث باسم العضو، الكود، أو رقم الهاتف...",
+      "status": "الحالة",
+      "kind": "نوع الباقة",
+      "plan": "الباقة",
+      "coach": "المدرب",
+      "dateRange": "فترة الاشتراك",
+      "reset": "إعادة تعيين الفلاتر"
+    },
+    "table": {
+      "member": "العضو",
+      "plan": "الباقة والنوع",
+      "coach": "المدرب",
+      "period": "فترة الاشتراك",
+      "daysLeft": "المتبقي",
+      "financials": "المدفوع / المتبقي",
+      "sessions": "الجلسات",
+      "status": "الحالة",
+      "actions": "الإجراءات"
+    },
+    "statuses": {
+      "ACTIVE": "نشط",
+      "PENDING_PAYMENT": "في انتظار الدفع",
+      "FROZEN": "مجمد",
+      "SUSPENDED_UNPAID": "متوقف (غير مسدد)",
+      "EXPIRED": "منتهي",
+      "CANCELLED": "ملغي"
+    },
+    "kinds": {
+      "GYM": "جيم",
+      "PT": "تدريب خاص (PT)",
+      "CLASS": "حصص جماعية"
+    },
+    "actions": {
+      "openMember": "عرض ملف العضو",
+      "collectBalance": "تحصيل المتبقي",
+      "freeze": "تجميد",
+      "unfreeze": "إلغاء التجميد",
+      "cancel": "إلغاء الاشتراك",
+      "changeCoach": "تغيير المدرب",
+      "renew": "تجديد مبكر",
+      "logSession": "تسجيل جلسة",
+      "exportCsv": "تصدير كشف CSV"
+    },
+    "empty": "لا توجد اشتراكات تطابق محددات البحث الحالية",
+    "pagination": {
+      "showing": "عرض {from} إلى {to} من إجمالي {total} اشتراك",
+      "prev": "السابق",
+      "next": "التالي",
+      "page": "صفحة {page} من {totalPages}"
+    }
   }
 }
