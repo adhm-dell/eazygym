@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   useToast,
   Button,
@@ -21,6 +22,7 @@ import {
   Bell,
   History,
   Info,
+  Sparkles,
 } from "lucide-react";
 
 import {
@@ -50,11 +52,28 @@ import { TiersEditorDialog } from "../../../features/payroll/components/tiers-ed
 import { CoachMilestonesModal } from "../../../features/payroll/components/coach-milestones-modal";
 import { AddPayrollLineDialog } from "../../../features/payroll/components/add-payroll-line-dialog";
 import { useShift } from "../../../lib/shift-context";
+import { fetchSetupStatus, type SetupStatus } from "../../../features/setup/api";
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
   const { currentUser } = useShift();
   const [activeTab, setActiveTab] = useState<"payroll" | "reports" | "audit">("payroll");
+
+  // Setup checklist state
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
+
+  const loadSetupStatus = async () => {
+    try {
+      const status = await fetchSetupStatus();
+      setSetupStatus(status);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadSetupStatus();
+  }, []);
 
   // Payroll state
   const currentDate = new Date();
@@ -286,6 +305,195 @@ export default function AdminDashboardPage() {
           </Chip>
         </div>
       </header>
+
+      {/* Setup Checklist Card (Visible when incomplete) */}
+      {setupStatus && !setupStatus.isComplete && (
+        <div className="bg-white border-2 border-[#14181F]/10 rounded-2xl p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#2D7A4C]/10 text-[#2D7A4C] flex items-center justify-center font-bold">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-[#14181F]">
+                  إعداد الجيم وتجهيز النظام
+                </h2>
+                <p className="text-xs text-[#5B6470]">
+                  أكمل المتطلبات الأساسية التالية لتجهيز النادي للعمل الفعلي واستقبال المشتركين
+                </p>
+              </div>
+            </div>
+            <div className="text-start sm:text-end">
+              <div className="text-xs font-bold text-[#14181F] mb-1">
+                اكتمال {setupStatus.completedSteps} من {setupStatus.totalRequiredSteps} متطلبات أساسية ({Math.round((setupStatus.completedSteps / setupStatus.totalRequiredSteps) * 100)}%)
+              </div>
+              <div className="w-48 bg-[#E1E5DF] h-2.5 rounded-full overflow-hidden">
+                <div
+                  className="bg-[#2D7A4C] h-full transition-all duration-500 rounded-full"
+                  style={{
+                    width: `${Math.round((setupStatus.completedSteps / setupStatus.totalRequiredSteps) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-3 border-t border-[#E1E5DF]/70">
+            {/* 1. Plans */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">باقات الاشتراك الأساسية</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.plans
+                      ? `تم تعريف ${setupStatus.counts.plans} باقة نشطة`
+                      : "مطلوب إضافة باقة عضوية واحدة على الأقل"}
+                  </div>
+                </div>
+                {setupStatus.plans ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <Link
+                href="/plans"
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors"
+              >
+                {setupStatus.plans ? "إدارة الباقات" : "إضافة باقة جديدة"}
+              </Link>
+            </div>
+
+            {/* 2. Reception Staff */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">موظفي الاستقبال (Reception)</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.reception
+                      ? `يوجد ${setupStatus.counts.reception} موظف استقبال نشط`
+                      : "مطلوب حساب استقبال لفتح الشيفتات والبيع"}
+                  </div>
+                </div>
+                {setupStatus.reception ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <Link
+                href="/staff"
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors"
+              >
+                {setupStatus.reception ? "إدارة الموظفين" : "إضافة موظف استقبال"}
+              </Link>
+            </div>
+
+            {/* 3. Coaches */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">المدربين (كباتن الجيم)</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.coaches
+                      ? `يوجد ${setupStatus.counts.coaches} كابتن مسجل`
+                      : "مطلوب كابتن واحد على الأقل لتدوير المتدربين"}
+                  </div>
+                </div>
+                {setupStatus.coaches ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <Link
+                href="/staff"
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors"
+              >
+                {setupStatus.coaches ? "إدارة الكباتن" : "إضافة كابتن"}
+              </Link>
+            </div>
+
+            {/* 4. Coach Shifts */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">جدول ورديات المدربين</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.coachShifts
+                      ? "جميع الكباتن لديهم ورديات عمل مسجلة"
+                      : setupStatus.counts.coachesWithoutShifts > 0
+                      ? `${setupStatus.counts.coachesWithoutShifts} كابتن بدون وردية مسجلة`
+                      : "مطلوب إضافة كباتن وتحديد وردياتهم"}
+                  </div>
+                </div>
+                {setupStatus.coachShifts ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <Link
+                href="/coach-ops"
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors"
+              >
+                تحديد جدول الورديات
+              </Link>
+            </div>
+
+            {/* 5. Commission Tiers */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">شرائح عمولات التدريب الخاص (PT)</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.commissionTiers
+                      ? `تم ضبط ${setupStatus.counts.commissionTiers} شريحة عمولة`
+                      : "مطلوب تحديد شرائح عمولات تبدأ من 0 ج.م"}
+                  </div>
+                </div>
+                {setupStatus.commissionTiers ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTiersOpen(true)}
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors cursor-pointer"
+              >
+                ضبط شرائح العمولات
+              </button>
+            </div>
+
+            {/* 6. Payment Policy */}
+            <div className="p-3.5 rounded-xl border border-[#E1E5DF] bg-[#F6F8F5]/40 flex flex-col justify-between gap-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#14181F]">سياسة الدفع والاستحقاق</div>
+                  <div className="text-xs text-[#5B6470] mt-0.5">
+                    {setupStatus.paymentPolicy
+                      ? "تم ضبط سياسة المقدم وفترة السماح"
+                      : "مطلوب مراجعة سياسة الدفع الافتراضية"}
+                  </div>
+                </div>
+                {setupStatus.paymentPolicy ? (
+                  <Badge variant="g" className="text-[10px] font-bold">جاهز</Badge>
+                ) : (
+                  <Badge variant="default" className="text-[10px] font-bold bg-[#B3261E]/10 text-[#B3261E]">مطلوب</Badge>
+                )}
+              </div>
+              <Link
+                href="/settings"
+                className="w-full py-2 px-3 text-center text-xs font-bold rounded-lg border border-[#14181F] bg-[#14181F] text-white hover:bg-[#14181F]/90 transition-colors"
+              >
+                مراجعة سياسة الدفع
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Primary Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-[#E1E5DF] pb-2">
@@ -1024,7 +1232,10 @@ export default function AdminDashboardPage() {
         open={tiersOpen}
         onOpenChange={setTiersOpen}
         coaches={coachesList}
-        onSaved={() => loadRunDetail(selectedYear, selectedMonth)}
+        onSaved={() => {
+          loadRunDetail(selectedYear, selectedMonth);
+          loadSetupStatus();
+        }}
       />
 
       <AddPayrollLineDialog

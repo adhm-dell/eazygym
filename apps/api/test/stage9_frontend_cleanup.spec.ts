@@ -130,3 +130,4 @@ describe("Stage 9: Frontend Clean-up Acceptance Tests", () => {
     expect(memberPkg.dependencies["@gym/mock-data"]).toBeUndefined();
   });
 });
+

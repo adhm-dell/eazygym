@@ -131,16 +131,21 @@ describe("Phase 09: Member Portal Acceptance Tests", () => {
     );
     if (!activeSub) {
       activeSub = subsRes.body.find((s: any) => s.status === "ACTIVE");
-      if (activeSub) {
-        await prisma.subscription.update({
-          where: { id: activeSub.id },
-          data: {
-            freezeMaxCount: 2,
-            freezeMaxTotalDays: 15,
-            freezeUsedDays: 0,
-          },
-        });
-      }
+    }
+    if (activeSub) {
+      await prisma.subscriptionFreeze.deleteMany({
+        where: { subscriptionId: activeSub.id },
+      });
+      await prisma.subscription.update({
+        where: { id: activeSub.id },
+        data: {
+          status: "ACTIVE",
+          freezeMaxCount: 5,
+          freezeMaxTotalDays: 30,
+          freezeUsedDays: 0,
+          freezeUsedCount: 0,
+        },
+      });
     }
     if (!activeSub) return;
 

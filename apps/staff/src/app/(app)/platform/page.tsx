@@ -90,6 +90,10 @@ export default function PlatformAdminPage() {
       setModalError("جميع الحقول الإلزامية مطلوبة");
       return;
     }
+    if (!adminPassword.trim() || adminPassword.trim().length < 10) {
+      setModalError("كلمة مرور مسؤول الفرع مطلوبة وتتكون من 10 أحرف على الأقل");
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -445,13 +449,15 @@ export default function PlatformAdminPage() {
 
               <div>
                 <label className="font-bold text-[#14181F] block mb-1">
-                  {t("platformAdmin.adminPassword")}
+                  {t("platformAdmin.adminPassword")} *
                 </label>
                 <input
                   type="password"
+                  required
+                  minLength={10}
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="كلمة المرور (10 أحرف على الأقل)"
                   className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
                 />
               </div>

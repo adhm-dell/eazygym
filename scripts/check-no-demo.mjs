@@ -97,3 +97,4 @@ if (violationsCount > 0) {
   console.log("SUCCESS: No demo or test remnants found across frontend apps and shared packages.");
   process.exit(0);
 }
+

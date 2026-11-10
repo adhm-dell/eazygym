@@ -72,7 +72,7 @@ export const CreateStaffSchema = z.object({
   phone: z.string().optional(),
   role: StaffRoleSchema,
   baseSalary: z.number().int().nonnegative().optional(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(10),
 });
 export type CreateStaffDto = z.infer<typeof CreateStaffSchema>;
 

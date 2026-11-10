@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   UnprocessableEntityException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -84,7 +85,15 @@ export class StaffService {
       });
     }
 
-    const password = dto.password || "123456";
+    const password = dto.password?.trim();
+    const WEAK = new Set(["123456", "12345678", "password", "admin123", "1234567890"]);
+    if (!password || password.length < 10 || WEAK.has(password.toLowerCase())) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "INVALID_PASSWORD",
+        message: "Staff password must be at least 10 characters and not a common password",
+      });
+    }
     const passwordHash = await this.authService.hashPassword(password);
 
     const created = await this.prisma.staff.create({

@@ -108,6 +108,10 @@ export default function StaffManagementPage() {
       setModalError("البريد الإلكتروني مطلوب");
       return;
     }
+    if (!editingStaff && (!password.trim() || password.trim().length < 10)) {
+      setModalError("كلمة المرور مطلوبة وتتكون من 10 أحرف على الأقل");
+      return;
+    }
 
     const salaryPiasters = Math.round(parseFloat(baseSalaryEgp || "0") * 100);
 
@@ -134,7 +138,7 @@ export default function StaffManagementPage() {
           phone: phone.trim() || undefined,
           role,
           baseSalary: salaryPiasters >= 0 ? salaryPiasters : 0,
-          password: password.trim() || undefined,
+          password: password.trim(),
         };
         await staffApi.createStaff(dto);
         toast({
@@ -539,13 +543,15 @@ export default function StaffManagementPage() {
 
             <div>
               <label className="font-bold text-[#14181F] block mb-1">
-                {t("staffManagement.password")}
+                {t("staffManagement.password")} {!editingStaff && "*"}
               </label>
               <input
                 type="password"
+                required={!editingStaff}
+                minLength={editingStaff ? undefined : 10}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={t("staffManagement.passwordPlaceholder")}
+                placeholder={!editingStaff ? "كلمة المرور (10 أحرف على الأقل)" : t("staffManagement.passwordPlaceholder")}
                 className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
               />
             </div>

@@ -185,10 +185,12 @@ export async function memberRequest<T = any>(
   });
 
   // Handle automatic refresh on 401
-  if (res.status === 401 && !isRetry) {
-    const refreshedToken = await refreshAccessToken();
-    if (refreshedToken) {
-      return memberRequest<T>(path, options, true);
+  if (res.status === 401) {
+    if (!isRetry) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        return memberRequest<T>(path, options, true);
+      }
     }
 
     clearStoredAuth();

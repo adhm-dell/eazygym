@@ -144,10 +144,12 @@ async function makeRequest<T>(
   });
 
   // Handle automatic refresh on 401
-  if (res.status === 401 && !isRetry) {
-    const refreshedToken = await refreshAccessToken();
-    if (refreshedToken) {
-      return makeRequest<T>(url, method, body, true, extraHeaders);
+  if (res.status === 401) {
+    if (!isRetry) {
+      const refreshedToken = await refreshAccessToken();
+      if (refreshedToken) {
+        return makeRequest<T>(url, method, body, true, extraHeaders);
+      }
     }
 
     clearStoredAuth();

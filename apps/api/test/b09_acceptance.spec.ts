@@ -200,6 +200,7 @@ describe("B09 RBAC & Scheduled Jobs & Platform Gyms Acceptance Tests", () => {
           admin: {
             name: "عمر فاروق",
             email: `nasr.admin.${Date.now()}@powercore.gym`,
+            password: "NasrAdminSecure2026!",
           },
         });
 

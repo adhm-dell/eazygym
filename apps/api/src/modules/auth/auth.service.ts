@@ -27,17 +27,16 @@ export class AuthService {
   ) {}
 
   /**
-   * Helper to verify password using bcrypt, with fallback to plain comparison for mock seeds.
+   * Helper to verify password using bcrypt strictly.
+   * Fails closed if the hash is missing or not a valid bcrypt hash (must start with $2).
    */
   async verifyPassword(plain: string, hash: string | null | undefined): Promise<boolean> {
-    if (!hash) return false;
+    if (!hash || !hash.startsWith("$2")) return false;
     try {
-      const match = await bcrypt.compare(plain, hash);
-      if (match) return true;
+      return await bcrypt.compare(plain, hash);
     } catch {
-      // not a valid bcrypt hash, try plain comparison
+      return false;
     }
-    return plain === hash;
   }
 
   async hashPassword(password: string): Promise<string> {

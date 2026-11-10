@@ -35,6 +35,7 @@ import { JobsModule } from "./modules/jobs/jobs.module";
 import { NumberingModule } from "./modules/numbering/numbering.module";
 import { CoachOpsModule } from "./modules/coach-ops/coach-ops.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { SetupModule } from "./modules/setup/setup.module";
 import { AppController } from "./app.controller";
 
 @Module({
@@ -71,6 +72,7 @@ import { AppController } from "./app.controller";
     ReportsModule,
     JobsModule,
     DashboardModule,
+    SetupModule,
   ],
   controllers: [AppController],
   providers: [

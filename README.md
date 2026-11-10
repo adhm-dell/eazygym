@@ -53,3 +53,75 @@ Services never re-implement rules; they load data, call the pure function, persi
 2. Nest scaffold + auth/RBAC + gym-context guard.
 3. Invoices/payments/wallet service (single transaction) -> subscriptions -> access scan endpoint.
 4. Shifts + expenses + vouchers, then commissions + payroll.
+
+## Go-Live Checklist & Production Setup
+
+Follow these steps when provisioning a fresh production environment for a gym:
+
+### 1. Configure Environment Variables
+Copy `.env.example` to `.env` in the root:
+```bash
+cp .env.example .env
+```
+Ensure the following variables are set:
+```env
+DATABASE_URL="postgresql://postgres:<password>@<host>:5432/<database>?schema=public"
+JWT_SECRET="<generate-a-strong-random-64-character-string>"
+JWT_REFRESH_SECRET="<generate-another-strong-random-64-character-string>"
+ALLOW_DB_RESET=false
+
+# First Gym & Owner Bootstrap Credentials
+BOOTSTRAP_GYM_NAME="اسم الجيم"
+BOOTSTRAP_GYM_SLUG="gym-slug"
+BOOTSTRAP_TIMEZONE="Africa/Cairo"
+BOOTSTRAP_ADMIN_NAME="اسم المالك"
+BOOTSTRAP_ADMIN_EMAIL="owner@yourgym.com"
+BOOTSTRAP_ADMIN_PASSWORD="<strong-password-at-least-10-chars>"
+
+# Optional Platform SuperAdmin
+BOOTSTRAP_SUPER_ADMIN_EMAIL="platform@yourgym.com"
+BOOTSTRAP_SUPER_ADMIN_PASSWORD="<strong-password-at-least-10-chars>"
+```
+
+### 2. Apply Database Migrations
+Run Prisma migrations to initialize the schema without any demo data:
+```bash
+pnpm --filter @gym/db db:migrate
+```
+
+### 3. Bootstrap First Gym and Admin Account
+Run the idempotent bootstrap tool:
+```bash
+pnpm --filter @gym/db db:bootstrap
+```
+This initializes exactly one gym and one admin staff account. No demo members, plans, invoices, or shifts are inserted.
+
+### 4. First Login & Security
+1. Navigate to the staff portal at `http://localhost:3000` (or your domain).
+2. Login using the owner email and bootstrap password.
+3. If using temporary credentials, update your password from `/staff` immediately.
+
+### 5. Complete Owner First-Run Setup Checklist
+On the Admin Dashboard (`/admin`), follow the **إعداد الجيم وتجهيز النظام** onboarding card:
+- **الباقات**: Create at least 1 membership plan (`/plans`).
+- **الاستقبال**: Create at least 1 reception staff account (`/staff`).
+- **الكباتن**: Create coach accounts (`/staff`).
+- **الورديات**: Define shift schedules for each active coach (`/coach-ops`).
+- **شرائح العمولات**: Set gym commission tiers starting at 0 EGP from the Admin dashboard.
+- **سياسة الدفع**: Review default upfront and due-date parameters (`/settings`).
+The checklist card automatically disappears once all 6 required items are configured.
+
+### 6. Destructive Reset & Backups Warning
+> [!CAUTION]
+> The command `pnpm --filter @gym/db db:reset` is **destructive** and truncates all public tables except `_prisma_migrations`.
+>
+> **Always backup your database before running a reset:**
+> ```bash
+> pg_dump "$DATABASE_URL" > backup-$(date +%s).sql
+> ```
+>
+> Safety guards enforced by `db:reset`:
+> 1. Requires `ALLOW_DB_RESET=true` in `.env`.
+> 2. Requires `--confirm=<database-name>` matching the exact database name.
+> 3. Refuses non-local database hosts unless `--allow-remote` is explicitly passed.
+

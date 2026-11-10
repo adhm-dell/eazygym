@@ -196,8 +196,16 @@ export class GymsService {
       });
     }
 
-    const rawPassword = dto.admin.password || "123456";
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
+    const rawPassword = dto.admin.password?.trim();
+    const WEAK = new Set(["123456", "12345678", "password", "admin123", "1234567890"]);
+    if (!rawPassword || rawPassword.length < 10 || WEAK.has(rawPassword.toLowerCase())) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "INVALID_PASSWORD",
+        message: "Admin password must be at least 10 characters and not a common password",
+      });
+    }
+    const passwordHash = await bcrypt.hash(rawPassword, 12);
 
     return this.prisma.$transaction(async (tx) => {
       const gym = await tx.gym.create({
