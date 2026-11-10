@@ -711,6 +711,7 @@ export class SubscriptionsService {
 
     return {
       success: true,
+      status: "ACTIVE",
       settledDays: settled.days,
       newEndDate: newEndDate.toISOString(),
     };

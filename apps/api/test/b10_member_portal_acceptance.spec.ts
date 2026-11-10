@@ -126,7 +126,22 @@ describe("Phase 09: Member Portal Acceptance Tests", () => {
       .get("/api/v1/subscriptions")
       .set("Authorization", `Bearer ${memberToken}`);
 
-    const activeSub = subsRes.body.find((s: any) => s.status === "ACTIVE");
+    let activeSub = subsRes.body.find(
+      (s: any) => s.status === "ACTIVE" && (s.freezeRemainingCount ?? 0) > 0
+    );
+    if (!activeSub) {
+      activeSub = subsRes.body.find((s: any) => s.status === "ACTIVE");
+      if (activeSub) {
+        await prisma.subscription.update({
+          where: { id: activeSub.id },
+          data: {
+            freezeMaxCount: 2,
+            freezeMaxTotalDays: 15,
+            freezeUsedDays: 0,
+          },
+        });
+      }
+    }
     if (!activeSub) return;
 
     // Test: Requesting freeze exceeding allowed remaining days should fail
