@@ -21,14 +21,19 @@ import {
 } from "lucide-react";
 import { Button, Badge, Dialog, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
+import Link from "next/link";
 import { formatMoney } from "../../../lib/money";
 import { staffApi, type StaffMember } from "../../../features/staff/api";
+import { useShift } from "../../../lib/shift-context";
 import type { StaffRole, CreateStaffDto, UpdateStaffDto } from "@gym/contracts";
 
 export default function StaffManagementPage() {
   const { t, locale } = useTranslation();
   const isRtl = locale === "ar";
   const { toast } = useToast();
+  const { currentUser } = useShift();
+  const isAdmin =
+    currentUser?.role === "GYM_ADMIN" || currentUser?.role === "SUPER_ADMIN";
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,6 +200,31 @@ export default function StaffManagementPage() {
       return true;
     });
   }, [staffList, roleFilter, search]);
+
+  if (currentUser && !isAdmin) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center space-y-4 pt-16" dir={isRtl ? "rtl" : "ltr"}>
+        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl space-y-3 shadow-sm">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <h2 className="text-lg font-black text-red-900">
+            {isRtl ? "غير مصرح بالدخول" : "Unauthorized Access"}
+          </h2>
+          <p className="text-xs text-red-700 leading-relaxed font-medium">
+            {isRtl
+              ? "صفحة إدارة حسابات الموظفين والرواتب مخصصة لمدير النادي فقط (GYM_ADMIN / SUPER_ADMIN)."
+              : "Staff management and payroll configuration is restricted to administrators."}
+          </p>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="text-xs font-bold border-red-300 hover:bg-red-100">
+                {isRtl ? "العودة لشاشة الدخول الرئيسية" : "Return to Home"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1400px] mx-auto">

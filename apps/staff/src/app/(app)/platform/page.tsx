@@ -16,7 +16,9 @@ import {
   Lock,
   Mail,
   UserCheck,
+  AlertCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { Button, Badge, Dialog, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
 import { platformApi, type PlatformGym, type CreateGymDto } from "../../../features/platform/api";
@@ -38,7 +40,7 @@ export default function PlatformAdminPage() {
   const [timezone, setTimezone] = useState("Africa/Cairo");
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
-  const [adminPassword, setAdminPassword] = useState("123456");
+  const [adminPassword, setAdminPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -113,6 +115,7 @@ export default function PlatformAdminPage() {
       setSlug("");
       setAdminName("");
       setAdminEmail("");
+      setAdminPassword("");
       fetchGyms();
     } catch (err: any) {
       if (err?.code === "SLUG_EXISTS") {
@@ -133,8 +136,33 @@ export default function PlatformAdminPage() {
   const totalMembers = gyms.reduce((sum, g) => sum + (g.membersCount || 0), 0);
   const totalStaff = gyms.reduce((sum, g) => sum + (g.staffCount || 0), 0);
 
-  // Role check guard (if not SUPER_ADMIN, display banner)
+  // Role check guard (SUPER_ADMIN only)
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+
+  if (currentUser && !isSuperAdmin) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center space-y-4 pt-16" dir={isRtl ? "rtl" : "ltr"}>
+        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl space-y-3 shadow-sm">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <h2 className="text-lg font-black text-red-900">
+            {isRtl ? "غير مصرح بالدخول" : "Unauthorized Access"}
+          </h2>
+          <p className="text-xs text-red-700 leading-relaxed font-medium">
+            {isRtl
+              ? "صفحة إدارة المنصة والنوادي مخصصة لمالك المنصة فقط (SUPER_ADMIN)."
+              : "Platform administration and gym creation is restricted to platform owners (SUPER_ADMIN)."}
+          </p>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="text-xs font-bold border-red-300 hover:bg-red-100">
+                {isRtl ? "العودة لشاشة الدخول الرئيسية" : "Return to Home"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1400px] mx-auto">
@@ -177,16 +205,6 @@ export default function PlatformAdminPage() {
           </Button>
         </div>
       </div>
-
-      {!isSuperAdmin && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800 text-xs">
-          <ShieldAlert className="w-5 h-5 shrink-0" />
-          <span>
-            تنبيه: أنت مسجل حالياً بدور ({currentUser?.role}). إدارة المنصة مخصصة لمالك المنصة
-            (SUPER_ADMIN)؛ يمكنك التبديل لحساب "المالك (م. طارق العوضي)" من أسفل القائمة الجانبية لتجربة الصلاحيات الكاملة.
-          </span>
-        </div>
-      )}
 
       {/* Top KPI Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -433,7 +451,7 @@ export default function PlatformAdminPage() {
                   type="password"
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
-                  placeholder="123456"
+                  placeholder="••••••••"
                   className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
                 />
               </div>
