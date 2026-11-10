@@ -140,7 +140,7 @@ export function VisitorCheckinDialog({
               </div>
             </div>
 
-            <div className="text-left">
+            <div className="text-end">
               <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
                 isUsable && hasRemaining
                   ? "bg-teal-100 text-teal-800"
@@ -184,17 +184,17 @@ export function VisitorCheckinDialog({
           {!isCreatingNew ? (
             <div className="space-y-3">
               <div className="relative">
-                <Search className="absolute right-3.5 top-3 h-4 w-4 text-gray-400" />
+                <Search className="absolute start-3.5 top-3 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="ابحث بالاسم أو رقم الهاتف..."
-                  className="w-full pr-10 pl-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-600 bg-white"
+                  className="w-full ps-10 pe-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-600 bg-white"
                 />
               </div>
 
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto pe-1">
                 {visitors.map((v) => (
                   <label
                     key={v.id}

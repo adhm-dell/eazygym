@@ -188,7 +188,7 @@ export function ChangeCoachDialog({
             </div>
 
             <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-              <table className="w-full text-right text-xs">
+              <table className="w-full text-start text-xs">
                 <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold">
                   <tr>
                     <th className="p-3">الشهر / المرحلة</th>

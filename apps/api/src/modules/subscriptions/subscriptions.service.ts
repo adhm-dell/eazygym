@@ -16,6 +16,8 @@ import {
   canFreeze,
   settleFreeze,
   endDateAfterFreeze,
+  splitOnTransfer,
+  type HeldMilestone,
   type AccessSubscription,
 } from "@gym/domain";
 import { decimalToPiasters, piastersToDecimal } from "@gym/db";
@@ -406,8 +408,8 @@ export class SubscriptionsService {
         startDate: s.startDate,
         durationDays: s.durationDays,
         now,
-        dueAfterDays: s.plan.dueAfterDays ?? undefined,
-        dueAfterPercent: s.plan.dueAfterPercent ? Number(s.plan.dueAfterPercent) : undefined,
+        dueAfterDays: (s.dueAfterDays !== null && s.dueAfterDays !== undefined) ? s.dueAfterDays : (s.plan.dueAfterDays ?? undefined),
+        dueAfterPercent: s.dueAfterPercent ? Number(s.dueAfterPercent) : (s.plan.dueAfterPercent ? Number(s.plan.dueAfterPercent) : undefined),
       });
 
       // Matches scan access rule for PAYMENT_OVERDUE: active, not frozen, currently between start and end dates
@@ -749,6 +751,61 @@ export class SubscriptionsService {
     return updated;
   }
 
+  async previewCoachTransfer(gymId: string, id: string, dto: { newCoachId?: string; effectiveAt?: string }) {
+    const sub = await this.prisma.subscription.findFirst({
+      where: { id, gymId },
+      include: {
+        assignments: { where: { toDate: null } },
+      },
+    });
+
+    if (!sub || sub.kind !== "PT") {
+      return { milestones: [] };
+    }
+
+    const currentAssignment = sub.assignments[0];
+    if (!currentAssignment) {
+      return { milestones: [] };
+    }
+
+    const entries = await this.prisma.commissionEntry.findMany({
+      where: {
+        subscriptionId: sub.id,
+        coachId: currentAssignment.coachId,
+        payrollRunId: null,
+        status: { not: "VOID" as any },
+      },
+      orderBy: { milestoneIndex: "asc" },
+    });
+
+    const transferAt = dto.effectiveAt ? new Date(dto.effectiveAt) : new Date();
+
+    const heldMilestones: HeldMilestone[] = entries.map((e: any) => ({
+      index: e.milestoneIndex,
+      periodStart: new Date(e.periodStart),
+      dueDate: new Date(e.dueDate),
+      heldBps: e.shareBps,
+    }));
+
+    const splits = splitOnTransfer(heldMilestones, transferAt);
+
+    const milestones = splits.map((s) => {
+      const entry = entries.find((e: any) => e.milestoneIndex === s.index);
+      return {
+        index: s.index,
+        periodStart: entry?.periodStart ? new Date(entry.periodStart).toISOString() : new Date().toISOString(),
+        dueDate: entry?.dueDate ? new Date(entry.dueDate).toISOString() : new Date().toISOString(),
+        base: entry ? decimalToPiasters(entry.baseAmount) : 0,
+        oldCoachPercent: Math.round(s.oldKeepsBps / 100),
+        oldCoachShareBps: s.oldKeepsBps,
+        newCoachPercent: Math.round(s.newGetsBps / 100),
+        newCoachShareBps: s.newGetsBps,
+      };
+    });
+
+    return { milestones };
+  }
+
   async changeCoach(gymId: string, actorId: string, id: string, dto: ChangeCoachDto) {
     const sub = await this.prisma.subscription.findFirst({
       where: { id, gymId },
@@ -924,11 +981,10 @@ export class SubscriptionsService {
         (f) => !f.endedAt && f.startedAt <= now
       );
 
-      let totalPiasters = 0;
+      const totalPiasters = decimalToPiasters(sub.price);
       let collectedPiasters = 0;
 
       if (sub.invoiceItem) {
-        totalPiasters = decimalToPiasters(sub.invoiceItem.total);
         collectedPiasters = sub.invoiceItem.allocations.reduce(
           (sum, a) => sum + decimalToPiasters(a.amount),
           0
@@ -946,8 +1002,8 @@ export class SubscriptionsService {
         startDate: sub.startDate,
         durationDays,
         now,
-        dueAfterDays: sub.plan.dueAfterDays ?? undefined,
-        dueAfterPercent: sub.plan.dueAfterPercent ? Number(sub.plan.dueAfterPercent) : undefined,
+        dueAfterDays: (sub.dueAfterDays !== null && sub.dueAfterDays !== undefined) ? sub.dueAfterDays : (sub.plan.dueAfterDays ?? undefined),
+        dueAfterPercent: sub.dueAfterPercent ? Number(sub.dueAfterPercent) : (sub.plan.dueAfterPercent ? Number(sub.plan.dueAfterPercent) : undefined),
       });
 
       const classSlots = sub.classSlots.map((cs) => {

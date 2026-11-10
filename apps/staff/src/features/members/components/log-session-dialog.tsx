@@ -100,7 +100,7 @@ export function LogSessionDialog({
                 <span className="text-xs text-gray-400">/ من إجمالي {totalSessions} جلسة</span>
               </div>
             </div>
-            <div className="text-left">
+            <div className="text-end">
               <span className="text-xs text-gray-500 block">الجلسات المنفذة</span>
               <span className="text-lg font-bold text-gray-800">{usedSessions}</span>
             </div>

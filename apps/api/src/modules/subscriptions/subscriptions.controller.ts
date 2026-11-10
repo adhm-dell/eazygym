@@ -118,7 +118,7 @@ export class SubscriptionsController {
     );
   }
 
-  @Post(":id/change-coach")
+  @Post([":id/change-coach", ":id/transfer-coach"])
   @Roles("GYM_ADMIN", "SUPER_ADMIN")
   @ApiOperation({ summary: "Change PT coach assignment with commission split" })
   async changeCoach(
@@ -129,6 +129,21 @@ export class SubscriptionsController {
     return this.subscriptionsService.changeCoach(
       req.gymId,
       req.user?.id || req.user?.sub,
+      id,
+      dto
+    );
+  }
+
+  @Post([":id/change-coach/preview", ":id/transfer-coach/preview"])
+  @Roles("GYM_ADMIN", "SUPER_ADMIN", "RECEPTION")
+  @ApiOperation({ summary: "Preview PT coach transfer milestone splits" })
+  async previewCoachTransfer(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body() dto: { newCoachId?: string; effectiveAt?: string }
+  ) {
+    return this.subscriptionsService.previewCoachTransfer(
+      req.gymId,
       id,
       dto
     );

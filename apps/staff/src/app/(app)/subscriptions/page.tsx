@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   CreditCard,
   Search,
-  Filter,
   RefreshCw,
   Download,
   AlertTriangle,
@@ -13,17 +12,12 @@ import {
   CheckCircle2,
   XCircle,
   Snowflake,
-  User,
-  Users,
   Dumbbell,
   ArrowRightLeft,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
   DollarSign,
-  AlertCircle,
-  MoreVertical,
-  Calendar,
 } from "lucide-react";
 import { Button, Badge, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
@@ -42,8 +36,7 @@ import { CollectBalanceDialog } from "../../../features/members/components/colle
 import { useShift } from "../../../lib/shift-context";
 
 export default function SubscriptionsManagementPage() {
-  const { t, locale } = useTranslation();
-  const isRtl = locale === "ar";
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { currentUser } = useShift();
 
@@ -61,7 +54,7 @@ export default function SubscriptionsManagementPage() {
 
   // Pagination State
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const limit = 20;
 
   // Data State
   const [data, setData] = useState<PaginatedSubscriptionsResult | null>(null);
@@ -242,6 +235,26 @@ export default function SubscriptionsManagementPage() {
     totalOverdueAmount: 0,
     totalPendingPayment: 0,
   };
+
+  const isGymAdmin = currentUser?.role === "GYM_ADMIN" || currentUser?.role === "SUPER_ADMIN";
+
+  // Role Access Guard (RECEPTION, GYM_ADMIN, SUPER_ADMIN)
+  if (
+    currentUser &&
+    currentUser.role !== "RECEPTION" &&
+    currentUser.role !== "GYM_ADMIN" &&
+    currentUser.role !== "SUPER_ADMIN"
+  ) {
+    return (
+      <div className="p-8 text-center max-w-lg mx-auto mt-12 bg-white rounded-2xl border border-red-100 shadow-sm" dir="rtl">
+        <AlertTriangle className="w-12 h-12 mx-auto text-red-500 mb-3" />
+        <h2 className="text-xl font-bold text-[#14181F]">غير مصرح لك بالوصول</h2>
+        <p className="text-sm text-[#5B6470] mt-1">
+          هذه الشاشة مخصصة فقط لموظفي الاستقبال وإدارة النادي لمتابعة الاشتراكات.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1500px] mx-auto">
@@ -829,7 +842,7 @@ export default function SubscriptionsManagementPage() {
                           )}
 
                           {/* PT Change Coach */}
-                          {sub.kind === "PT" && (
+                          {isGymAdmin && sub.kind === "PT" && (
                             <button
                               type="button"
                               onClick={() => setSelectedSubForChangeCoach(sub)}
@@ -841,7 +854,7 @@ export default function SubscriptionsManagementPage() {
                           )}
 
                           {/* Cancel Subscription */}
-                          {sub.status !== "CANCELLED" && (
+                          {isGymAdmin && sub.status !== "CANCELLED" && (
                             <button
                               type="button"
                               onClick={() => setSelectedSubForCancel(sub)}
