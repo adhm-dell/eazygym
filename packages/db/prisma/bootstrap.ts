@@ -8,8 +8,40 @@
  * Optional env: BOOTSTRAP_TIMEZONE (default Africa/Cairo),
  *               BOOTSTRAP_SUPER_ADMIN_EMAIL + BOOTSTRAP_SUPER_ADMIN_PASSWORD
  */
+import * as fs from "fs";
+import * as path from "path";
 import { PrismaClient } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+
+function loadEnvFile() {
+  const candidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(__dirname, "../.env"),
+    path.resolve(__dirname, "../../.env"),
+    path.resolve(__dirname, "../../../.env"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, "utf-8");
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (process.env[key] === undefined) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  }
+}
+loadEnvFile();
 
 const WEAK = new Set(["123456", "12345678", "password", "admin123", "1234567890"]);
 
@@ -83,3 +115,4 @@ if (process.argv[1] && /bootstrap\.(ts|js)$/.test(process.argv[1])) {
     })
     .finally(() => prisma.$disconnect());
 }
+

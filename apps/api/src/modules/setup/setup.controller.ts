@@ -20,3 +20,4 @@ export class SetupController {
     return this.setupService.getStatus(req.gymId);
   }
 }
+

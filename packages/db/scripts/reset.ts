@@ -11,8 +11,40 @@
  *  - prints row counts first, and a pg_dump reminder
  * Flags: --no-bootstrap (leave the DB completely empty)
  */
+import * as fs from "fs";
+import * as path from "path";
 import { PrismaClient } from "@prisma/client";
 import { bootstrap } from "../prisma/bootstrap";
+
+function loadEnvFile() {
+  const candidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(__dirname, "../.env"),
+    path.resolve(__dirname, "../../.env"),
+    path.resolve(__dirname, "../../../.env"),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const content = fs.readFileSync(p, "utf-8");
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx > 0) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (process.env[key] === undefined) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  }
+}
+loadEnvFile();
 
 function arg(name: string): string | undefined {
   const hit = process.argv.find((a) => a === `--${name}` || a.startsWith(`--${name}=`));
@@ -80,3 +112,4 @@ if (process.argv[1] && /reset\.(ts|js)$/.test(process.argv[1])) {
     process.exit(1);
   });
 }
+

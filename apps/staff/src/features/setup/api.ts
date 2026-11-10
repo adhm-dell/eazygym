@@ -25,3 +25,4 @@ export interface SetupStatus {
 
 export const fetchSetupStatus = (): Promise<SetupStatus> =>
   http.get<SetupStatus>("/setup/status");
+
