@@ -21,7 +21,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  AlertCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { Button, Badge, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
 import {
@@ -39,6 +41,12 @@ export default function ClassesPage() {
   const isRtl = locale === "ar";
   const { toast } = useToast();
   const { currentUser } = useShift();
+  const isAllowed =
+    currentUser?.role === "RECEPTION" ||
+    currentUser?.role === "GYM_ADMIN" ||
+    currentUser?.role === "SUPER_ADMIN";
+  const isAdmin =
+    currentUser?.role === "GYM_ADMIN" || currentUser?.role === "SUPER_ADMIN";
 
   // Active Tab: 'today' | 'timetable'
   const [activeTab, setActiveTab] = useState<"today" | "timetable">("today");
@@ -201,6 +209,31 @@ export default function ClassesPage() {
   const endedCount = todayClasses.filter((c) => c.status === "ENDED").length;
   const cancelledCount = todayClasses.filter((c) => c.status === "CANCELLED").length;
 
+  if (currentUser && !isAllowed) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center space-y-4 pt-16" dir={isRtl ? "rtl" : "ltr"}>
+        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl space-y-3 shadow-sm">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <h2 className="text-lg font-black text-red-900">
+            {isRtl ? "غير مصرح بالدخول" : "Unauthorized Access"}
+          </h2>
+          <p className="text-xs text-red-700 leading-relaxed font-medium">
+            {isRtl
+              ? "صفحة الحصص الجماعية والجدول الأسبوعي مخصصة للاستقبال ومدير النادي فقط."
+              : "Classes & timetable management is restricted to reception and gym administrators."}
+          </p>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="text-xs font-bold border-red-300 hover:bg-red-100">
+                {isRtl ? "العودة لشاشة الدخول الرئيسية" : "Return to Home"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1400px] mx-auto">
       {/* Page Header */}
@@ -232,18 +265,20 @@ export default function ClassesPage() {
             <span>تحديث</span>
           </Button>
 
-          <Button
-            variant="lime"
-            className="font-bold flex items-center gap-2"
-            onClick={() => {
-              setScheduleToEdit(null);
-              setDefaultScheduleDay(new Date().getDay());
-              setIsScheduleDialogOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>{t("classesTimetable.createSchedule")}</span>
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="lime"
+              className="font-bold flex items-center gap-2"
+              onClick={() => {
+                setScheduleToEdit(null);
+                setDefaultScheduleDay(new Date().getDay());
+                setIsScheduleDialogOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>{t("classesTimetable.createSchedule")}</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -522,24 +557,26 @@ export default function ClassesPage() {
                           <span>{t("classesTimetable.viewMembers")} ({regCount})</span>
                         </Button>
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-xs flex items-center justify-center gap-1.5 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
-                          onClick={() => {
-                            setSelectedScheduleForException({
-                              id: cls.id,
-                              name: cls.name,
-                              coach: cls.coach,
-                              startTime: cls.startTime,
-                              endTime: cls.endTime,
-                            });
-                            setIsExceptionDialogOpen(true);
-                          }}
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>{t("classesTimetable.manageException")}</span>
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs flex items-center justify-center gap-1.5 text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                            onClick={() => {
+                              setSelectedScheduleForException({
+                                id: cls.id,
+                                name: cls.name,
+                                coach: cls.coach,
+                                startTime: cls.startTime,
+                                endTime: cls.endTime,
+                              });
+                              setIsExceptionDialogOpen(true);
+                            }}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            <span>{t("classesTimetable.manageException")}</span>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -553,6 +590,17 @@ export default function ClassesPage() {
       {/* TIMETABLE VIEW */}
       {activeTab === "timetable" && (
         <div className="space-y-6">
+          {!isAdmin && (
+            <div className="p-3 bg-sky-50 border border-sky-200 rounded-xl text-xs text-sky-800 flex items-center gap-2">
+              <Info className="w-4 h-4 shrink-0 text-sky-600" />
+              <span>
+                {isRtl
+                  ? "الجدول الأسبوعي معروض بوضع القراءة فقط لموظفي الاستقبال. إنشاء وتعديل وإلغاء المواعيد متاح لمدير النادي فقط."
+                  : "The weekly timetable is in read-only mode for reception staff. Adding and modifying schedules is restricted to administrators."}
+              </span>
+            </div>
+          )}
+
           {/* Day Selector Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-2">
             <button
@@ -696,72 +744,76 @@ export default function ClassesPage() {
                                 </div>
                               </div>
 
-                              {/* Card Action footer */}
-                              <div className="pt-2 border-t border-[#E1E5DF] flex items-center justify-between gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setScheduleToEdit(schedule);
-                                    setIsScheduleDialogOpen(true);
-                                  }}
-                                  className="p-1 rounded hover:bg-[#F6F8F5] text-[#5B6470] hover:text-[#14181F] transition-colors"
-                                  title="تعديل الموعد"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
+                              {/* Card Action footer (Admin only) */}
+                              {isAdmin && (
+                                <div className="pt-2 border-t border-[#E1E5DF] flex items-center justify-between gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setScheduleToEdit(schedule);
+                                      setIsScheduleDialogOpen(true);
+                                    }}
+                                    className="p-1 rounded hover:bg-[#F6F8F5] text-[#5B6470] hover:text-[#14181F] transition-colors"
+                                    title="تعديل الموعد"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedScheduleForException({
-                                      id: schedule.id,
-                                      name: schedule.name,
-                                      coach: schedule.coach,
-                                      startTime: schedule.startTime,
-                                      endTime: schedule.endTime,
-                                    });
-                                    setIsExceptionDialogOpen(true);
-                                  }}
-                                  className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
-                                  title="إضافة استثناء لتاريخ معين"
-                                >
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedScheduleForException({
+                                        id: schedule.id,
+                                        name: schedule.name,
+                                        coach: schedule.coach,
+                                        startTime: schedule.startTime,
+                                        endTime: schedule.endTime,
+                                      });
+                                      setIsExceptionDialogOpen(true);
+                                    }}
+                                    className="p-1 rounded hover:bg-amber-50 text-amber-600 hover:text-amber-700 transition-colors"
+                                    title="إضافة استثناء لتاريخ معين"
+                                  >
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleScheduleActive(schedule)}
-                                  className={`p-1 rounded transition-colors ${
-                                    schedule.isActive
-                                      ? "text-red-500 hover:bg-red-50"
-                                      : "text-emerald-600 hover:bg-emerald-50"
-                                  }`}
-                                  title={schedule.isActive ? "تعطيل الموعد" : "تفعيل الموعد"}
-                                >
-                                  <Power className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleScheduleActive(schedule)}
+                                    className={`p-1 rounded transition-colors ${
+                                      schedule.isActive
+                                        ? "text-red-500 hover:bg-red-50"
+                                        : "text-emerald-600 hover:bg-emerald-50"
+                                    }`}
+                                    title={schedule.isActive ? "تعطيل الموعد" : "تفعيل الموعد"}
+                                  >
+                                    <Power className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })
                       )}
                     </div>
 
-                    {/* Quick Add Button per day */}
-                    <div className="pt-3 mt-3 border-t border-[#E1E5DF]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScheduleToEdit(null);
-                          setDefaultScheduleDay(dayOfWeek);
-                          setIsScheduleDialogOpen(true);
-                        }}
-                        className="w-full py-2 px-3 text-xs font-semibold text-[#5B6470] hover:text-[#14181F] bg-white hover:bg-[#E1E5DF]/50 border border-dashed border-[#E1E5DF] rounded-xl transition-all flex items-center justify-center gap-1.5"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>إضافة موعد</span>
-                      </button>
-                    </div>
+                    {/* Quick Add Button per day (Admin only) */}
+                    {isAdmin && (
+                      <div className="pt-3 mt-3 border-t border-[#E1E5DF]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScheduleToEdit(null);
+                            setDefaultScheduleDay(dayOfWeek);
+                            setIsScheduleDialogOpen(true);
+                          }}
+                          className="w-full py-2 px-3 text-xs font-semibold text-[#5B6470] hover:text-[#14181F] bg-white hover:bg-[#E1E5DF]/50 border border-dashed border-[#E1E5DF] rounded-xl transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>إضافة موعد</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
