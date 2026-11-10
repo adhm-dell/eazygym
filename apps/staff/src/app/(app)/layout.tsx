@@ -39,23 +39,23 @@ interface NavItem {
 }
 
 const allNavItems: NavItem[] = [
-  { href: "/", label: "مسح الدخول", icon: QrCode, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/pos", label: "بيع (البار والخدمات)", icon: ShoppingCart, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/members", label: "الأعضاء", icon: Users, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/subscriptions", label: "الاشتراكات", icon: CreditCard, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/plans", label: "الباقات", icon: Layers, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/catalog", label: "الخدمات والمنتجات", icon: Package, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/promotions", label: "العروض", icon: Tag, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/coach-ops", label: "عمليات المدربين", icon: Dumbbell, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/classes", label: "الحصص", icon: CalendarDays, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/shift", label: "الوردية", icon: Clock, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/expenses", label: "المصروفات", icon: DollarSign, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/staff", label: "الموظفين", icon: UserCheck, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
-  { href: "/settings", label: "الإعدادات", icon: Settings, roles: ["GYM_ADMIN", "SUPER_ADMIN"] },
+  { href: "/", label: "مسح الدخول", icon: QrCode, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/pos", label: "بيع (البار والخدمات)", icon: ShoppingCart, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN"] },
+  { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard, roles: ["GYM_ADMIN"] },
+  { href: "/members", label: "الأعضاء", icon: Users, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/subscriptions", label: "الاشتراكات", icon: CreditCard, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/plans", label: "الباقات", icon: Layers, roles: ["GYM_ADMIN"] },
+  { href: "/catalog", label: "الخدمات والمنتجات", icon: Package, roles: ["GYM_ADMIN"] },
+  { href: "/promotions", label: "العروض", icon: Tag, roles: ["GYM_ADMIN"] },
+  { href: "/coach-ops", label: "عمليات المدربين", icon: Dumbbell, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/classes", label: "الحصص", icon: CalendarDays, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/shift", label: "الوردية", icon: Clock, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN"] },
+  { href: "/expenses", label: "المصروفات", icon: DollarSign, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN"] },
+  { href: "/staff", label: "الموظفين", icon: UserCheck, roles: ["GYM_ADMIN"] },
+  { href: "/settings", label: "الإعدادات", icon: Settings, roles: ["GYM_ADMIN"] },
   { href: "/platform", label: "إدارة المنصة", icon: Globe, roles: ["SUPER_ADMIN"] },
   ...(process.env.NODE_ENV !== "production"
-    ? [{ href: "/design", label: "دليل التصميم", icon: Palette, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN", "SUPER_ADMIN"] }]
+    ? [{ href: "/design", label: "دليل التصميم", icon: Palette, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN"] }]
     : []),
 ];
 
@@ -67,7 +67,7 @@ function SidebarUserFooter() {
       <div className="p-3 rounded-xl bg-[#262D38]/50 border border-white/5 text-xs text-[#C9CFD6] space-y-2">
         <div className="flex items-center gap-1.5 text-white font-medium">
           <Sparkles className="h-3 w-3 text-[#C6F24E]" />
-          <span>{(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة إدارة الجيم"}</span>
+          <span>{currentUser?.role === "SUPER_ADMIN" ? "المنصة المركزية" : (currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة إدارة الجيم"}</span>
         </div>
         <div className="pt-2 border-t border-white/10 flex items-center justify-between">
           <div>
@@ -104,6 +104,9 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const [coachBadgeCount, setCoachBadgeCount] = useState(0);
 
   useEffect(() => {
+    if (!currentUser || currentUser.role === "SUPER_ADMIN" || !currentUser.gymId) {
+      return;
+    }
     let mounted = true;
     const fetchBadge = async () => {
       try {
@@ -121,7 +124,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [currentUser]);
 
   const userRole = currentUser?.role || "GYM_ADMIN";
 

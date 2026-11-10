@@ -35,7 +35,11 @@ export default function StaffLoginPage() {
         description: `مرحباً بك: ${res.user.name} (${res.user.role})`,
         variant: "success",
       });
-      router.push("/");
+      if (res.user.role === "SUPER_ADMIN") {
+        router.push("/platform");
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       toast({
         title: "خطأ في تسجيل الدخول",

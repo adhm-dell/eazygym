@@ -34,7 +34,15 @@ export class GymContextGuard implements CanActivate {
 
     if (user.role === "SUPER_ADMIN") {
       const headerGymId = req.headers["x-gym-id"];
-      req.gymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
+      const resolvedGymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
+      if (!resolvedGymId) {
+        throw new UnauthorizedException({
+          statusCode: 401,
+          code: "MISSING_GYM_CONTEXT",
+          message: "No gym associated with this account. Platform SuperAdmin must access /platform or specify x-gym-id header.",
+        });
+      }
+      req.gymId = resolvedGymId;
       return true;
     }
 
