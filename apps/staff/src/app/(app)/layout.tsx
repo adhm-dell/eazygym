@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   QrCode,
   ShoppingCart,
@@ -39,7 +39,7 @@ interface NavItem {
 }
 
 const allNavItems: NavItem[] = [
-  { href: "/", label: "مسح الدخول", icon: QrCode, roles: ["RECEPTION", "GYM_ADMIN"] },
+  { href: "/", label: "مسح الدخول", icon: QrCode, roles: ["RECEPTION", "GYM_ADMIN", "SUPER_ADMIN"] },
   { href: "/pos", label: "بيع (البار والخدمات)", icon: ShoppingCart, roles: ["RECEPTION", "BAR_CASHIER", "GYM_ADMIN"] },
   { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard, roles: ["GYM_ADMIN"] },
   { href: "/members", label: "الأعضاء", icon: Users, roles: ["RECEPTION", "GYM_ADMIN"] },
@@ -126,10 +126,22 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     };
   }, [currentUser]);
 
+  const router = useRouter();
   const userRole = currentUser?.role || "GYM_ADMIN";
 
+  useEffect(() => {
+    if (!isLoading && userRole === "SUPER_ADMIN" && pathname === "/") {
+      router.replace("/platform");
+    }
+  }, [isLoading, userRole, pathname, router]);
+
   // Filter navigation items by role
-  const visibleNavItems = allNavItems.filter((item) => item.roles.includes(userRole));
+  const visibleNavItems = allNavItems.filter((item) => {
+    if (userRole === "SUPER_ADMIN") {
+      return item.href === "/platform";
+    }
+    return item.roles.includes(userRole);
+  });
 
   // Check if current route is allowed for user's role
   const currentRouteItem = allNavItems.find((item) =>
@@ -211,9 +223,9 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
                 <b className="text-[#14181F]">{userRole}</b> ولا يملك الصلاحية للوصول إلى هذا القسم.
               </p>
               <div className="pt-2 flex justify-center gap-3">
-                <Link href="/">
+                <Link href={userRole === "SUPER_ADMIN" ? "/platform" : "/"}>
                   <Button variant="lime" className="font-bold rounded-xl">
-                    العودة للرئيسية
+                    {userRole === "SUPER_ADMIN" ? "الانتقال إلى إدارة المنصة" : "العودة للرئيسية"}
                   </Button>
                 </Link>
               </div>

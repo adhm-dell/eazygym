@@ -75,7 +75,12 @@ export async function bootstrap(prisma: PrismaClient) {
 
   await prisma.staff.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: {
+      name: adminName,
+      passwordHash: await bcrypt.hash(adminPassword, 12),
+      role: "GYM_ADMIN",
+      isActive: true,
+    },
     create: {
       gymId: gym.id,
       name: adminName,
@@ -90,7 +95,11 @@ export async function bootstrap(prisma: PrismaClient) {
     const superPassword = strongPassword("BOOTSTRAP_SUPER_ADMIN_PASSWORD");
     await prisma.staff.upsert({
       where: { email: superEmail },
-      update: {},
+      update: {
+        passwordHash: await bcrypt.hash(superPassword, 12),
+        role: "SUPER_ADMIN",
+        isActive: true,
+      },
       create: {
         gymId: null,
         name: "Platform Admin",

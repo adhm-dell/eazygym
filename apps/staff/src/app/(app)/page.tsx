@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   useToast,
   Button,
@@ -70,8 +71,15 @@ const REASON_CONFIG: Record<
 };
 
 export default function ReceptionScanPage() {
+  const router = useRouter();
   const { toast } = useToast();
-  const { shift, isOpen: isShiftOpen, openShiftModal } = useShift();
+  const { shift, isOpen: isShiftOpen, openShiftModal, currentUser, isLoading: isShiftLoading } = useShift();
+
+  useEffect(() => {
+    if (!isShiftLoading && currentUser?.role === "SUPER_ADMIN") {
+      router.replace("/platform");
+    }
+  }, [currentUser, isShiftLoading, router]);
 
   // Always focused input ref
   const inputRef = useRef<HTMLInputElement>(null);

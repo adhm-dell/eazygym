@@ -34,12 +34,14 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
 
   const refreshShift = useCallback(async () => {
     try {
-      const [current, user] = await Promise.all([
-        shiftApi.getCurrentShift(),
-        shiftApi.getCurrentUser(),
-      ]);
-      setShift(current);
+      const user = await shiftApi.getCurrentUser();
       setCurrentUser(user);
+      if (user && user.role !== "SUPER_ADMIN" && (user as any).gymId) {
+        const current = await shiftApi.getCurrentShift();
+        setShift(current);
+      } else {
+        setShift(null);
+      }
     } catch {
       // error handling
     } finally {

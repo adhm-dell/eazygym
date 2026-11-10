@@ -3,6 +3,7 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  BadRequestException,
   Optional,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
@@ -36,8 +37,8 @@ export class GymContextGuard implements CanActivate {
       const headerGymId = req.headers["x-gym-id"];
       const resolvedGymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
       if (!resolvedGymId) {
-        throw new UnauthorizedException({
-          statusCode: 401,
+        throw new BadRequestException({
+          statusCode: 400,
           code: "MISSING_GYM_CONTEXT",
           message: "No gym associated with this account. Platform SuperAdmin must access /platform or specify x-gym-id header.",
         });
