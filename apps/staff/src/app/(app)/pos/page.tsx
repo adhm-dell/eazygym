@@ -24,6 +24,7 @@ import {
   Button,
   Dialog,
 } from "@gym/ui";
+import { useTranslation } from "@gym/i18n";
 import {
   toMinor,
   fromMinor,
@@ -75,6 +76,7 @@ interface CartLine {
 }
 
 export default function PosSellPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { shift: currentShift } = useShift();
 
@@ -768,9 +770,13 @@ export default function PosSellPage() {
         }
       }
     } catch (err: any) {
+      const errCode = err?.code;
+      const desc = errCode && t(`errors.${errCode}`) !== `errors.${errCode}`
+        ? t(`errors.${errCode}`)
+        : (err?.message || String(err));
       toast({
         title: "فشل إتمام البيع",
-        description: err.message || String(err),
+        description: desc,
         variant: "error",
       });
     }

@@ -87,7 +87,7 @@ export function ServiceFormDialog({
       onSuccess(result);
       onClose();
     } catch (err: any) {
-      if (err?.code === "SERVICE_EXISTS" || err?.statusCode === 409) {
+      if (err?.code === "SERVICE_EXISTS" || err?.statusCode === 409 || err?.code === "CONFLICT") {
         setFieldError("يوجد خدمة بنفس هذا الاسم بالفعل في الجيم");
       } else {
         setGeneralError(err?.message || "حدث خطأ أثناء حفظ الخدمة");

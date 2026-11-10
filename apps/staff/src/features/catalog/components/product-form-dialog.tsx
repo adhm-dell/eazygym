@@ -93,7 +93,7 @@ export function ProductFormDialog({
       onSuccess(result);
       onClose();
     } catch (err: any) {
-      if (err?.code === "PRODUCT_EXISTS" || err?.statusCode === 409) {
+      if (err?.code === "PRODUCT_EXISTS" || err?.statusCode === 409 || err?.code === "CONFLICT") {
         setFieldError("يوجد منتج بنفس هذا الاسم بالفعل في الجيم");
       } else {
         setGeneralError(err?.message || "حدث خطأ أثناء حفظ المنتج");

@@ -20,12 +20,14 @@ import { ServiceFormDialog } from "../../../features/catalog/components/service-
 import { ProductFormDialog } from "../../../features/catalog/components/product-form-dialog";
 import { AdjustStockDialog } from "../../../features/catalog/components/adjust-stock-dialog";
 import { Button } from "@gym/ui";
+import { useShift } from "../../../lib/shift-context";
 import type { Service, Product } from "@gym/contracts";
 
 // Configurable threshold for low-stock warning highlight
 const LOW_STOCK_THRESHOLD = 5;
 
 export default function CatalogPage() {
+  const { currentUser } = useShift();
   const [activeTab, setActiveTab] = useState<"services" | "products">("services");
 
   // Data states
@@ -129,6 +131,23 @@ export default function CatalogPage() {
       alert(err?.message || "فشل تعديل حالة المنتج");
     }
   };
+
+  // Role Access Guard: GYM_ADMIN, SUPER_ADMIN
+  if (
+    currentUser &&
+    currentUser.role !== "GYM_ADMIN" &&
+    currentUser.role !== "SUPER_ADMIN"
+  ) {
+    return (
+      <div className="p-8 text-center max-w-lg mx-auto mt-12 bg-white rounded-2xl border border-red-100 shadow-sm" dir="rtl">
+        <AlertTriangle className="w-12 h-12 mx-auto text-red-500 mb-3" />
+        <h2 className="text-xl font-bold text-[#14181F]">غير مصرح لك بالوصول</h2>
+        <p className="text-sm text-[#5B6470] mt-1">
+          هذه الشاشة مخصصة فقط لإدارة النادي لتعديل قائمة الخدمات والمنتجات وضبط المخزون.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto" dir="rtl">
