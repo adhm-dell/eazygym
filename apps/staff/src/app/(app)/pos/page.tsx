@@ -78,7 +78,7 @@ interface CartLine {
 export default function PosSellPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { shift: currentShift } = useShift();
+  const { shift: currentShift, currentUser } = useShift();
 
   // Catalog data
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -198,12 +198,6 @@ export default function PosSellPage() {
       setCoaches(c);
       setClassSchedules(cs);
       setMembers(m);
-
-      // Default select member 1001 for demonstration
-      const defaultMem = m.find((mem: Member) => mem.code === "1001") || m[0] || null;
-      if (defaultMem) {
-        handleSelectMember(defaultMem);
-      }
     } catch (err) {
       toast({
         title: "خطأ في تحميل الكتالوج",
@@ -782,83 +776,6 @@ export default function PosSellPage() {
     }
   };
 
-  // Quick Test Presets
-  const runPreset1 = () => {
-    // 3-Month PT + SUMMER25 + Cash/Wallet leaving balance
-    const m = members.find((x) => x.code === "1001") || members[0];
-    handleSelectMember(m!);
-    clearCart();
-    const ptPlan = plans.find((p) => p.id === "plan_pt_3m") || plans.find((p) => p.kind === "PT")!;
-    setCart([
-      {
-        cartId: "test_pt_3m",
-        kind: "SUBSCRIPTION",
-        title: `${ptPlan.name} · كابتن أحمد`,
-        planId: ptPlan.id,
-        unitPrice: ptPlan.price,
-        quantity: 1,
-        startDate: "2026-11-04",
-        coachId: coaches[0]?.id,
-        coachName: coaches[0]?.name,
-        minUpfrontPercent: 50,
-        durationDays: 90,
-      },
-    ]);
-    setTimeout(() => {
-      handleApplyPromoCode("SUMMER25");
-      setUseWallet(true);
-      setCashAmountStr("2500");
-    }, 100);
-  };
-
-  const runPreset2 = () => {
-    // Pay 49% when min is 50%
-    const m = members.find((x) => x.code === "1005") || members[0];
-    handleSelectMember(m!);
-    clearCart();
-    const gymPlan = plans.find((p) => p.id === "plan_gym_3m") || plans[0]!;
-    setCart([
-      {
-        cartId: "test_gym_3m",
-        kind: "SUBSCRIPTION",
-        title: gymPlan.name,
-        planId: gymPlan.id,
-        unitPrice: gymPlan.price,
-        quantity: 1,
-        startDate: "2026-11-04",
-        minUpfrontPercent: 50,
-        durationDays: 90,
-      },
-    ]);
-    setTimeout(() => {
-      setUseWallet(false);
-      // 49% of 2400 EGP is 1176 EGP
-      setCashAmountStr("1176");
-    }, 100);
-  };
-
-  const runPreset3 = () => {
-    // Overpayment credits excess into wallet
-    const m = members.find((x) => x.code === "1002") || members[0];
-    handleSelectMember(m!);
-    clearCart();
-    const water = products.find((p) => p.id === "prod_water") || products[0]!;
-    setCart([
-      {
-        cartId: "test_prod_water",
-        kind: "PRODUCT",
-        title: water.name,
-        productId: water.id,
-        unitPrice: water.price,
-        quantity: 2, // 30.00 EGP
-      },
-    ]);
-    setTimeout(() => {
-      setUseWallet(false);
-      setCashAmountStr("50"); // 50 EGP tendered -> 20 EGP credit to wallet
-    }, 100);
-  };
-
   // Collect Balance action
   const handleOpenCollectBalance = async () => {
     try {
@@ -969,29 +886,6 @@ export default function PosSellPage() {
             <Receipt className="h-4 w-4 me-1.5 text-emerald-600" />
             سند قبض / صرف
           </Button>
-
-          {/* Preset Buttons for Quick Testing */}
-          <div className="flex items-center gap-1.5 bg-[#F2F4F1] p-1 rounded-xl border border-[#E1E5DF]">
-            <span className="text-[11px] font-bold text-[#5B6470] px-1.5">حالات الاختبار:</span>
-            <button
-              onClick={runPreset1}
-              className="text-[11px] font-bold px-2 py-1 bg-white hover:bg-emerald-50 text-emerald-800 rounded-lg border border-[#E1E5DF] transition-colors"
-            >
-              1. برايفت + عروض الصيف
-            </button>
-            <button
-              onClick={runPreset2}
-              className="text-[11px] font-bold px-2 py-1 bg-white hover:bg-amber-50 text-amber-800 rounded-lg border border-[#E1E5DF] transition-colors"
-            >
-              2. سداد 49% (عجز تفعيل)
-            </button>
-            <button
-              onClick={runPreset3}
-              className="text-[11px] font-bold px-2 py-1 bg-white hover:bg-blue-50 text-blue-800 rounded-lg border border-[#E1E5DF] transition-colors"
-            >
-              3. زيادة كاش (محفظة)
-            </button>
-          </div>
         </div>
       </header>
 
@@ -1830,14 +1724,14 @@ export default function PosSellPage() {
             {printFormat === "80mm" ? (
               /* 80mm Thermal Receipt Layout */
               <div className="bg-white border-2 border-dashed border-[#E1E5DF] p-4 rounded-xl max-w-sm mx-auto font-mono text-[13px] text-center">
-                <div className="font-bold text-[18px] text-[#14181F]">EazyGym - المعادي</div>
+                <div className="font-bold text-[18px] text-[#14181F]">{(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "EazyGym"}</div>
                 <div className="text-[11px] text-[#5B6470]">رقم ضريبي: 492-881-019</div>
                 <div className="my-2 border-t border-dashed border-[#14181F]" />
 
                 <div className="text-start space-y-0.5 text-[12px]">
                   <div>فاتورة رقم: #{completedInvoice?.number}</div>
                   <div>التاريخ: {new Date().toLocaleString("ar-EG")}</div>
-                  <div>الكاشير: سارة حسن (استقبال)</div>
+                  <div>الكاشير: {currentUser?.name || "الكاشير"}</div>
                   {completedInvoice?.member && (
                     <div>
                       العميل: {completedInvoice.member.name} ({completedInvoice.member.code})
@@ -1899,8 +1793,8 @@ export default function PosSellPage() {
               <div className="bg-white border border-[#E1E5DF] p-6 rounded-xl text-[13px] space-y-4">
                 <div className="flex justify-between items-start border-b border-[#E1E5DF] pb-4">
                   <div>
-                    <h2 className="text-[20px] font-bold text-[#14181F]">EazyGym Egypt</h2>
-                    <p className="text-[#5B6470] text-[12px]">فرع المعادي الرئيسي · سجل تجاري: 109283</p>
+                    <h2 className="text-[20px] font-bold text-[#14181F]">{(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "EazyGym"}</h2>
+                    <p className="text-[#5B6470] text-[12px]">سجل تجاري: 109283 · بطاقة ضريبية: 492-881-019</p>
                   </div>
                   <div className="text-end">
                     <b className="text-[18px] text-[#14181F]">فاتورة رقم: #{completedInvoice?.number}</b>

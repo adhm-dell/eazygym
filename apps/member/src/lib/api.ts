@@ -68,7 +68,7 @@ export function saveOfflineMember(data: StoredOfflineMember) {
   }
 }
 
-export async function loginMember(phone: string, password: string = "123456") {
+export async function loginMember(phone: string, password: string) {
   const res = await fetch("/api/v1/auth/member/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -115,7 +115,7 @@ export function CreateMemberDialog({ isOpen, onClose, onSuccess }: CreateMemberD
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="01012345678"
+                placeholder="01xxxxxxxxx"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#C6F24E] focus:border-black"
                 required
               />

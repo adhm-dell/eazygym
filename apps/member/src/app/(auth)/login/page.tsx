@@ -2,49 +2,23 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginMember, switchMember } from "../../../lib/api";
-import { Dumbbell, Phone, Lock, Sparkles, AlertCircle, ArrowLeft } from "lucide-react";
+import { loginMember } from "../../../lib/api";
+import { Dumbbell, Phone, Lock, AlertCircle, ArrowLeft, HelpCircle } from "lucide-react";
 
 export default function MemberLoginPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState("01011122233");
-  const [password, setPassword] = useState("123456");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const testMembers = [
-    {
-      name: "محمد أحمد",
-      phone: "01011122233",
-      code: "100245",
-      badge: "عضو نشط (جيم + كابتن)",
-      badgeColor: "bg-[#E3F5EA] text-[#1B7F4B]",
-    },
-    {
-      name: "محمود حسن",
-      phone: "01012345672",
-      code: "100202",
-      badge: "ينتهي بعد 3 أيام",
-      badgeColor: "bg-[#FFF1D6] text-[#8A5A00]",
-    },
-    {
-      name: "زياد محمود",
-      phone: "01012345674",
-      code: "100404",
-      badge: "اشتراك مجمد (Frozen)",
-      badgeColor: "bg-blue-100 text-blue-800",
-    },
-    {
-      name: "كريم عادل",
-      phone: "01012345675",
-      code: "100505",
-      badge: "قسط متأخر 500 ج.م",
-      badgeColor: "bg-[#FDE7E4] text-[#B3261E]",
-    },
-  ];
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!phone || !password) {
+      setError("يرجى إدخال رقم الهاتف المسجل وكلمة المرور");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -52,20 +26,7 @@ export default function MemberLoginPage() {
       await loginMember(phone, password);
       router.push("/");
     } catch (err: any) {
-      setError(err.message || "فشل تسجيل الدخول");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickSwitch = async (memberPhone: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      await switchMember(memberPhone);
-      router.push("/");
-    } catch (err: any) {
-      setError(err.message || "فشل التبديل للحساب");
+      setError(err.message || "رقم الهاتف أو كلمة المرور غير صحيحة");
     } finally {
       setLoading(false);
     }
@@ -123,7 +84,7 @@ export default function MemberLoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
+                placeholder="••••••••"
                 required
                 className="w-full bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl pr-9 pl-3 py-2.5 text-sm font-mono text-left focus:outline-none focus:border-[#14181F]"
               />
@@ -140,34 +101,14 @@ export default function MemberLoginPage() {
           </button>
         </form>
 
-        {/* Quick Test Member Buttons (Live DB Seeders) */}
-        <div className="pt-4 border-t border-[#E1E5DF] space-y-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-[#14181F]">
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-            <span>تجربة فورية لحسابات تجريبية حقيقية بالـ DB:</span>
-          </div>
+        {/* Support & Recovery Hint */}
+        <div className="p-3 rounded-xl bg-[#F9FAF8] border border-[#E1E5DF] text-xs text-[#5B6470] flex items-center gap-2">
+          <HelpCircle className="h-4 w-4 shrink-0 text-[#14181F]" />
+          <span>نسيت كلمة السر؟ تواصل مع موظف الاستقبال بالجيم.</span>
+        </div>
 
-          <div className="grid grid-cols-1 gap-2">
-            {testMembers.map((m) => (
-              <button
-                key={m.phone}
-                type="button"
-                onClick={() => handleQuickSwitch(m.phone)}
-                disabled={loading}
-                className="w-full text-right p-2.5 rounded-xl border border-[#E1E5DF] hover:border-[#14181F] hover:bg-[#F2F4F1]/60 transition-all flex items-center justify-between cursor-pointer"
-              >
-                <div>
-                  <div className="font-bold text-xs text-[#14181F]">{m.name}</div>
-                  <div className="text-[10px] font-mono text-[#5B6470]">
-                    كود: {m.code} | {m.phone}
-                  </div>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${m.badgeColor}`}>
-                  {m.badge}
-                </span>
-              </button>
-            ))}
-          </div>
+        <div className="pt-2 text-center text-xs text-[#5B6470] border-t border-[#E1E5DF]">
+          <span>EazyGym Member Portal v2.0 · جميع الحقوق محفوظة</span>
         </div>
       </div>
     </div>

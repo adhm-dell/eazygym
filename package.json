@@ -9,7 +9,8 @@
     "test": "turbo run test",
     "test:e2e": "playwright test",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint && node scripts/check-no-demo.mjs",
+    "check:no-demo": "node scripts/check-no-demo.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",

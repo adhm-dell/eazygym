@@ -29,6 +29,7 @@ import {
   type ColumnDef,
 } from "@gym/ui";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Member } from "@gym/contracts";
 import { getDictionary, type Locale } from "@gym/i18n";
 
@@ -37,8 +38,8 @@ const SAMPLE_MEMBERS: Member[] = [
     id: "mem_01",
     gymId: "gym_cairo_01",
     code: "100245",
-    name: "محمد أحمد",
-    phone: "01011122233",
+    name: "عضو تصميم أ",
+    phone: "01000000001",
     email: "mohamed@test.com",
     birthDate: null,
     gender: "MALE",
@@ -52,8 +53,8 @@ const SAMPLE_MEMBERS: Member[] = [
     id: "mem_02",
     gymId: "gym_cairo_01",
     code: "100202",
-    name: "محمود حسن",
-    phone: "01012345672",
+    name: "عضو تصميم ب",
+    phone: "01000000002",
     email: null,
     birthDate: null,
     gender: "MALE",
@@ -67,8 +68,8 @@ const SAMPLE_MEMBERS: Member[] = [
     id: "mem_03",
     gymId: "gym_cairo_01",
     code: "100303",
-    name: "سارة إسماعيل",
-    phone: "01012345673",
+    name: "عضو تصميم ج",
+    phone: "01000000003",
     email: null,
     birthDate: null,
     gender: "FEMALE",
@@ -100,6 +101,9 @@ import {
 } from "lucide-react";
 
 export default function DesignSystemPage() {
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
   const [locale, setLocale] = useState<Locale>("ar");
   const dict = getDictionary(locale);
   const toast = useToast();
@@ -619,7 +623,7 @@ export default function DesignSystemPage() {
                   title: "تنبيه: اقتراب انتهاء الاشتراك",
                   subtitle: "مسموح بالدخول اليوم ولكن يرجى التجديد",
                   reason: "متبقي 3 أيام على الانتهاء",
-                  memberName: "محمود حسن السيد",
+                  memberName: "عضو تجربة النظام",
                   memberCode: "1002",
                   planName: "اشتراك جيم شهري",
                 })

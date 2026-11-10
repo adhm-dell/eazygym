@@ -258,12 +258,12 @@ export default function CoachHomePage() {
     }
   };
 
-  const coachName = commData?.coach?.name || storedUser?.name || "كابتن أحمد";
-  const commissionAmount = commData?.commissionAmount ?? 3100;
-  const collectedRevenue = commData?.collectedRevenue ?? 12000;
-  const tierPercent = commData?.currentTier?.percent ?? 50;
+  const coachName = commData?.coach?.name || storedUser?.name || "المدرب";
+  const commissionAmount = commData?.commissionAmount ?? 0;
+  const collectedRevenue = commData?.collectedRevenue ?? 0;
+  const tierPercent = commData?.currentTier?.percent ?? 0;
   const nextTier = commData?.nextTier;
-  const baseSalary = commData?.coach?.baseSalary ?? 8000;
+  const baseSalary = commData?.coach?.baseSalary ?? 0;
 
   // Format break countdown
   const formatTime = (secs: number) => {
@@ -280,7 +280,7 @@ export default function CoachHomePage() {
           {/* Top greeting */}
           <header className="pt-1 flex items-center justify-between">
             <div>
-              <p className="text-[12px] text-[#5B6470] font-medium">بوابة المدرب · PowerCore</p>
+              <p className="text-[12px] text-[#5B6470] font-medium">بوابة المدرب · EazyGym</p>
               <h1 className="text-[20px] font-bold text-[#14181F] tracking-tight">{coachName}</h1>
             </div>
             <div className="flex items-center gap-2">

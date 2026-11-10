@@ -385,7 +385,7 @@ export default function PlatformAdminPage() {
                   required
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  placeholder="powercore-tagamoa"
+                  placeholder="gym-branch-slug"
                   className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
                 />
               </div>

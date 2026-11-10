@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   memberApi,
-  switchMember,
   getOfflineMember,
   saveOfflineMember,
   clearStoredAuth,
@@ -64,15 +63,6 @@ export default function MemberPortalPage() {
   const [freezeReason, setFreezeReason] = useState("ظروف سفر");
   const [freezeLoading, setFreezeLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
-  const [showSwitchMenu, setShowSwitchMenu] = useState(false);
-
-  // Test accounts
-  const testMembers = [
-    { name: "محمد أحمد", phone: "01011122233", code: "100245", role: "نشط (جيم + كابتن)" },
-    { name: "محمود حسن", phone: "01012345672", code: "100202", role: "ينتهي خلال 3 أيام" },
-    { name: "زياد محمود", phone: "01012345674", code: "100404", role: "اشتراك مجمد (Frozen)" },
-    { name: "كريم عادل", phone: "01012345675", code: "100505", role: "عليه قسط متأخر 500 ج.م" },
-  ];
 
   // Load data
   const loadMemberData = async () => {
@@ -166,17 +156,6 @@ export default function MemberPortalPage() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
-
-  const handleSwitch = async (phone: string) => {
-    setShowSwitchMenu(false);
-    setLoading(true);
-    try {
-      await switchMember(phone);
-      await loadMemberData();
-    } catch (e: any) {
-      setActionMessage({ text: e.message || "فشل التبديل", isError: true });
-    }
-  };
 
   const handleFreeze = async (subId: string) => {
     setFreezeLoading(true);
@@ -283,16 +262,6 @@ export default function MemberPortalPage() {
               )}
             </button>
 
-            {/* Quick Switch Dropdown */}
-            <button
-              type="button"
-              onClick={() => setShowSwitchMenu(!showSwitchMenu)}
-              className="text-[11px] bg-white/10 hover:bg-white/20 text-[#C6F24E] px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <span>تبديل</span>
-              {showSwitchMenu ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </button>
-
             {/* Logout Button */}
             <button
               type="button"
@@ -354,51 +323,6 @@ export default function MemberPortalPage() {
           </div>
         )}
 
-        {/* Dropdown Menu for Quick Switch between Seeded Members */}
-        {showSwitchMenu && (
-          <div className="absolute top-[64px] left-3 right-3 bg-[#14181F] text-white border border-[#262D38] rounded-2xl shadow-2xl p-3 z-40 space-y-2 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <span className="text-xs font-bold text-[#C6F24E] flex items-center gap-1">
-                <Sparkles className="h-3.5 w-3.5" />
-                اختر عضو تجريبي لاختبار النظام:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  clearStoredAuth();
-                  window.location.href = "/login";
-                }}
-                className="text-[11px] text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer font-bold"
-              >
-                <LogOut className="h-3 w-3" />
-                تسجيل خروج
-              </button>
-            </div>
-            <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
-              {testMembers.map((m) => (
-                <button
-                  key={m.phone}
-                  type="button"
-                  onClick={() => handleSwitch(m.phone)}
-                  className={`w-full text-right p-2 rounded-xl text-xs transition-colors flex items-center justify-between cursor-pointer ${
-                    member?.phone === m.phone
-                      ? "bg-[#C6F24E] text-[#14181F] font-bold"
-                      : "bg-[#262D38]/60 hover:bg-[#262D38] text-white"
-                  }`}
-                >
-                  <div>
-                    <b>{m.name}</b>
-                    <span className="block text-[10px] opacity-75">كود: {m.code}</span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-black/20">
-                    {m.role}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Action Alert Banner */}
         {actionMessage && (
           <div
@@ -430,7 +354,7 @@ export default function MemberPortalPage() {
                 <div>
                   <p className="text-[12px] text-[#5B6470] font-medium">أهلاً بك مجدداً</p>
                   <h1 className="text-[22px] font-bold text-[#14181F] tracking-tight">
-                    {member?.name || "محمد أحمد"}
+                    {member?.name || "العضو"}
                   </h1>
                 </div>
                 {getStatusBadge(primarySub?.status || "ACTIVE")}
@@ -462,7 +386,7 @@ export default function MemberPortalPage() {
                     height="160"
                     viewBox="0 0 21 21"
                     role="img"
-                    aria-label={`رمز QR لدخول العضو ${member?.code || "100245"}`}
+                    aria-label={`رمز QR لدخول العضو ${member?.code || "—"}`}
                     className="shrink-0"
                   >
                     <rect width="21" height="21" fill="#fff" />
@@ -483,7 +407,7 @@ export default function MemberPortalPage() {
                 <div className="mt-3">
                   <span className="text-[11px] text-[#5B6470] font-medium block">كود العضو</span>
                   <b className="text-[32px] font-mono font-black text-[#14181F] tracking-wider tabular-nums leading-none">
-                    {member?.code || "100245"}
+                    {member?.code || "—"}
                   </b>
                 </div>
 
@@ -553,7 +477,7 @@ export default function MemberPortalPage() {
                                 {ptSub?.plan?.name || "تدريب خاص (PT)"}
                               </b>
                               <span className="text-[10px] text-[#5B6470]">
-                                الكابتن: {ptSub?.activeCoach?.name || "كابتن أحمد حسن"}
+                                الكابتن: {ptSub?.activeCoach?.name || "غير محدد"}
                               </span>
                             </div>
                           </div>

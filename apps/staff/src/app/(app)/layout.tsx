@@ -60,72 +60,39 @@ const allNavItems: NavItem[] = [
 ];
 
 function SidebarUserFooter() {
-  const { currentUser, switchUser } = useShift();
-  const [showSwitch, setShowSwitch] = useState(false);
-
-  const staffList = [
-    { email: "admin@powercore.gym", name: "منى السيد", role: "أدمن (GYM_ADMIN)" },
-    { email: "reception@powercore.gym", name: "سارة حسن", role: "استقبال (RECEPTION)" },
-    { email: "bar@powercore.gym", name: "عمر خالد", role: "كاشير البار (BAR_CASHIER)" },
-    { email: "owner@powercore.gym", name: "م. طارق العوضي", role: "المالك (SUPER_ADMIN)" },
-  ];
+  const { currentUser } = useShift();
 
   return (
     <div className="mt-auto pt-6 px-2.5 hidden md:block">
       <div className="p-3 rounded-xl bg-[#262D38]/50 border border-white/5 text-xs text-[#C9CFD6] space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-white font-medium">
-            <Sparkles className="h-3 w-3 text-[#C6F24E]" />
-            <span>فرع المعادي الرئيسي</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowSwitch(!showSwitch)}
-            className="text-[11px] text-[#C6F24E] hover:underline font-bold cursor-pointer"
-          >
-            {showSwitch ? "إغلاق" : "تبديل"}
-          </button>
+        <div className="flex items-center gap-1.5 text-white font-medium">
+          <Sparkles className="h-3 w-3 text-[#C6F24E]" />
+          <span>{(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة إدارة الجيم"}</span>
         </div>
         <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-          <p className="text-[11px] opacity-75 truncate max-w-[120px]">
-            {currentUser ? currentUser.name : "تحميل..."}
-          </p>
+          <div>
+            <p className="text-[11px] font-bold text-white truncate max-w-[120px]">
+              {currentUser ? currentUser.name : "تحميل..."}
+            </p>
+            {currentUser?.role && (
+              <p className="text-[10px] text-[#C6F24E] font-medium truncate max-w-[120px]">
+                {currentUser.role}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => {
               clearStoredAuth();
               window.location.href = "/login";
             }}
-            className="text-[11px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+            className="text-[11px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer transition-colors p-1 rounded hover:bg-white/5"
             title="تسجيل الخروج والعودة لصفحة الدخول"
           >
             <LogOut className="h-3 w-3" />
             <span>خروج</span>
           </button>
         </div>
-        {showSwitch && (
-          <div className="pt-2 border-t border-white/10 space-y-1">
-            <span className="text-[10px] text-[#C6F24E] font-bold block">تبديل الحساب الحالي (RBAC حقيقي):</span>
-            {staffList.map((s) => (
-              <button
-                key={s.email}
-                type="button"
-                onClick={async () => {
-                  await switchUser(s.email);
-                  setShowSwitch(false);
-                  window.location.reload();
-                }}
-                className={`w-full text-start px-2 py-1.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                  currentUser?.email === s.email
-                    ? "bg-[#C6F24E] text-[#14181F] font-bold"
-                    : "text-white/80 hover:bg-[#262D38] hover:text-[#C6F24E]"
-                }`}
-              >
-                {s.name} - {s.role}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -133,7 +100,7 @@ function SidebarUserFooter() {
 
 function MainLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentUser, isLoading, switchUser } = useShift();
+  const { currentUser, isLoading } = useShift();
   const [coachBadgeCount, setCoachBadgeCount] = useState(0);
 
   useEffect(() => {
@@ -220,7 +187,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
         <header className="h-14 border-b border-[#E1E5DF] bg-white px-6 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#5B6470]">
-              فرع المعادي الرئيسي
+              {(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة الاستقبال"}
             </span>
           </div>
 
@@ -241,18 +208,8 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
                 <b className="text-[#14181F]">{userRole}</b> ولا يملك الصلاحية للوصول إلى هذا القسم.
               </p>
               <div className="pt-2 flex justify-center gap-3">
-                <Button
-                  variant="lime"
-                  onClick={async () => {
-                    await switchUser("admin@powercore.gym");
-                    window.location.reload();
-                  }}
-                  className="font-bold rounded-xl"
-                >
-                  تبديل إلى حساب المدير (أدمن)
-                </Button>
                 <Link href="/">
-                  <Button variant="outline" className="font-bold rounded-xl border-[#E1E5DF]">
+                  <Button variant="lime" className="font-bold rounded-xl">
                     العودة للرئيسية
                   </Button>
                 </Link>

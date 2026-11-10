@@ -44,7 +44,7 @@ export function clearStoredAuth() {
   }
 }
 
-export async function loginCoach(email: string = "coach.ahmed@powercore.gym", password: string = "123456") {
+export async function loginCoach(email: string, password: string) {
   const res = await fetch("/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

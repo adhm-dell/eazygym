@@ -486,7 +486,7 @@ export default function StaffManagementPage() {
                   disabled={Boolean(editingStaff)}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@powercore.gym"
+                  placeholder="name@example.com"
                   className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono disabled:opacity-60 disabled:bg-gray-50"
                 />
               </div>
@@ -499,7 +499,7 @@ export default function StaffManagementPage() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01012345678"
+                  placeholder="01xxxxxxxxx"
                   className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
                 />
               </div>

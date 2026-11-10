@@ -284,9 +284,6 @@ export function ShiftsBoard() {
                       {c.name} ({c.email})
                     </option>
                   ))}
-                  {uniqueCoaches.length === 0 && (
-                    <option value="staff_coach">كابتن أحمد (staff_coach)</option>
-                  )}
                 </select>
               </div>
 

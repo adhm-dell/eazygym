@@ -3,38 +3,22 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginCoach } from "../../../lib/api";
-import { Dumbbell, Mail, Lock, Sparkles, AlertCircle, ArrowLeft } from "lucide-react";
+import { Dumbbell, Mail, Lock, AlertCircle, HelpCircle } from "lucide-react";
 
 export default function CoachLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("coach.ahmed@powercore.gym");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const testCoaches = [
-    {
-      name: "كابتن أحمد",
-      email: "coach.ahmed@powercore.gym",
-      specialty: "مدرب رئيسي (Personal Trainer)",
-      badgeColor: "bg-[#E3F5EA] text-[#1B7F4B]",
-    },
-    {
-      name: "كابتن طارق",
-      email: "coach.tarek@powercore.gym",
-      specialty: "مدرب لياقة بدنية وبوكسينج",
-      badgeColor: "bg-[#FFF1D6] text-[#8A5A00]",
-    },
-    {
-      name: "كابتن منى",
-      email: "coach.mona@powercore.gym",
-      specialty: "مدربة سيدات ويوجا وكارديو",
-      badgeColor: "bg-purple-100 text-purple-800",
-    },
-  ];
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError("يرجى إدخال البريد الإلكتروني وكلمة المرور");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -46,11 +30,6 @@ export default function CoachLoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickSelect = (coachEmail: string) => {
-    setEmail(coachEmail);
-    setPassword("123456");
   };
 
   return (
@@ -88,7 +67,7 @@ export default function CoachLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="coach@powercore.gym"
+                placeholder="name@example.com"
                 required
                 className="w-full bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl py-2.5 ps-10 pe-3 text-sm font-medium text-[#14181F] outline-none focus:border-[#14181F] transition-all dir-ltr text-right"
               />
@@ -105,7 +84,7 @@ export default function CoachLoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
+                placeholder="••••••••"
                 required
                 className="w-full bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl py-2.5 ps-10 pe-3 text-sm font-medium text-[#14181F] outline-none focus:border-[#14181F] transition-all dir-ltr text-right"
               />
@@ -121,50 +100,14 @@ export default function CoachLoginPage() {
           </button>
         </form>
 
-        {/* Quick Test Switcher */}
-        <div className="pt-4 border-t border-[#E1E5DF] space-y-2.5">
-          <div className="flex items-center gap-1.5 text-xs text-[#5B6470] font-bold">
-            <Sparkles className="h-3.5 w-3.5 text-[#C6F24E]" />
-            <span>حسابات تجريبية سريعة للمدربين:</span>
-          </div>
+        {/* Support & Recovery Hint */}
+        <div className="p-3 rounded-xl bg-[#F9FAF8] border border-[#E1E5DF] text-xs text-[#5B6470] flex items-center gap-2">
+          <HelpCircle className="h-4 w-4 shrink-0 text-[#14181F]" />
+          <span>نسيت كلمة السر؟ تواصل مع إدارة الجيم لتحديثها.</span>
+        </div>
 
-          <div className="space-y-2">
-            {testCoaches.map((c) => (
-              <button
-                key={c.email}
-                type="button"
-                onClick={() => handleQuickSelect(c.email)}
-                className={`w-full p-2.5 rounded-xl border text-start transition-all cursor-pointer flex items-center justify-between ${
-                  email === c.email
-                    ? "bg-[#14181F] text-white border-[#14181F] shadow-sm"
-                    : "bg-[#F9FAF9] hover:bg-white text-[#14181F] border-[#E1E5DF]"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold">{c.name}</span>
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                        email === c.email
-                          ? "bg-white/20 text-[#C6F24E]"
-                          : c.badgeColor
-                      }`}
-                    >
-                      {c.specialty}
-                    </span>
-                  </div>
-                  <span className="text-[11px] opacity-70 font-mono block dir-ltr text-right">
-                    {c.email}
-                  </span>
-                </div>
-                <ArrowLeft
-                  className={`h-4 w-4 ${
-                    email === c.email ? "text-[#C6F24E]" : "text-[#5B6470]"
-                  }`}
-                />
-              </button>
-            ))}
-          </div>
+        <div className="pt-2 text-center text-xs text-[#5B6470] border-t border-[#E1E5DF]">
+          <span>EazyGym Coach Portal v2.0 · جميع الحقوق محفوظة</span>
         </div>
       </div>
     </div>

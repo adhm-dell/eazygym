@@ -49,9 +49,11 @@ import {
 import { TiersEditorDialog } from "../../../features/payroll/components/tiers-editor-dialog";
 import { CoachMilestonesModal } from "../../../features/payroll/components/coach-milestones-modal";
 import { AddPayrollLineDialog } from "../../../features/payroll/components/add-payroll-line-dialog";
+import { useShift } from "../../../lib/shift-context";
 
 export default function AdminDashboardPage() {
   const { toast } = useToast();
+  const { currentUser } = useShift();
   const [activeTab, setActiveTab] = useState<"payroll" | "reports" | "audit">("payroll");
 
   // Payroll state
@@ -280,7 +282,7 @@ export default function AdminDashboardPage() {
             </Chip>
           )}
           <Chip>
-            <span>أدمن · منى السيد (فرع المعادي)</span>
+            <span>{currentUser ? `${currentUser.name} (${(currentUser as any).gym?.name || (currentUser as any).gymName || currentUser.role})` : "الإدارة"}</span>
           </Chip>
         </div>
       </header>

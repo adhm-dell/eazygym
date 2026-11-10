@@ -16,7 +16,7 @@ export const membersApi = {
   getGym: () =>
     http.get<any>("/gyms/current").catch(() => ({
       id: "gym_cairo_01",
-      name: "EazyGym - المعادي",
+      name: "EazyGym",
       currency: "EGP",
     })),
   listStaff: () => http.get<any[]>("/staff"),

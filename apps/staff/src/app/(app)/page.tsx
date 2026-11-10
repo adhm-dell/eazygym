@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   XCircle,
   Lock,
+  QrCode,
 } from "lucide-react";
 
 // Table of exact Arabic messages & next action mappings per Phase 2 specification
@@ -88,9 +89,6 @@ export default function ReceptionScanPage() {
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
   const [todayClasses, setTodayClasses] = useState<ClassScheduleWithDetails[]>([]);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
-
-  // Quick Test Barcode Drawer toggle
-  const [showTestChips, setShowTestChips] = useState(false);
 
   // Keep focus on input
   const focusInput = useCallback(() => {
@@ -341,32 +339,6 @@ export default function ReceptionScanPage() {
     }
   };
 
-  // Quick Test Codes List from Real Database & Acceptance Scenarios
-  const testCodes = [
-    { code: "100245", label: "ACTIVE (محمد أحمد)", variant: "g" as const },
-    { code: "100101", label: "ACTIVE (أحمد محمد علي)", variant: "g" as const },
-    { code: "100202", label: "EXPIRING_SOON (محمود حسن)", variant: "w" as const },
-    { code: "100404", label: "FROZEN (زياد محمود)", variant: "r" as const },
-    { code: "100505", label: "PAYMENT_OVERDUE (كريم عادل)", variant: "r" as const },
-    { code: "999999", label: "MEMBER_NOT_FOUND (عضو غير مسجل)", variant: "r" as const },
-    { code: "1003", label: "BLOCKED (سارة إسماعيل)", variant: "r" as const },
-    { code: "1004", label: "NO_SUBSCRIPTION (كريم ممدوح)", variant: "r" as const },
-    { code: "1005", label: "PENDING_PAYMENT (عمر فاروق)", variant: "r" as const },
-    { code: "1006", label: "PAYMENT_OVERDUE (كريم سامي)", variant: "r" as const },
-    { code: "1007", label: "FROZEN (مريم خليل)", variant: "r" as const },
-    { code: "1008", label: "EXPIRED (منى فؤاد)", variant: "r" as const },
-    { code: "1009", label: "PT_EXPIRED (نادين طارق)", variant: "r" as const },
-    { code: "1010", label: "NOT_STARTED (طارق سليم)", variant: "r" as const },
-    { code: "1011", label: "CANCELLED (رانيا شوقي)", variant: "r" as const },
-    { code: "1012", label: "NO_SESSIONS_LEFT (هشام كمال)", variant: "r" as const },
-    { code: "1013", label: "NO_FLOOR_ACCESS (منى رفعت)", variant: "r" as const },
-    { code: "1014", label: "CLASS_NOT_TODAY (وليد توفيق)", variant: "r" as const },
-    { code: "1015", label: "CLASS_NOT_STARTED (أمير شوقي)", variant: "w" as const },
-    { code: "1016", label: "CLASS_ENDED (أشرف صبحي)", variant: "r" as const },
-    { code: "1017", label: "CLASS_CANCELLED (دينا فتحي)", variant: "r" as const },
-    { code: "1018", label: "CLASS_OUT_OF_TIME (عماد حسني)", variant: "r" as const },
-  ];
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] min-h-[calc(100vh-1px)] relative">
       {/* Center Main Scan Area */}
@@ -407,15 +379,8 @@ export default function ReceptionScanPage() {
         >
           <div className="flex items-center justify-between">
             <label htmlFor="scan-input" className="text-[13px] text-[#5B6470] font-medium">
-              امسح الباركود أو اكتب الاسم أو رقم الموبايل (جاهز للمسح دائماً)
+              امسح الباركود أو اكتب كود العضو أو رقم الهاتف (جاهز للمسح دائماً)
             </label>
-            <button
-              type="button"
-              onClick={() => setShowTestChips(!showTestChips)}
-              className="text-xs text-[#14181F] font-bold underline hover:text-[#5B6470] cursor-pointer"
-            >
-              {showTestChips ? "إخفاء أكواد الاختبار ▲" : "عرض أكواد جدول الاختبار (18 كود) ▼"}
-            </button>
           </div>
 
           <div className="relative flex items-center">
@@ -425,7 +390,7 @@ export default function ReceptionScanPage() {
               type="text"
               value={scanQuery}
               onChange={(e) => setScanQuery(e.target.value)}
-              placeholder="امسح الباركود أو اكتب الكود (مثل 100245، 100101، 100202)..."
+              placeholder="امسح الباركود أو اكتب كود العضو أو رقم الهاتف..."
               disabled={isEvaluating}
               className="w-full text-[22px] font-medium p-[14px_18px] pe-12 border-2 border-[#14181F] rounded-[12px] bg-white text-[#14181F] outline-none transition-all focus:ring-4 focus:ring-[#C6F24E]/40"
               autoFocus
@@ -441,35 +406,6 @@ export default function ReceptionScanPage() {
             </button>
           </div>
         </form>
-
-        {/* Quick Test Barcode Simulator Chips */}
-        {showTestChips && (
-          <div className="p-4 rounded-[14px] bg-white border border-[#E1E5DF] space-y-2.5">
-            <div className="flex items-center justify-between text-xs text-[#5B6470] font-medium">
-              <span>انقر على أي كود لمحاكاة مسح الباركود فورياً:</span>
-              <span className="text-[#14181F] font-bold">18 حالة فحص معتمدة</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {testCodes.map((tc) => (
-                <button
-                  key={tc.code}
-                  type="button"
-                  onClick={() => handleScanSubmit(tc.code)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all hover:scale-105 active:scale-95 cursor-pointer ${
-                    tc.variant === "g"
-                      ? "bg-[#E3F5EA] text-[#1B7F4B] border-[#1B7F4B]/30"
-                      : tc.variant === "w"
-                      ? "bg-[#FFF1D6] text-[#8A5A00] border-[#8A5A00]/30"
-                      : "bg-[#FDE7E4] text-[#B3261E] border-[#B3261E]/30"
-                  }`}
-                >
-                  <span className="font-mono bg-white/70 px-1.5 py-0.5 rounded">{tc.code}</span>
-                  <span>{tc.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Real-time Result Overlay / Card Display */}
         {activeResult ? (
@@ -598,35 +534,10 @@ export default function ReceptionScanPage() {
             </div>
           </div>
         ) : (
-          /* Default Result Card from Mockup */
-          <section className="bg-[#1B7F4B] text-white rounded-[18px] p-7 md:p-[28px_32px] grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 shadow-sm">
-            <div>
-              <p className="text-[15px] font-semibold opacity-85 uppercase tracking-wider">ACTIVE</p>
-              <h2 className="text-[40px] md:text-[48px] font-bold leading-[1.1] mt-0.5">
-                تفضل بالدخول
-              </h2>
-            </div>
-
-            <div className="sm:text-end">
-              <p className="text-[26px] font-bold">محمد أحمد</p>
-              <p className="text-sm opacity-90">كود 100245</p>
-            </div>
-
-            <div className="mt-2">
-              <p className="text-sm font-medium">جيم 90 يوم · متبقي 21 يوم</p>
-              <div className="h-[10px] bg-white/25 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-white rounded-full w-[77%]" />
-              </div>
-            </div>
-
-            <div className="sm:text-end mt-2">
-              <p className="text-sm font-medium">برايفت مع الكابتن أحمد · متبقي 6 جلسات</p>
-            </div>
-
-            <div className="col-span-full mt-2 bg-[#FFF1D6] text-[#6B4400] rounded-[10px] p-[10px_14px] font-semibold text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 shrink-0 text-[#8A5A00]" />
-              <span>اشتراك البرايفت ينتهي خلال 3 أيام. اعرض التجديد على العضو.</span>
-            </div>
+          <section className="bg-white border-2 border-dashed border-[#E1E5DF] rounded-[18px] p-8 text-center flex flex-col items-center justify-center gap-2 text-[#5B6470] shadow-sm min-h-[160px]">
+            <QrCode className="h-10 w-10 text-[#5B6470]/50" />
+            <p className="text-base font-bold text-[#14181F]">جاهز لمسح الباركود</p>
+            <p className="text-xs">امسح باركود العضو بجهاز المسح أو أدخل الكود في حقل البحث أعلاه</p>
           </section>
         )}
 

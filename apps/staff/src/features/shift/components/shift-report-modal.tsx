@@ -5,6 +5,7 @@ import { Dialog, Button } from "@gym/ui";
 import { formatMoney } from "../../../lib/money";
 import { Printer } from "lucide-react";
 import type { ShiftReport } from "@gym/contracts";
+import { useShift } from "../../../lib/shift-context";
 
 interface ShiftReportModalProps {
   isOpen: boolean;
@@ -18,10 +19,12 @@ export function ShiftReportModal({
   report,
 }: ShiftReportModalProps) {
   const [printFormat, setPrintFormat] = useState<"80mm" | "a4">("80mm");
+  const { currentUser } = useShift();
 
   if (!isOpen || !report) return null;
 
   const shift = report.shift || ({} as any);
+  const gymName = (currentUser as any)?.gym?.name || (currentUser as any)?.gymName || (shift as any)?.gym?.name || "EazyGym";
   const variance = report.variance ?? null;
   const isCounted = report.countedCash !== null && report.countedCash !== undefined;
 
@@ -79,7 +82,7 @@ export function ShiftReportModal({
           /* 80mm Thermal Receipt Layout */
           <div className="bg-white border-2 border-dashed border-[#E1E5DF] p-5 rounded-2xl max-w-sm mx-auto font-mono text-[13px] text-center">
             <div className="font-bold text-[18px] text-[#14181F]">
-              EazyGym - المعادي
+              {gymName}
             </div>
             <div className="text-[11px] text-[#5B6470]">
               تقرير تسليم وردية الخزينة
@@ -89,7 +92,7 @@ export function ShiftReportModal({
             <div className="text-start space-y-0.5 text-[12px]">
               <div>كود الوردية: #{shift.id}</div>
               <div>
-                مسؤول الوردية: {shift.staff?.name || "سارة حسن (استقبال)"}
+                مسؤول الوردية: {shift.staff?.name || "—"}
               </div>
               <div>
                 وقت البدء: {new Date(shift.openedAt).toLocaleString("ar-EG")}
@@ -218,7 +221,7 @@ export function ShiftReportModal({
             <div className="flex justify-between items-start border-b border-[#E1E5DF] pb-4">
               <div>
                 <h2 className="text-[22px] font-bold text-[#14181F]">
-                  EazyGym Egypt - فرع المعادي
+                  {gymName}
                 </h2>
                 <p className="text-[#5B6470] text-[12px]">
                   سجل تجاري: 109283 · بطاقة ضريبية: 492-881-019
@@ -252,7 +255,7 @@ export function ShiftReportModal({
                 <span className="text-[#5B6470] block text-[11px]">
                   مسؤول الوردية:
                 </span>
-                <b>{shift.staff?.name || "سارة حسن (استقبال)"}</b>
+                <b>{shift.staff?.name || "—"}</b>
               </div>
               <div>
                 <span className="text-[#5B6470] block text-[11px]">وقت الفتح:</span>
@@ -441,7 +444,7 @@ export function ShiftReportModal({
                 <div>
                   <b>توقيع مسؤول الوردية (المسلم)</b>
                   <p className="text-[#5B6470] text-[11px]">
-                    {shift.staff?.name || "سارة حسن"}
+                    {shift.staff?.name || "مسؤول الوردية"}
                   </p>
                 </div>
                 <div className="border-b border-dashed border-[#14181F] w-48 mx-auto" />
