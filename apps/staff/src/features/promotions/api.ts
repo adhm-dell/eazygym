@@ -51,6 +51,8 @@ export const promotionsApi = {
     http.patch<Promotion>(`/promotions/${id}`, dto),
   deactivatePromotion: (id: string): Promise<{ success: boolean }> =>
     http.post<{ success: boolean }>(`/promotions/${id}/deactivate`, {}),
+  activatePromotion: (id: string): Promise<{ success: boolean }> =>
+    http.post<{ success: boolean }>(`/promotions/${id}/activate`, {}),
   getPromotionUsage: (id: string): Promise<PromotionUsage> =>
     http.get<PromotionUsage>(`/promotions/${id}/usage`),
   previewPromotion: (dto: PromotionPreviewDto): Promise<PromotionPreviewResult> =>

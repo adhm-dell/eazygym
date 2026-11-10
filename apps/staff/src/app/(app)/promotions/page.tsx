@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { Button } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
+import { useShift } from "../../../lib/shift-context";
+import Link from "next/link";
 import {
   promotionsApi,
   type Promotion,
@@ -31,6 +33,8 @@ import { PromotionFormDialog } from "../../../features/promotions/components/pro
 import { DeactivatePromotionDialog } from "../../../features/promotions/components/deactivate-promotion-dialog";
 
 export default function PromotionsPage() {
+  const { currentUser } = useShift();
+  const isAdmin = currentUser?.role === "GYM_ADMIN" || currentUser?.role === "SUPER_ADMIN";
   const { t, locale } = useTranslation();
   const isRtl = locale === "ar";
 
@@ -176,6 +180,31 @@ export default function PromotionsPage() {
   const handleDeactivateSuccess = () => {
     fetchData();
   };
+
+  if (currentUser && !isAdmin) {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center space-y-4 pt-16" dir={isRtl ? "rtl" : "ltr"}>
+        <div className="p-8 bg-red-50 border border-red-200 rounded-3xl space-y-3 shadow-sm">
+          <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+          <h2 className="text-lg font-black text-red-900">
+            {isRtl ? "غير مصرح بالدخول" : "Unauthorized Access"}
+          </h2>
+          <p className="text-xs text-red-700 leading-relaxed font-medium">
+            {isRtl
+              ? "صفحة إدارة العروض والخصومات مخصصة لمدير النادي فقط (GYM_ADMIN / SUPER_ADMIN). ليس لحساب الاستقبال أو الكاشير صلاحية الوصول أو تعديل العروض."
+              : "Promotions management is restricted to gym administrators (GYM_ADMIN / SUPER_ADMIN)."}
+          </p>
+          <div className="pt-2">
+            <Link href="/">
+              <Button variant="outline" size="sm" className="text-xs font-bold border-red-300 hover:bg-red-100">
+                {isRtl ? "العودة لشاشة الدخول الرئيسية" : "Return to Home"}
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6" dir={isRtl ? "rtl" : "ltr"}>

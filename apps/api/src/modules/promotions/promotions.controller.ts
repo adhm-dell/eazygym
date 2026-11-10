@@ -73,6 +73,13 @@ export class PromotionsController {
     return this.promotionsService.deactivate(req.gymId, req.user?.id || req.user?.sub, id);
   }
 
+  @Post(":id/activate")
+  @Roles("GYM_ADMIN", "SUPER_ADMIN")
+  @ApiOperation({ summary: "Activate promotion" })
+  async activatePromotion(@Req() req: any, @Param("id") id: string) {
+    return this.promotionsService.activate(req.gymId, req.user?.id || req.user?.sub, id);
+  }
+
   @Post("preview")
   @Roles("GYM_ADMIN", "RECEPTION", "BAR_CASHIER", "SUPER_ADMIN")
   @ApiOperation({ summary: "Preview promotion discount split on cart items" })

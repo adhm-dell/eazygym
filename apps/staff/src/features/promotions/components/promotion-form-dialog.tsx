@@ -382,7 +382,7 @@ export function PromotionFormDialog({
       onClose();
     } catch (err: any) {
       const errCode = err?.response?.data?.code || err?.code;
-      if (errCode === "PROMOTION_CODE_EXISTS" || err?.response?.status === 409) {
+      if (errCode === "PROMOTION_CODE_EXISTS" || errCode === "CONFLICT" || err?.response?.status === 409) {
         setCodeError(
           t("promotionsManagement.codeExistsError") || "هذا الكود مستخدم بالفعل في هذا الفرع"
         );

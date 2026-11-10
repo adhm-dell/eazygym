@@ -35,7 +35,7 @@ export function DeactivatePromotionDialog({
       if (isDeactivating) {
         await promotionsApi.deactivatePromotion(promotion.id);
       } else {
-        await promotionsApi.updatePromotion(promotion.id, { isActive: true });
+        await promotionsApi.activatePromotion(promotion.id);
       }
       onSuccess();
       onClose();

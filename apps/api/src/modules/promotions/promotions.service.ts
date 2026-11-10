@@ -290,6 +290,35 @@ export class PromotionsService {
     return { success: true };
   }
 
+  async activate(gymId: string, actorId: string, id: string) {
+    const existing = await this.prisma.promotion.findFirst({
+      where: { id, gymId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "NOT_FOUND",
+        message: "Promotion not found",
+      });
+    }
+
+    const updated = await this.prisma.promotion.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    await this.auditService.log({
+      gymId,
+      actorId,
+      action: "PROMOTION_ACTIVATE",
+      entityType: "Promotion",
+      entityId: updated.id,
+    });
+
+    return { success: true };
+  }
+
   async preview(gymId: string, dto: PromotionPreviewDto) {
     let promo: any = null;
 
@@ -355,7 +384,7 @@ export class PromotionsService {
       promo: promoRule,
       items: cartItems,
       now: new Date(),
-      enteredCode: dto.code || promo.code,
+      enteredCode: dto.code ?? null,
       totalRedemptions: totalUses,
       memberRedemptions: memberUses,
     });
