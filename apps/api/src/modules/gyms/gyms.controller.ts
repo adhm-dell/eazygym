@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Body, Req, UseGuards } from "@nestjs/comm
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { GymsService } from "./gyms.service";
 import { Roles } from "../../common/decorators/roles.decorator";
+import { NoGymContext } from "../../common/decorators/no-gym-context.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { GymContextGuard } from "../../common/guards/gym-context.guard";
@@ -39,6 +40,7 @@ export class GymsController {
 @ApiTags("SuperAdmin")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
+@NoGymContext()
 @Controller("admin/gyms")
 export class SuperAdminGymsController {
   constructor(private readonly gymsService: GymsService) {}

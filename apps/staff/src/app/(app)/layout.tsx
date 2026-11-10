@@ -127,7 +127,13 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   }, [currentUser]);
 
   const router = useRouter();
-  const userRole = currentUser?.role || "GYM_ADMIN";
+  const userRole = currentUser?.role;
+
+  useEffect(() => {
+    if (!isLoading && !currentUser) {
+      router.replace("/login");
+    }
+  }, [isLoading, currentUser, router]);
 
   useEffect(() => {
     if (!isLoading && userRole === "SUPER_ADMIN" && pathname === "/") {
@@ -135,8 +141,18 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, userRole, pathname, router]);
 
+  // If initial load without stored session, show loading spinner
+  if (isLoading && !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#F2F4F1] flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-[#14181F] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   // Filter navigation items by role
   const visibleNavItems = allNavItems.filter((item) => {
+    if (!userRole) return false;
     if (userRole === "SUPER_ADMIN") {
       return item.href === "/platform";
     }
@@ -149,7 +165,7 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
   );
 
   const isForbidden =
-    currentRouteItem && !isLoading && !currentRouteItem.roles.includes(userRole);
+    Boolean(currentRouteItem && !isLoading && userRole && !currentRouteItem.roles.includes(userRole));
 
   return (
     <div className="min-h-screen bg-[#F2F4F1] text-[#14181F] flex flex-col md:flex-row antialiased selection:bg-[#C6F24E] selection:text-[#14181F]">
@@ -202,12 +218,14 @@ function MainLayoutContent({ children }: { children: React.ReactNode }) {
         <header className="h-14 border-b border-[#E1E5DF] bg-white px-6 flex items-center justify-between shrink-0 z-10">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#5B6470]">
-              {(currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة الاستقبال"}
+              {currentUser?.role === "SUPER_ADMIN"
+                ? "لوحة الإدارة المركزية (Super Admin)"
+                : (currentUser as any)?.gym?.name || (currentUser as any)?.gymName || "منظومة الاستقبال"}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
-            <NotificationHeaderBell />
+            {currentUser?.role !== "SUPER_ADMIN" && <NotificationHeaderBell />}
           </div>
         </header>
 

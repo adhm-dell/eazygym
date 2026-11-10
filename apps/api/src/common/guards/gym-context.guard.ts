@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
+import { NO_GYM_CONTEXT_KEY } from "../decorators/no-gym-context.decorator";
 
 @Injectable()
 export class GymContextGuard implements CanActivate {
@@ -26,6 +27,11 @@ export class GymContextGuard implements CanActivate {
       return true;
     }
 
+    const noGymContext = this.reflector.getAllAndOverride<boolean>(NO_GYM_CONTEXT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     const req = context.switchToHttp().getRequest();
     const user = req.user;
 
@@ -33,9 +39,27 @@ export class GymContextGuard implements CanActivate {
       return true;
     }
 
+    const headerGymId = req.headers["x-gym-id"];
+    const resolvedGymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
+    req.gymId = resolvedGymId;
+
+    if (noGymContext) {
+      return true;
+    }
+
+    // Safety fallback for platform administration and user introspection endpoints
+    const targetClass = context.getClass();
+    const className = targetClass?.name;
+    if (
+      className === "SuperAdminGymsController" ||
+      className === "MeController" ||
+      className === "AppController" ||
+      className === "AuthController"
+    ) {
+      return true;
+    }
+
     if (user.role === "SUPER_ADMIN") {
-      const headerGymId = req.headers["x-gym-id"];
-      const resolvedGymId = (typeof headerGymId === "string" ? headerGymId : user.gymId) || null;
       if (!resolvedGymId) {
         throw new BadRequestException({
           statusCode: 400,
@@ -43,11 +67,10 @@ export class GymContextGuard implements CanActivate {
           message: "No gym associated with this account. Platform SuperAdmin must access /platform or specify x-gym-id header.",
         });
       }
-      req.gymId = resolvedGymId;
       return true;
     }
 
-    if (!user.gymId) {
+    if (!resolvedGymId) {
       throw new UnauthorizedException({
         statusCode: 401,
         code: "MISSING_GYM_CONTEXT",
@@ -55,7 +78,6 @@ export class GymContextGuard implements CanActivate {
       });
     }
 
-    req.gymId = user.gymId;
     return true;
   }
 }

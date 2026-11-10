@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { notificationsApi, type NotificationItem } from "./api";
 import { useToast } from "@gym/ui";
+import { getStoredUser } from "../../lib/api";
 
 export function useNotifications() {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -26,6 +27,12 @@ export function useNotifications() {
 
   // Connect SSE with polling fallback
   useEffect(() => {
+    const user = getStoredUser();
+    if (user?.role === "SUPER_ADMIN") {
+      setIsLoading(false);
+      return;
+    }
+
     fetchNotifications();
 
     // SSE setup

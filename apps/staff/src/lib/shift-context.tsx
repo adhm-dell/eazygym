@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { type Shift, type Staff } from "@gym/contracts";
 import { shiftApi } from "../features/shift/api";
+import { getStoredUser, setStoredToken, getStoredToken } from "./api";
 import { useToast } from "@gym/ui";
 
 interface ShiftContextType {
@@ -26,7 +27,7 @@ const ShiftContext = createContext<ShiftContextType | undefined>(undefined);
 
 export function ShiftProvider({ children }: { children: React.ReactNode }) {
   const [shift, setShift] = useState<Shift | null>(null);
-  const [currentUser, setCurrentUser] = useState<Staff | null>(null);
+  const [currentUser, setCurrentUser] = useState<Staff | null>(() => getStoredUser());
   const [isLoading, setIsLoading] = useState(true);
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false);
@@ -35,7 +36,12 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
   const refreshShift = useCallback(async () => {
     try {
       const user = await shiftApi.getCurrentUser();
-      setCurrentUser(user);
+      if (user) {
+        setCurrentUser(user);
+        setStoredToken(getStoredToken() || "", user);
+      } else if (!getStoredUser()) {
+        setCurrentUser(null);
+      }
       if (user && user.role !== "SUPER_ADMIN" && (user as any).gymId) {
         const current = await shiftApi.getCurrentShift();
         setShift(current);

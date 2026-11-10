@@ -14,6 +14,7 @@ import { Response, Request } from "express";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 import { AuthService } from "./auth.service";
 import { Public } from "../../common/decorators/public.decorator";
+import { NoGymContext } from "../../common/decorators/no-gym-context.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
@@ -147,6 +148,7 @@ export class AuthController {
 @ApiTags("Auth")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@NoGymContext()
 @Controller()
 export class MeController {
   constructor(private readonly authService: AuthService) {}
