@@ -132,6 +132,9 @@ export const subscriptionsApi = {
   changeCoach: (subscriptionId: string, dto: ChangeCoachDto) =>
     http.post<any>(`/subscriptions/${subscriptionId}/transfer-coach`, dto),
 
+  changeClassSlot: (subscriptionId: string, dto: { classSlotIds: string[]; reason?: string | null }) =>
+    http.post<any>(`/subscriptions/${subscriptionId}/change-class-slot`, dto),
+
   logPtSession: (subscriptionId: string, dto?: LogPtSessionDto) =>
     http.post<any>(`/subscriptions/${subscriptionId}/log-pt-session`, dto || {}),
 

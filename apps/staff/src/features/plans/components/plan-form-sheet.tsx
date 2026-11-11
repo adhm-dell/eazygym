@@ -12,9 +12,13 @@ import {
   Dumbbell,
   Snowflake,
   Percent,
+  Plus,
+  Calendar,
 } from "lucide-react";
 import { Sheet, Button } from "@gym/ui";
 import { plansApi } from "../api";
+import { ClassScheduleDialog } from "../../classes/components/class-schedule-dialog";
+import { classesApi, type ClassScheduleItem } from "../../classes/api";
 import type { Plan, Service, CreatePlanDto, UpdatePlanDto } from "@gym/contracts";
 
 interface PlanFormSheetProps {
@@ -32,6 +36,7 @@ interface FormValues {
   grantsFloorAccess: boolean;
   totalSessions: number | string;
   sessionsPerWeek: number | string;
+  classScheduleId?: string | null;
   freezeMaxCount: number;
   freezeMaxTotalDays: number;
   minUpfrontPercent: number | string;
@@ -54,8 +59,14 @@ export function PlanFormSheet({
   const isEditing = Boolean(planToEdit);
   const [gymDefaultUpfront, setGymDefaultUpfront] = useState<number>(30);
   const [servicesList, setServicesList] = useState<Service[]>([]);
+  const [classSchedules, setClassSchedules] = useState<ClassScheduleItem[]>([]);
+  const [isQuickClassModalOpen, setIsQuickClassModalOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadClassSchedules = () => {
+    classesApi.listSchedules().then((data) => setClassSchedules(data)).catch(() => []);
+  };
 
   const {
     register,
@@ -74,6 +85,7 @@ export function PlanFormSheet({
       grantsFloorAccess: true,
       totalSessions: "",
       sessionsPerWeek: "",
+      classScheduleId: "",
       freezeMaxCount: 0,
       freezeMaxTotalDays: 0,
       minUpfrontPercent: "",
@@ -88,7 +100,7 @@ export function PlanFormSheet({
     },
   });
 
-  // Load gym defaults and services list
+  // Load gym defaults and services list & class schedules
   useEffect(() => {
     plansApi.getGymSettings().then((settings) => {
       if (settings?.defaultMinUpfrontPercent !== undefined) {
@@ -96,7 +108,8 @@ export function PlanFormSheet({
       }
     });
     plansApi.listServices().then((s) => setServicesList(s));
-  }, []);
+    loadClassSchedules();
+  }, [isOpen]);
 
   // Sync initial values when planToEdit changes or dialog opens
   useEffect(() => {
@@ -109,6 +122,7 @@ export function PlanFormSheet({
         grantsFloorAccess: planToEdit.grantsFloorAccess,
         totalSessions: planToEdit.totalSessions !== null ? planToEdit.totalSessions.toString() : "",
         sessionsPerWeek: planToEdit.sessionsPerWeek !== null ? planToEdit.sessionsPerWeek.toString() : "",
+        classScheduleId: planToEdit.classScheduleId || "",
         freezeMaxCount: planToEdit.freezeMaxCount || 0,
         freezeMaxTotalDays: planToEdit.freezeMaxTotalDays || 0,
         minUpfrontPercent: planToEdit.minUpfrontPercent !== null && planToEdit.minUpfrontPercent !== undefined ? planToEdit.minUpfrontPercent.toString() : "",
@@ -135,6 +149,7 @@ export function PlanFormSheet({
         grantsFloorAccess: true,
         totalSessions: "",
         sessionsPerWeek: "",
+        classScheduleId: "",
         freezeMaxCount: 0,
         freezeMaxTotalDays: 0,
         minUpfrontPercent: "",
@@ -229,6 +244,7 @@ export function PlanFormSheet({
       grantsFloorAccess: data.grantsFloorAccess,
       totalSessions: data.totalSessions !== "" && data.totalSessions !== undefined ? Number(data.totalSessions) : null,
       sessionsPerWeek: data.kind === "CLASS" ? (data.sessionsPerWeek !== "" ? Number(data.sessionsPerWeek) : 1) : null,
+      classScheduleId: data.kind === "CLASS" && data.classScheduleId ? data.classScheduleId : null,
       freezeMaxCount: fCount,
       freezeMaxTotalDays: fDays,
       minUpfrontPercent: data.minUpfrontPercent !== "" && data.minUpfrontPercent !== undefined ? Number(data.minUpfrontPercent) : null,
@@ -509,6 +525,45 @@ export function PlanFormSheet({
                 <p className="text-[11px] text-[#5B6470] mt-1">يحدد عدد المرات المسموح للعضو بحجز حصة فيها أسبوعياً.</p>
               </div>
             )}
+
+            {currentKind === "CLASS" && (
+              <div className="md:col-span-2 pt-3 border-t border-[#E1E5DF] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-emerald-700" />
+                    <label className="text-xs font-bold text-[#14181F]">
+                      ربط الحصة الجماعية المجدولة (Class Schedule)
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickClassModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-[#C6F24E] text-[#14181F] hover:bg-[#b5e03e] rounded-xl transition-all shadow-sm cursor-pointer border border-[#a4ce33]"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>إنشاء كلاس سريع الآن</span>
+                  </button>
+                </div>
+
+                <select
+                  {...register("classScheduleId")}
+                  className="w-full px-3 py-2.5 bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl text-xs font-bold text-[#14181F] focus:outline-none focus:border-[#14181F]"
+                >
+                  <option value="">-- بدون ربط حصة مسبقة (يتم الاختيار يدوي عند البيع) --</option>
+                  {classSchedules.map((cs) => {
+                    const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+                    return (
+                      <option key={cs.id} value={cs.id}>
+                        {cs.name} · {days[cs.dayOfWeek] || ""} ({cs.startTime} - {cs.endTime}) · كابتن {cs.coach?.name || "غير محدد"} (سعة {cs.capacity})
+                      </option>
+                    );
+                  })}
+                </select>
+                <p className="text-[11px] text-[#5B6470]">
+                  إذا قمت بربط الباقة بحصة مجدولة، فسيتم إدراج المشترك تلقائياً في هذه الحصة دون الحاجة لاختيارها يدوياً عند كل عملية بيع.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -786,6 +841,23 @@ export function PlanFormSheet({
           </Button>
         </div>
       </form>
+
+      {isQuickClassModalOpen && (
+        <ClassScheduleDialog
+          isOpen={isQuickClassModalOpen}
+          onClose={() => setIsQuickClassModalOpen(false)}
+          onSuccess={(created) => {
+            loadClassSchedules();
+            if (created) {
+              setValue("classScheduleId", created.id);
+              const currentName = watch("name");
+              if (!currentName || currentName.trim() === "") {
+                setValue("name", `باقة ${created.name}`);
+              }
+            }
+          }}
+        />
+      )}
     </Sheet>
   );
 }

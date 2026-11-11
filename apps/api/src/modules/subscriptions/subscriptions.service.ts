@@ -26,6 +26,7 @@ import type {
   UnfreezeSubscriptionDto,
   CancelSubscriptionDto,
   ChangeCoachDto,
+  ChangeClassSlotDto,
   LogPtSessionDto,
 } from "@gym/contracts";
 import { FitnessProfilesService } from "../coach-ops/fitness-profiles.service";
@@ -210,8 +211,14 @@ export class SubscriptionsService {
     }
 
     // CLASS Slots assignment
-    if (params.plan.kind === "CLASS" && params.options?.classSlotIds?.length) {
-      for (const slotId of params.options.classSlotIds) {
+    const effectiveClassSlots = params.options?.classSlotIds?.length
+      ? params.options.classSlotIds
+      : (params.plan as any).classScheduleId
+      ? [(params.plan as any).classScheduleId]
+      : [];
+
+    if (params.plan.kind === "CLASS" && effectiveClassSlots.length) {
+      for (const slotId of effectiveClassSlots) {
         await tx.subscriptionClassSlot.create({
           data: {
             subscriptionId: sub.id,
@@ -221,56 +228,61 @@ export class SubscriptionsService {
       }
     }
 
-    // First-time subscription: trigger fitness profile & coach rotation
-    let existingProfile = await tx.fitnessProfile.findUnique({
-      where: { memberId: params.memberId },
-    });
-
+    // First-time subscription: trigger fitness profile & coach rotation (ONLY for non-CLASS plans!)
+    // Class members are part of group sessions taught by a dedicated class coach, so no 1-on-1 intake or rotation needed.
+    let existingProfile: any = null;
     let rotationResult: any = null;
-    if (!existingProfile) {
-      const member = await tx.member.findUnique({
-        where: { id: params.memberId },
-        select: { name: true },
+
+    if (params.plan.kind !== "CLASS") {
+      existingProfile = await tx.fitnessProfile.findUnique({
+        where: { memberId: params.memberId },
       });
-      const fitRes = await this.fitnessProfilesService.createIfFirst(
-        params.gymId,
-        params.memberId,
-        sub.id,
-        tx,
-        {
-          memberName: member?.name,
-          planName: params.plan.name,
-        },
-        params.now
-      );
-      rotationResult = fitRes.rotation;
-    } else {
-      // Profile exists (e.g. created during intake before invoice)
-      if (!existingProfile.createdBySubscriptionId) {
-        existingProfile = await tx.fitnessProfile.update({
-          where: { id: existingProfile.id },
-          data: { createdBySubscriptionId: sub.id },
-        });
-      }
-      const existingAssignment = await tx.fitnessProfileAssignment.findFirst({
-        where: { profileId: existingProfile.id },
-      });
-      if (!existingAssignment) {
+
+      if (!existingProfile) {
         const member = await tx.member.findUnique({
           where: { id: params.memberId },
           select: { name: true },
         });
-        const rot = await this.fitnessProfilesService.triggerRotation(
+        const fitRes = await this.fitnessProfilesService.createIfFirst(
           params.gymId,
-          existingProfile.id,
-          params.now,
+          params.memberId,
+          sub.id,
           tx,
           {
             memberName: member?.name,
             planName: params.plan.name,
-          }
+          },
+          params.now
         );
-        rotationResult = rot;
+        rotationResult = fitRes.rotation;
+      } else {
+        // Profile exists (e.g. created during intake before invoice)
+        if (!existingProfile.createdBySubscriptionId) {
+          existingProfile = await tx.fitnessProfile.update({
+            where: { id: existingProfile.id },
+            data: { createdBySubscriptionId: sub.id },
+          });
+        }
+        const existingAssignment = await tx.fitnessProfileAssignment.findFirst({
+          where: { profileId: existingProfile.id },
+        });
+        if (!existingAssignment) {
+          const member = await tx.member.findUnique({
+            where: { id: params.memberId },
+            select: { name: true },
+          });
+          const rot = await this.fitnessProfilesService.triggerRotation(
+            params.gymId,
+            existingProfile.id,
+            params.now,
+            tx,
+            {
+              memberName: member?.name,
+              planName: params.plan.name,
+            }
+          );
+          rotationResult = rot;
+        }
       }
     }
 
@@ -930,6 +942,71 @@ export class SubscriptionsService {
     });
 
     return { success: true };
+  }
+
+  async changeClassSlots(
+    gymId: string,
+    actorId: string,
+    id: string,
+    dto: ChangeClassSlotDto
+  ) {
+    const sub = await this.prisma.subscription.findFirst({
+      where: { id, gymId },
+      include: { plan: true },
+    });
+
+    if (!sub || sub.kind !== "CLASS") {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "INVALID_SUBSCRIPTION",
+        message: "Change class slots is only applicable to CLASS subscriptions",
+      });
+    }
+
+    // Verify all class schedules exist and are active in the gym
+    const validSchedules = await this.prisma.classSchedule.findMany({
+      where: {
+        id: { in: dto.classSlotIds },
+        gymId,
+        isActive: true,
+      },
+    });
+
+    if (validSchedules.length !== dto.classSlotIds.length) {
+      throw new UnprocessableEntityException({
+        statusCode: 422,
+        code: "INVALID_CLASS_SCHEDULE",
+        message: "One or more class schedules are invalid or inactive",
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Remove existing slots
+      await tx.subscriptionClassSlot.deleteMany({
+        where: { subscriptionId: id },
+      });
+
+      // Insert new slots
+      for (const slotId of dto.classSlotIds) {
+        await tx.subscriptionClassSlot.create({
+          data: {
+            subscriptionId: id,
+            classScheduleId: slotId,
+          },
+        });
+      }
+    });
+
+    await this.auditService.log({
+      gymId,
+      actorId,
+      action: "SUBSCRIPTION_CHANGE_CLASS_SLOTS",
+      entityType: "Subscription",
+      entityId: id,
+      after: { classSlotIds: dto.classSlotIds, reason: dto.reason },
+    });
+
+    return { success: true, count: dto.classSlotIds.length, classSlotIds: dto.classSlotIds };
   }
 
   async logSession(gymId: string, actorId: string, id: string, dto: LogPtSessionDto) {

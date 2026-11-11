@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
-import { CreateCoachShiftDto, UpdateCoachShiftDto } from "@gym/contracts";
+import { CreateCoachShiftDto, UpdateCoachShiftDto, CreateCoachWeeklyScheduleDto } from "@gym/contracts";
 import { isOnShift, coachIdsOnShift, parseHHMM, type CoachShiftRow } from "@gym/domain";
 
 @Injectable()
@@ -21,12 +21,12 @@ export class CoachShiftsService {
     this.validateTime(dto.startTime);
     this.validateTime(dto.endTime);
 
-    // Verify coach belongs to gym
-    const coach = await this.prisma.staff.findFirst({
-      where: { id: dto.coachId, gymId, role: "COACH", isActive: true },
+    // Verify staff belongs to gym
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: dto.coachId, gymId, isActive: true },
     });
-    if (!coach) {
-      throw new NotFoundException("Coach not found in gym or is not active");
+    if (!staff) {
+      throw new NotFoundException("Staff member not found in gym or is not active");
     }
 
     // Check overlap for the same coach on dayOfWeek
@@ -72,6 +72,53 @@ export class CoachShiftsService {
           select: { id: true, name: true, email: true, role: true },
         },
       },
+    });
+  }
+
+  async createWeeklySchedule(gymId: string, dto: CreateCoachWeeklyScheduleDto) {
+    this.validateTime(dto.startTime);
+    this.validateTime(dto.endTime);
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: dto.coachId, gymId, isActive: true },
+    });
+    if (!staff) {
+      throw new NotFoundException("Staff member not found in gym or is not active");
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.replaceExisting) {
+        await tx.coachShift.updateMany({
+          where: {
+            gymId,
+            coachId: dto.coachId,
+            dayOfWeek: { in: dto.daysOfWeek },
+            isActive: true,
+          },
+          data: { isActive: false },
+        });
+      }
+
+      const created = [];
+      for (const day of dto.daysOfWeek) {
+        const shift = await tx.coachShift.create({
+          data: {
+            gymId,
+            coachId: dto.coachId,
+            dayOfWeek: day,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            isActive: true,
+          },
+          include: {
+            coach: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+          },
+        });
+        created.push(shift);
+      }
+      return created;
     });
   }
 

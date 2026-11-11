@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ExternalLink,
   DollarSign,
+  Calendar,
 } from "lucide-react";
 import { Button, Badge, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
@@ -33,6 +34,7 @@ import { CancelSubscriptionDialog } from "../../../features/members/components/c
 import { ChangeCoachDialog } from "../../../features/members/components/change-coach-dialog";
 import { LogSessionDialog } from "../../../features/members/components/log-session-dialog";
 import { CollectBalanceDialog } from "../../../features/members/components/collect-balance-dialog";
+import { ChangeClassSlotDialog } from "../../../features/members/components/change-class-slot-dialog";
 import { useShift } from "../../../lib/shift-context";
 
 export default function SubscriptionsManagementPage() {
@@ -68,6 +70,7 @@ export default function SubscriptionsManagementPage() {
   const [selectedSubForUnfreeze, setSelectedSubForUnfreeze] = useState<SubscriptionItem | null>(null);
   const [selectedSubForCancel, setSelectedSubForCancel] = useState<SubscriptionItem | null>(null);
   const [selectedSubForChangeCoach, setSelectedSubForChangeCoach] = useState<SubscriptionItem | null>(null);
+  const [selectedSubForChangeClass, setSelectedSubForChangeClass] = useState<SubscriptionItem | null>(null);
   const [selectedSubForLogSession, setSelectedSubForLogSession] = useState<SubscriptionItem | null>(null);
   const [selectedInvoiceForCollect, setSelectedInvoiceForCollect] = useState<{
     invoice: any;
@@ -853,6 +856,19 @@ export default function SubscriptionsManagementPage() {
                             </button>
                           )}
 
+                          {/* CLASS Change / Assign Slot */}
+                          {sub.kind === "CLASS" && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSubForChangeClass(sub)}
+                              className="h-7 px-2 text-xs font-bold rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors flex items-center gap-1"
+                              title="ربط أو تغيير موعد الحصة"
+                            >
+                              <Calendar className="w-3 h-3" />
+                              <span>الحصة</span>
+                            </button>
+                          )}
+
                           {/* Cancel Subscription */}
                           {isGymAdmin && sub.status !== "CANCELLED" && (
                             <button
@@ -962,6 +978,24 @@ export default function SubscriptionsManagementPage() {
           onSuccess={() => {
             setSelectedSubForChangeCoach(null);
             fetchData();
+          }}
+        />
+      )}
+
+      {selectedSubForChangeClass && (
+        <ChangeClassSlotDialog
+          subscription={selectedSubForChangeClass as any}
+          member={selectedSubForChangeClass.member as any}
+          isOpen={Boolean(selectedSubForChangeClass)}
+          onClose={() => setSelectedSubForChangeClass(null)}
+          onSuccess={() => {
+            setSelectedSubForChangeClass(null);
+            fetchData();
+            toast({
+              title: "تم ربط الحصة بنجاح",
+              description: `تم تحديث موعد الحصة للمشترك ${selectedSubForChangeClass.member.name}`,
+              variant: "success",
+            });
           }}
         />
       )}

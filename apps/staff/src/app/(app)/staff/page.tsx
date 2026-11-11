@@ -18,12 +18,16 @@ import {
   Phone,
   Lock,
   AlertCircle,
+  Clock,
+  Calendar,
+  Sparkles,
 } from "lucide-react";
 import { Button, Badge, Dialog, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
 import Link from "next/link";
 import { formatMoney } from "../../../lib/money";
 import { staffApi, type StaffMember } from "../../../features/staff/api";
+import { coachOpsApi } from "../../../features/coach-ops/api";
 import { useShift } from "../../../lib/shift-context";
 import type { StaffRole, CreateStaffDto, UpdateStaffDto } from "@gym/contracts";
 
@@ -51,6 +55,32 @@ export default function StaffManagementPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Weekly Shift Schedule Stamp State
+  const [applyShiftStamp, setApplyShiftStamp] = useState(true);
+  const [staffShiftStart, setStaffShiftStart] = useState("09:00");
+  const [staffShiftEnd, setStaffShiftEnd] = useState("17:00");
+  const [staffDayOff, setStaffDayOff] = useState<number>(5); // 5 = Friday off
+  const [staffShiftDays, setStaffShiftDays] = useState<number[]>([0, 1, 2, 3, 4, 6]);
+
+  const WEEK_DAYS = [
+    { val: 0, label: "الأحد" },
+    { val: 1, label: "الاثنين" },
+    { val: 2, label: "الثلاثاء" },
+    { val: 3, label: "الأربعاء" },
+    { val: 4, label: "الخميس" },
+    { val: 5, label: "الجمعة" },
+    { val: 6, label: "السبت" },
+  ];
+
+  const handleDayOffChange = (offDay: number) => {
+    setStaffDayOff(offDay);
+    if (offDay === -1) {
+      setStaffShiftDays([0, 1, 2, 3, 4, 5, 6]);
+    } else {
+      setStaffShiftDays([0, 1, 2, 3, 4, 5, 6].filter((d) => d !== offDay));
+    }
+  };
 
   const fetchStaff = async () => {
     setIsLoading(true);
@@ -80,6 +110,11 @@ export default function StaffManagementPage() {
     setRole("RECEPTION");
     setBaseSalaryEgp("4000");
     setPassword("");
+    setApplyShiftStamp(true);
+    setStaffShiftStart("09:00");
+    setStaffShiftEnd("17:00");
+    setStaffDayOff(5);
+    setStaffShiftDays([0, 1, 2, 3, 4, 6]);
     setModalError(null);
     setIsDialogOpen(true);
   };
@@ -140,10 +175,26 @@ export default function StaffManagementPage() {
           baseSalary: salaryPiasters >= 0 ? salaryPiasters : 0,
           password: password.trim(),
         };
-        await staffApi.createStaff(dto);
+        const newStaff = await staffApi.createStaff(dto);
+
+        // Apply weekly shift stamp if enabled
+        if (applyShiftStamp && staffShiftDays.length > 0) {
+          try {
+            await coachOpsApi.createWeeklySchedule({
+              coachId: newStaff.id,
+              daysOfWeek: staffShiftDays,
+              startTime: staffShiftStart,
+              endTime: staffShiftEnd,
+              replaceExisting: true,
+            });
+          } catch (shiftErr: any) {
+            console.warn("Could not apply initial weekly schedule:", shiftErr);
+          }
+        }
+
         toast({
           title: t("staffManagement.saveSuccess"),
-          description: `تم إنشاء حساب الموظف ${name}`,
+          description: `تم إنشاء حساب الموظف ${name} وجدولة وردياته الأسبوعية بنجاح`,
           variant: "success",
         });
       }
@@ -423,6 +474,7 @@ export default function StaffManagementPage() {
         <Dialog
           isOpen={isDialogOpen}
           onClose={() => setIsDialogOpen(false)}
+          maxWidth="xl"
           title={
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-[#C6F24E]/20 text-[#14181F]">
@@ -555,6 +607,185 @@ export default function StaffManagementPage() {
                 className="w-full h-10 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
               />
             </div>
+
+            {/* WEEKLY SHIFT SCHEDULE STAMP (ON CREATION) */}
+            {!editingStaff && (
+              <div className="pt-3 border-t border-[#E1E5DF] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-[#C6F24E]/20 text-[#14181F]">
+                      <Clock className="w-4 h-4 text-[#4D6B00]" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-[#14181F] block">
+                        ختم الوردية الأسبوعية السريع (Weekly Shift Stamp)
+                      </span>
+                      <span className="text-[10px] text-[#5B6470]">
+                        تحديد مواعيد العمل وتطبيقها على مدار الأسبوع تلقائياً
+                      </span>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#14181F] bg-[#F4F6F2] hover:bg-[#EAEFE8] px-2.5 py-1.5 rounded-xl border border-[#E1E5DF] transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={applyShiftStamp}
+                      onChange={(e) => setApplyShiftStamp(e.target.checked)}
+                      className="w-4 h-4 rounded accent-[#C6F24E] cursor-pointer"
+                    />
+                    <span>تفعيل الجدول الأسبوعي</span>
+                  </label>
+                </div>
+
+                {applyShiftStamp && (
+                  <div className="p-3 bg-[#F9FAF8] border border-[#E1E5DF] rounded-2xl space-y-3">
+                    {/* Shift Hour Presets */}
+                    <div>
+                      <span className="text-[11px] font-bold text-[#5B6470] block mb-1.5">
+                        قوالب ساعات الوردية الجاهزة:
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStaffShiftStart("09:00");
+                            setStaffShiftEnd("17:00");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold transition-all ${
+                            staffShiftStart === "09:00" && staffShiftEnd === "17:00"
+                              ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
+                              : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-50"
+                          }`}
+                        >
+                          صباحي (09:00 - 17:00)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStaffShiftStart("14:00");
+                            setStaffShiftEnd("22:00");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold transition-all ${
+                            staffShiftStart === "14:00" && staffShiftEnd === "22:00"
+                              ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
+                              : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-50"
+                          }`}
+                        >
+                          مسائي (14:00 - 22:00)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStaffShiftStart("18:00");
+                            setStaffShiftEnd("02:00");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold transition-all ${
+                            staffShiftStart === "18:00" && staffShiftEnd === "02:00"
+                              ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
+                              : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-50"
+                          }`}
+                        >
+                          ليلي (18:00 - 02:00)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStaffShiftStart("10:00");
+                            setStaffShiftEnd("20:00");
+                          }}
+                          className={`py-1.5 px-2 rounded-xl border text-[11px] font-bold transition-all ${
+                            staffShiftStart === "10:00" && staffShiftEnd === "20:00"
+                              ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
+                              : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-50"
+                          }`}
+                        >
+                          يوم كامل (10:00 - 20:00)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom Times */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-[#5B6470] block mb-1">
+                          من الساعة (بداية الوردية):
+                        </label>
+                        <input
+                          type="time"
+                          value={staffShiftStart}
+                          onChange={(e) => setStaffShiftStart(e.target.value)}
+                          className="w-full h-9 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-[#5B6470] block mb-1">
+                          إلى الساعة (نهاية الوردية):
+                        </label>
+                        <input
+                          type="time"
+                          value={staffShiftEnd}
+                          onChange={(e) => setStaffShiftEnd(e.target.value)}
+                          className="w-full h-9 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Day Off Dropdown */}
+                    <div>
+                      <label className="text-[11px] font-bold text-[#5B6470] block mb-1">
+                        يوم الإجازة الأسبوعي:
+                      </label>
+                      <select
+                        value={staffDayOff}
+                        onChange={(e) => handleDayOffChange(Number(e.target.value))}
+                        className="w-full h-9 px-3 bg-white border border-[#E1E5DF] rounded-xl text-xs"
+                      >
+                        <option value={5}>الجمعة (إجازة الجمعة - يعمل باقي الأسبوع)</option>
+                        <option value={6}>السبت (إجازة السبت - يعمل باقي الأسبوع)</option>
+                        <option value={0}>الأحد (إجازة الأحد)</option>
+                        <option value={1}>الاثنين (إجازة الاثنين)</option>
+                        <option value={2}>الثلاثاء (إجازة الثلاثاء)</option>
+                        <option value={3}>الأربعاء (إجازة الأربعاء)</option>
+                        <option value={4}>الخميس (إجازة الخميس)</option>
+                        <option value={-1}>بدون إجازة (يعمل طوال الأسبوع 7 أيام)</option>
+                      </select>
+                    </div>
+
+                    {/* Days Pills */}
+                    <div>
+                      <span className="text-[11px] font-bold text-[#5B6470] block mb-1.5">
+                        أيام العمل المحددة ({staffShiftDays.length} أيام):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {WEEK_DAYS.map((d) => {
+                          const isWorking = staffShiftDays.includes(d.val);
+                          return (
+                            <button
+                              type="button"
+                              key={d.val}
+                              onClick={() => {
+                                if (isWorking) {
+                                  setStaffShiftDays(staffShiftDays.filter((x) => x !== d.val));
+                                } else {
+                                  setStaffShiftDays([...staffShiftDays, d.val].sort());
+                                }
+                              }}
+                              className={`px-3 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                                isWorking
+                                  ? "bg-[#C6F24E] text-[#14181F] border border-[#a4ce33] shadow-sm"
+                                  : "bg-white text-gray-400 border border-dashed border-gray-300 hover:border-gray-400"
+                              }`}
+                            >
+                              {d.label} {isWorking ? "✓" : "×"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </form>
         </Dialog>
       )}

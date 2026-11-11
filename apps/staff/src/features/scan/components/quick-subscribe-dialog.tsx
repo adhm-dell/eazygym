@@ -113,6 +113,13 @@ export function QuickSubscribeDialog({
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
+  // Pre-select linked class slot if plan has one
+  useEffect(() => {
+    if (selectedPlan && selectedPlan.kind === "CLASS" && selectedPlan.classScheduleId) {
+      setSelectedClassSlotId(selectedPlan.classScheduleId);
+    }
+  }, [selectedPlanId, plans]);
+
   const filteredPlans = plans.filter((p) => {
     if (activeCategory === "ALL") return true;
     return p.kind === activeCategory;
@@ -182,20 +189,23 @@ export function QuickSubscribeDialog({
       return;
     }
 
-    // Check if this is member's first subscription ever
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const existingProfile = await coachOpsApi.getFitnessProfile(member.id);
-      if (!existingProfile || !existingProfile.id) {
+    // Check if this is member's first subscription ever (ONLY for non-CLASS plans!)
+    // Group classes are taught by a dedicated coach, so no 1-on-1 fitness profile needed.
+    if (selectedPlan.kind !== "CLASS") {
+      setIsSubmitting(true);
+      setError(null);
+      try {
+        const existingProfile = await coachOpsApi.getFitnessProfile(member.id);
+        if (!existingProfile || !existingProfile.id) {
+          setIsIntakeModalOpen(true);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch {
         setIsIntakeModalOpen(true);
         setIsSubmitting(false);
         return;
       }
-    } catch {
-      setIsIntakeModalOpen(true);
-      setIsSubmitting(false);
-      return;
     }
 
     try {

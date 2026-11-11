@@ -20,11 +20,13 @@ import {
   UnfreezeSubscriptionSchema,
   CancelSubscriptionSchema,
   ChangeCoachSchema,
+  ChangeClassSlotSchema,
   LogPtSessionSchema,
   type FreezeSubscriptionDto,
   type UnfreezeSubscriptionDto,
   type CancelSubscriptionDto,
   type ChangeCoachDto,
+  type ChangeClassSlotDto,
   type LogPtSessionDto,
 } from "@gym/contracts";
 
@@ -127,6 +129,22 @@ export class SubscriptionsController {
     @Body(new ZodValidationPipe(ChangeCoachSchema)) dto: ChangeCoachDto
   ) {
     return this.subscriptionsService.changeCoach(
+      req.gymId,
+      req.user?.id || req.user?.sub,
+      id,
+      dto
+    );
+  }
+
+  @Post(":id/change-class-slot")
+  @Roles("GYM_ADMIN", "SUPER_ADMIN", "RECEPTION")
+  @ApiOperation({ summary: "Assign or change class schedule slot for a CLASS subscription" })
+  async changeClassSlot(
+    @Req() req: any,
+    @Param("id") id: string,
+    @Body(new ZodValidationPipe(ChangeClassSlotSchema)) dto: ChangeClassSlotDto
+  ) {
+    return this.subscriptionsService.changeClassSlots(
       req.gymId,
       req.user?.id || req.user?.sub,
       id,

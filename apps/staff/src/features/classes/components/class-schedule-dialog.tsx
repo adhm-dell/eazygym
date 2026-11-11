@@ -10,7 +10,7 @@ import type { Staff, CreateClassScheduleDto, UpdateClassScheduleDto } from "@gym
 interface ClassScheduleDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (created?: ClassScheduleItem) => void;
   scheduleToEdit?: ClassScheduleItem | null;
   defaultDayOfWeek?: number;
 }
@@ -111,7 +111,8 @@ export function ClassScheduleDialog({
           capacity: capNum,
           isActive,
         };
-        await classesApi.updateSchedule(scheduleToEdit.id, dto);
+        const updated = await classesApi.updateSchedule(scheduleToEdit.id, dto);
+        onSuccess(updated);
       } else {
         const dto: CreateClassScheduleDto = {
           name: trimmedName,
@@ -121,9 +122,9 @@ export function ClassScheduleDialog({
           endTime,
           capacity: capNum,
         };
-        await classesApi.createSchedule(dto);
+        const created = await classesApi.createSchedule(dto);
+        onSuccess(created);
       }
-      onSuccess();
       onClose();
     } catch (err: any) {
       setError(

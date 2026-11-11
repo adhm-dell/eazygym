@@ -90,6 +90,9 @@ export class PlansService {
         includedServices: {
           include: { service: true },
         },
+        classSchedule: {
+          select: { id: true, name: true },
+        },
         _count: {
           select: {
             subscriptions: { where: { status: "ACTIVE" } },
@@ -108,6 +111,8 @@ export class PlansService {
       grantsFloorAccess: p.grantsFloorAccess,
       totalSessions: p.totalSessions,
       sessionsPerWeek: p.sessionsPerWeek,
+      classScheduleId: (p as any).classScheduleId ?? null,
+      classScheduleName: (p as any).classSchedule?.name ?? null,
       freezeMaxCount: p.freezeMaxCount,
       freezeMaxTotalDays: p.freezeMaxTotalDays,
       minUpfrontPercent: p.minUpfrontPercent ? Number(p.minUpfrontPercent) : null,
@@ -136,6 +141,9 @@ export class PlansService {
         includedServices: {
           include: { service: true },
         },
+        classSchedule: {
+          select: { id: true, name: true },
+        },
       },
     });
 
@@ -157,6 +165,8 @@ export class PlansService {
       grantsFloorAccess: plan.grantsFloorAccess,
       totalSessions: plan.totalSessions,
       sessionsPerWeek: plan.sessionsPerWeek,
+      classScheduleId: (plan as any).classScheduleId ?? null,
+      classScheduleName: (plan as any).classSchedule?.name ?? null,
       freezeMaxCount: plan.freezeMaxCount,
       freezeMaxTotalDays: plan.freezeMaxTotalDays,
       minUpfrontPercent: plan.minUpfrontPercent ? Number(plan.minUpfrontPercent) : null,
@@ -200,6 +210,7 @@ export class PlansService {
         grantsFloorAccess,
         totalSessions: dto.totalSessions || null,
         sessionsPerWeek: dto.sessionsPerWeek || null,
+        classScheduleId: dto.classScheduleId || null,
         freezeMaxCount: dto.freezeMaxCount ?? 0,
         freezeMaxTotalDays: dto.freezeMaxTotalDays ?? 0,
         minUpfrontPercent: dto.minUpfrontPercent ?? null,
@@ -256,6 +267,7 @@ export class PlansService {
     if (dto.grantsFloorAccess !== undefined) data.grantsFloorAccess = dto.grantsFloorAccess;
     if (dto.totalSessions !== undefined) data.totalSessions = dto.totalSessions;
     if (dto.sessionsPerWeek !== undefined) data.sessionsPerWeek = dto.sessionsPerWeek;
+    if (dto.classScheduleId !== undefined) data.classScheduleId = dto.classScheduleId;
     if (dto.freezeMaxCount !== undefined) data.freezeMaxCount = dto.freezeMaxCount;
     if (dto.freezeMaxTotalDays !== undefined) data.freezeMaxTotalDays = dto.freezeMaxTotalDays;
     if (dto.minUpfrontPercent !== undefined) data.minUpfrontPercent = dto.minUpfrontPercent;

@@ -20,6 +20,8 @@ import { ZodValidationPipe } from "../../common/pipes/zod-validation.pipe";
 import {
   CreateCoachShiftSchema,
   type CreateCoachShiftDto,
+  CreateCoachWeeklyScheduleSchema,
+  type CreateCoachWeeklyScheduleDto,
   UpdateCoachShiftSchema,
   type UpdateCoachShiftDto,
 } from "@gym/contracts";
@@ -36,6 +38,15 @@ export class CoachShiftsController {
     @Body(new ZodValidationPipe(CreateCoachShiftSchema)) dto: CreateCoachShiftDto
   ) {
     return this.shiftsService.createShift(user.gymId, dto);
+  }
+
+  @Post("coach-shifts/weekly-schedule")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN")
+  async createWeeklySchedule(
+    @CurrentUser() user: any,
+    @Body(new ZodValidationPipe(CreateCoachWeeklyScheduleSchema)) dto: CreateCoachWeeklyScheduleDto
+  ) {
+    return this.shiftsService.createWeeklySchedule(user.gymId, dto);
   }
 
   @Get("coach-shifts")

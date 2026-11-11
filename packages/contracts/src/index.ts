@@ -202,6 +202,12 @@ export const ChangeCoachSchema = z.object({
 });
 export type ChangeCoachDto = z.infer<typeof ChangeCoachSchema>;
 
+export const ChangeClassSlotSchema = z.object({
+  classSlotIds: z.array(z.string().min(1)).min(1),
+  reason: z.string().optional().nullable(),
+});
+export type ChangeClassSlotDto = z.infer<typeof ChangeClassSlotSchema>;
+
 export const LogPtSessionSchema = z.object({
   notes: z.string().optional().nullable(),
 });
@@ -409,6 +415,7 @@ export const CreatePlanSchema = z.object({
   grantsFloorAccess: z.boolean().optional(),
   totalSessions: z.number().int().positive().nullable().optional(),
   sessionsPerWeek: z.number().int().positive().nullable().optional(),
+  classScheduleId: z.string().nullable().optional(),
   freezeMaxCount: z.number().int().nonnegative().default(0),
   freezeMaxTotalDays: z.number().int().nonnegative().default(0),
   minUpfrontPercent: z.number().min(0).max(100).nullable().optional(),
@@ -546,6 +553,15 @@ export const CreateCoachShiftSchema = z.object({
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 export type CreateCoachShiftDto = z.infer<typeof CreateCoachShiftSchema>;
+
+export const CreateCoachWeeklyScheduleSchema = z.object({
+  coachId: z.string().min(1),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  replaceExisting: z.boolean().optional().default(true),
+});
+export type CreateCoachWeeklyScheduleDto = z.infer<typeof CreateCoachWeeklyScheduleSchema>;
 
 export const UpdateCoachShiftSchema = CreateCoachShiftSchema.partial().extend({
   isActive: z.boolean().optional(),
@@ -727,6 +743,8 @@ export interface Plan {
   grantsFloorAccess: boolean;
   totalSessions: number | null;
   sessionsPerWeek: number | null;
+  classScheduleId?: string | null;
+  classScheduleName?: string | null;
   freezeMaxCount: number;
   freezeMaxTotalDays: number;
   minUpfrontPercent: number | null;

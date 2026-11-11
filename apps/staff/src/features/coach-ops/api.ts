@@ -133,6 +133,16 @@ export const coachOpsApi = {
     return http.post<CoachShiftItem>("/coach-shifts", dto);
   },
 
+  createWeeklySchedule: (dto: {
+    coachId: string;
+    daysOfWeek: number[];
+    startTime: string;
+    endTime: string;
+    replaceExisting?: boolean;
+  }) => {
+    return http.post<CoachShiftItem[]>("/coach-shifts/weekly-schedule", dto);
+  },
+
   deactivateShift: (id: string) => {
     return http.delete(`/coach-shifts/${id}`);
   },

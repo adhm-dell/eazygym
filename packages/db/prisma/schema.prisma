@@ -348,6 +348,10 @@ model Plan {
   commissionable    Boolean @default(false) // PT plans
   commissionMilestones Int  @default(1) // payout checkpoints (3 months => 3)
 
+  // Optional linked class schedule for CLASS plans
+  classScheduleId String?
+  classSchedule   ClassSchedule? @relation(fields: [classScheduleId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -697,6 +701,7 @@ model ClassSchedule {
   exceptions ClassScheduleException[]
   slots      SubscriptionClassSlot[]
   sessions   ClassSession[]
+  plans      Plan[]
 }
 
 model ClassScheduleException {

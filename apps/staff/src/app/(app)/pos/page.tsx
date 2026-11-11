@@ -516,9 +516,12 @@ export default function PosSellPage() {
       return;
     }
     setConfiguringPlan(plan);
-    setPlanStartDate("2026-11-04");
+    setPlanStartDate(new Date().toISOString().slice(0, 10));
     setPlanCoachId(coaches[0]?.id || "");
-    setPlanClassSlotId(classSchedules[0]?.id || "");
+    const defaultSlot = plan.classScheduleId && classSchedules.some((cs) => cs.id === plan.classScheduleId)
+      ? plan.classScheduleId
+      : classSchedules[0]?.id || "";
+    setPlanClassSlotId(defaultSlot);
     setPlanFreezeCount(plan.freezeMaxCount);
     setPlanFreezeDays(plan.freezeMaxTotalDays);
   };
@@ -976,17 +979,23 @@ export default function PosSellPage() {
     }
 
     // Intercept: If buying a subscription for the first time, open Fitness Profile Intake Dialog
-    if (hasSub && selectedMember) {
+    // SKIP IF IT IS A CLASS PLAN! Classes are group sessions with a dedicated coach.
+    const subItem = cart.find((i) => i.kind === "SUBSCRIPTION");
+    const isClassPlan = subItem && (
+      Boolean(subItem.className) ||
+      Boolean(subItem.classSlotId) ||
+      plans.find((p) => p.id === subItem.planId)?.kind === "CLASS"
+    );
+
+    if (hasSub && selectedMember && !isClassPlan) {
       try {
         const profile = await coachOpsApi.getFitnessProfile(selectedMember.id);
         if (!profile || !profile.id) {
-          const subItem = cart.find((i) => i.kind === "SUBSCRIPTION");
           setIntakePlanName(subItem?.title || "اشتراك جديد");
           setIsIntakeModalOpen(true);
           return;
         }
       } catch {
-        const subItem = cart.find((i) => i.kind === "SUBSCRIPTION");
         setIntakePlanName(subItem?.title || "اشتراك جديد");
         setIsIntakeModalOpen(true);
         return;

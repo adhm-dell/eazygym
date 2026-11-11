@@ -64,8 +64,28 @@ export const sellApi = {
     const staff = await http.get<Staff[]>("/staff");
     return staff.filter((s) => s.role === "COACH" && s.isActive);
   },
-  listClassSchedules: async (): Promise<ClassScheduleWithDetails[]> =>
-    http.get<ClassScheduleWithDetails[]>("/classes/today").catch(() => []),
+  listClassSchedules: async (): Promise<ClassScheduleWithDetails[]> => {
+    try {
+      const data = await http.get<any[]>("/class-schedules");
+      const days = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+      return data.map((cs) => ({
+        id: cs.id,
+        name: cs.name,
+        coachId: cs.coachId,
+        coachName: cs.coach?.name || "غير محدد",
+        effectiveStartTime: cs.startTime,
+        effectiveEndTime: cs.endTime,
+        capacity: cs.capacity,
+        dayOfWeek: cs.dayOfWeek,
+        dayName: days[cs.dayOfWeek] || "",
+        registeredCount: cs.registeredCount || 0,
+        isCancelled: false,
+        isActive: cs.isActive,
+      } as any));
+    } catch {
+      return http.get<ClassScheduleWithDetails[]>("/classes/today").catch(() => []);
+    }
+  },
   createInvoice: async (dto: CreateInvoiceDto, idempotencyKey?: string): Promise<InvoiceDetail> => {
     const key = idempotencyKey || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : undefined);
     return http.post<InvoiceDetail>("/invoices", dto, key ? { "idempotency-key": key } : undefined);
