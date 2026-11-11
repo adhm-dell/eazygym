@@ -347,10 +347,16 @@ export default function ReceptionScanPage() {
     }
   };
 
+  const todayFormatted = new Intl.DateTimeFormat("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(new Date());
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] min-h-[calc(100vh-1px)] relative">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px] h-full lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden relative">
       {/* Center Main Scan Area */}
-      <main className="p-6 md:p-[26px_30px] flex flex-col gap-[18px]">
+      <main className="p-6 md:p-[26px_30px] flex flex-col gap-[18px] lg:h-full lg:overflow-y-auto min-h-0">
         {/* Header Row with Shift Gate Chip */}
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h1 className="text-[28px] font-bold tracking-tight text-[#14181F]">
@@ -635,11 +641,11 @@ export default function ReceptionScanPage() {
         </section>
       </main>
 
-      {/* Right Column: Today's Classes Panel (330px) */}
-      <aside className="p-6 md:p-[26px_22px] flex flex-col gap-[14px] border-inline-start border-[#E1E5DF] bg-white lg:sticky lg:top-0 lg:max-h-[calc(100vh-3.5rem)] lg:overflow-y-auto">
-        <div className="flex items-center justify-between">
+      {/* Right Column: Today's Classes Panel (340px) with Independent Scroll */}
+      <aside className="p-6 md:p-[26px_22px] flex flex-col gap-[14px] border-inline-start border-[#E1E5DF] bg-white lg:h-full lg:overflow-y-auto min-h-0 shrink-0">
+        <div className="flex items-center justify-between pb-2 border-b border-[#E1E5DF]">
           <h3 className="text-base font-bold text-[#14181F]">حصص اليوم</h3>
-          <span className="text-xs text-[#5B6470] font-medium">الأربعاء، 4 نوفمبر</span>
+          <span className="text-xs text-[#5B6470] font-medium">{todayFormatted}</span>
         </div>
 
         {isLoadingClasses ? (
@@ -648,9 +654,12 @@ export default function ReceptionScanPage() {
           <div className="p-6 text-center text-sm text-[#5B6470]">لا توجد حصص مجدولة اليوم</div>
         ) : (
           todayClasses.map((cls) => {
-            const isStarted = cls.status === "IN_PROGRESS";
+            const isStarted = cls.status === "IN_PROGRESS" || (cls.status as string) === "RUNNING";
             const isEnded = cls.status === "ENDED";
             const isCancelled = cls.status === "CANCELLED";
+            const coachDisplayName = cls.coachName || (cls as any).coach?.name || "بدون مدرب";
+            const enrolledCount = cls.enrolledMembersCount ?? (cls as any).registeredCount ?? 0;
+            const startTimeStr = cls.effectiveStartTime || cls.startTime || "";
 
             return (
               <div
@@ -684,11 +693,11 @@ export default function ReceptionScanPage() {
                   {isCancelled ? (
                     "تم إلغاء الحصة اليوم"
                   ) : isStarted ? (
-                    `بدأت ${cls.effectiveStartTime} · مسجل ${cls.enrolledMembersCount}`
+                    `بدأت ${startTimeStr} · مسجل ${enrolledCount}`
                   ) : isEnded ? (
                     "انتهت الحصة وأُغلق الحضور"
                   ) : (
-                    `المدرب: ${cls.coachName} · ${cls.enrolledMembersCount} مسجل`
+                    `المدرب: ${coachDisplayName} · ${enrolledCount} مسجل`
                   )}
                 </p>
 
@@ -708,7 +717,7 @@ export default function ReceptionScanPage() {
                       <Button
                         variant="default"
                         className="w-full mt-1 font-bold"
-                        onClick={() => handleEndClass(cls.todaySession?.id || cls.id)}
+                        onClick={() => handleEndClass(cls.todaySession?.id || (cls as any).session?.id || cls.id)}
                       >
                         <Square className="h-4 w-4 me-1.5 fill-current" />
                         <span>إنهاء الكلاس</span>

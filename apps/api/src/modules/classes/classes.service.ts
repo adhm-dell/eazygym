@@ -252,24 +252,34 @@ export class ClassesService {
         status = session.endedAt ? "ENDED" : "RUNNING";
       }
 
+      const sessionData = session
+        ? {
+            id: session.id,
+            startedAt: session.startedAt,
+            endedAt: session.endedAt,
+            actualCoachId: session.actualCoachId,
+          }
+        : null;
+
       return {
         id: s.id,
+        gymId: s.gymId,
         name: s.name,
+        coachId: s.coachId,
+        coachName: s.coach?.name || "بدون مدرب",
         coach: s.coach,
         dayOfWeek: s.dayOfWeek,
         startTime: ex?.newStartTime || s.startTime,
         endTime: ex?.newEndTime || s.endTime,
+        effectiveStartTime: ex?.newStartTime || s.startTime,
+        effectiveEndTime: ex?.newEndTime || s.endTime,
         capacity: s.capacity,
+        enrolledMembersCount: s.slots.length,
         registeredCount: s.slots.length,
         status,
-        session: session
-          ? {
-              id: session.id,
-              startedAt: session.startedAt,
-              endedAt: session.endedAt,
-              actualCoachId: session.actualCoachId,
-            }
-          : null,
+        todaySession: sessionData,
+        session: sessionData,
+        isCancelledToday: Boolean(ex?.isCancelled),
         members: s.slots.map((sl) => sl.subscription.member),
       };
     });
