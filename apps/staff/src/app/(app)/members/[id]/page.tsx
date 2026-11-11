@@ -166,6 +166,15 @@ export default function MemberProfilePage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {member.remainingBalance > 0 && (
+            <Link href={`/pos?memberId=${member.id}`}>
+              <Button variant="destructive" size="sm" className="font-bold flex items-center gap-1.5 shadow-sm">
+                <CreditCard className="h-4 w-4" />
+                <span>تحصيل متبقي ({formatMoney(member.remainingBalance)})</span>
+              </Button>
+            </Link>
+          )}
+
           <Link href={`/pos?memberId=${member.id}`}>
             <Button variant="lime" size="sm" className="font-bold flex items-center gap-1.5 shadow-sm">
               <ShoppingCart className="h-4 w-4" />
@@ -246,6 +255,15 @@ export default function MemberProfilePage() {
             <p className={`text-xl font-black mt-1 font-mono ${member.remainingBalance > 0 ? "text-red-600" : "text-gray-700"}`}>
               {formatMoney(member.remainingBalance || 0)}
             </p>
+            {member.remainingBalance > 0 && (
+              <Link
+                href={`/pos?memberId=${member.id}`}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 mt-1"
+              >
+                <span>تحصيل المتبقي بالـ POS</span>
+                <ArrowRight className="h-3 w-3 rotate-180" />
+              </Link>
+            )}
           </div>
           <div className="h-10 w-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
             <CreditCard className="h-5 w-5" />

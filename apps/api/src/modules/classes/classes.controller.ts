@@ -95,4 +95,26 @@ export class ClassesController {
   ) {
     return this.classesService.endClass(user.gymId, user.sub, scheduleId);
   }
+
+  @Post("class-schedules/:id/book")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "MEMBER")
+  async bookClass(
+    @CurrentUser() user: any,
+    @Param("id") id: string,
+    @Body("memberId") bodyMemberId?: string
+  ) {
+    const targetMemberId = user.role === "MEMBER" ? user.sub : (bodyMemberId || user.sub);
+    return this.classesService.bookClass(user.gymId, targetMemberId, id);
+  }
+
+  @Post("class-schedules/:id/cancel-booking")
+  @Roles("SUPER_ADMIN", "GYM_ADMIN", "RECEPTION", "MEMBER")
+  async cancelClassBooking(
+    @CurrentUser() user: any,
+    @Param("id") id: string,
+    @Body("memberId") bodyMemberId?: string
+  ) {
+    const targetMemberId = user.role === "MEMBER" ? user.sub : (bodyMemberId || user.sub);
+    return this.classesService.cancelClassBooking(user.gymId, targetMemberId, id);
+  }
 }

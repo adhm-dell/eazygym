@@ -12,6 +12,7 @@ import {
   User,
   Wallet as WalletIcon,
   CheckCircle,
+  CheckCircle2,
   AlertTriangle,
   Receipt,
   Printer,
@@ -48,6 +49,7 @@ import {
 import { sellApi } from "../../../features/sell/api";
 import { coachOpsApi } from "../../../features/coach-ops/api";
 import { CreateMemberDialog } from "../../../features/members/components/create-member-dialog";
+import { membersApi } from "../../../features/members/api";
 import {
   FitnessProfileIntakeDialog,
   type IntakeData,
@@ -89,7 +91,7 @@ interface CartLine {
 export default function PosSellPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const { shift: currentShift, currentUser } = useShift();
+  const { shift: currentShift, currentUser, openShiftModal } = useShift();
   const searchParams = useSearchParams();
   const queryMemberId = searchParams?.get("memberId");
   const queryMemberCode = searchParams?.get("memberCode");
@@ -257,7 +259,22 @@ export default function PosSellPage() {
     setHighlightedIndex(-1);
     if (member) {
       try {
-        const wallet = await sellApi.getMemberWallet(member.id);
+        const [fullMember, wallet] = await Promise.all([
+          membersApi.getMemberById(member.id).catch(() => null),
+          sellApi.getMemberWallet(member.id).catch(() => null),
+        ]);
+        if (fullMember) {
+          const debt = fullMember.remainingBalance ?? fullMember.totalRemainingDebt ?? member.totalRemainingDebt ?? 0;
+          setSelectedMember((prev) => {
+            if (!prev || prev.id !== member.id) return prev;
+            return {
+              ...member,
+              ...fullMember,
+              totalRemainingDebt: debt,
+              derivedStatus: fullMember.status || member.derivedStatus,
+            };
+          });
+        }
         setMemberWallet(wallet);
       } catch {
         setMemberWallet(null);
@@ -1065,14 +1082,36 @@ export default function PosSellPage() {
   };
 
   // Collect Balance action
-  const handleOpenCollectBalance = async () => {
+  const handleOpenCollectBalance = async (forMember?: Member | null) => {
+    if (!currentShift || currentShift.status !== "OPEN") {
+      toast({
+        title: "لا توجد وردية مفتوحة",
+        description: "يجب فتح وردية أولاً لتسجيل أي متحصلات نقدية والتعرف على المستلم والوردية",
+        variant: "warning",
+      });
+      openShiftModal();
+      return;
+    }
+
     try {
       const invs = await sellApi.listInvoices();
-      const openInvs = invs.filter((i: InvoiceDetail) => i.status === "OPEN" && i.remainingAmount > 0);
+      let openInvs = invs.filter((i: InvoiceDetail) => i.status === "OPEN" && i.remainingAmount > 0);
+
+      const targetMember = forMember || selectedMember;
+      if (targetMember) {
+        const memberInvs = openInvs.filter((i: InvoiceDetail) => i.memberId === targetMember.id);
+        if (memberInvs.length > 0) {
+          openInvs = memberInvs;
+        }
+      }
+
       setRecentInvoicesList(openInvs);
       if (openInvs.length > 0 && openInvs[0]) {
         setSelectedInvoiceToPay(openInvs[0]);
         setCollectAmountStr(fromMinor(openInvs[0].remainingAmount).toString());
+      } else {
+        setSelectedInvoiceToPay(null);
+        setCollectAmountStr("");
       }
       setCollectBalanceModalOpen(true);
     } catch (err) {
@@ -1081,6 +1120,16 @@ export default function PosSellPage() {
   };
 
   const handleConfirmCollectPayment = async () => {
+    if (!currentShift || currentShift.status !== "OPEN") {
+      toast({
+        title: "لا توجد وردية مفتوحة",
+        description: "يجب فتح وردية أولاً لتسجيل أي متحصلات نقدية والتعرف على المستلم والوردية",
+        variant: "warning",
+      });
+      openShiftModal();
+      return;
+    }
+
     if (!selectedInvoiceToPay) return;
     const amountMinor = toMinor(parseFloat(collectAmountStr) || 0);
     if (amountMinor <= 0) {
@@ -1105,6 +1154,16 @@ export default function PosSellPage() {
 
   // Voucher submission
   const handleCreateVoucher = async () => {
+    if (!currentShift || currentShift.status !== "OPEN") {
+      toast({
+        title: "لا توجد وردية مفتوحة",
+        description: "يجب فتح وردية أولاً لتسجيل سندات القبض أو الصرف",
+        variant: "warning",
+      });
+      openShiftModal();
+      return;
+    }
+
     const amountMinor = toMinor(parseFloat(voucherAmountStr) || 0);
     if (amountMinor <= 0 || !voucherReason.trim()) {
       toast({
@@ -1158,7 +1217,7 @@ export default function PosSellPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleOpenCollectBalance}
+            onClick={() => handleOpenCollectBalance()}
             className="border-[#E1E5DF] text-[13px] font-semibold"
           >
             <RotateCcw className="h-4 w-4 me-1.5 text-blue-600" />
@@ -1168,7 +1227,18 @@ export default function PosSellPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setVouchersModalOpen(true)}
+            onClick={() => {
+              if (!currentShift || currentShift.status !== "OPEN") {
+                toast({
+                  title: "لا توجد وردية مفتوحة",
+                  description: "يجب فتح وردية أولاً لتسجيل سندات القبض أو الصرف",
+                  variant: "warning",
+                });
+                openShiftModal();
+                return;
+              }
+              setVouchersModalOpen(true);
+            }}
             className="border-[#E1E5DF] text-[13px] font-semibold"
           >
             <Receipt className="h-4 w-4 me-1.5 text-emerald-600" />
@@ -1201,24 +1271,43 @@ export default function PosSellPage() {
                       {getMemberStatusBadge(selectedMember)}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-2.5 mt-2 text-xs">
                       {selectedMember.phone && (
-                        <span className="text-[#5B6470]">الهاتف: {selectedMember.phone}</span>
+                        <span className="text-[#5B6470] font-mono">الهاتف: {selectedMember.phone}</span>
                       )}
-                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                        <WalletIcon className="h-3.5 w-3.5" />
-                        رصيد المحفظة: {formatMoney(walletBalance)}
+                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 flex items-center gap-1.5 shadow-xs">
+                        <WalletIcon className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>رصيد المحفظة: <b>{formatMoney(walletBalance)}</b></span>
                       </span>
-                      {Boolean(selectedMember.totalRemainingDebt && selectedMember.totalRemainingDebt > 0) && (
-                        <span className="font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
-                          مديونية سابقة: {formatMoney(selectedMember.totalRemainingDebt || 0)}
+
+                      {Boolean(selectedMember.totalRemainingDebt && selectedMember.totalRemainingDebt > 0) ? (
+                        <span className="font-bold text-red-700 bg-red-50 px-2.5 py-1 rounded-lg border border-red-200 flex items-center gap-1.5 shadow-xs">
+                          <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                          <span>المتبقي المستحق: <b className="font-mono text-[13px]">{formatMoney(selectedMember.totalRemainingDebt || 0)}</b></span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200 text-xs flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>لا توجد مديونية متبقية</span>
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-center">
+                  {Boolean(selectedMember.totalRemainingDebt && selectedMember.totalRemainingDebt > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCollectBalance(selectedMember)}
+                      className="h-9 px-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-sm transition-all cursor-pointer animate-pulse-once"
+                      title="تحصيل المبلغ المتبقي على العضو فوراً"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span>تحصيل المتبقي ({formatMoney(selectedMember.totalRemainingDebt || 0)})</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -2451,7 +2540,7 @@ export default function PosSellPage() {
             </Button>
             <Button
               onClick={handleConfirmCollectPayment}
-              disabled={!selectedInvoiceToPay}
+              disabled={!selectedInvoiceToPay || !currentShift || currentShift.status !== "OPEN"}
               className="bg-[#14181F] text-white hover:bg-[#262D38] font-bold"
             >
               تأكيد التحصيل
@@ -2460,9 +2549,33 @@ export default function PosSellPage() {
         }
       >
         <div className="space-y-4 py-2 text-[13px]">
+          {(!currentShift || currentShift.status !== "OPEN") && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                <span>لا توجد وردية مفتوحة للكاشير. يجب فتح وردية أولاً لتسجيل المتحصلات.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCollectBalanceModalOpen(false);
+                  openShiftModal();
+                }}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold"
+              >
+                فتح وردية الآن
+              </button>
+            </div>
+          )}
+
           {recentInvoicesList.length === 0 ? (
-            <div className="text-center py-6 text-[#5B6470]">
-              لا توجد فواتير مفتوحة عليها متبقي حالياً.
+            <div className="text-center py-6 text-[#5B6470] space-y-2">
+              <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto" />
+              <p className="font-bold text-gray-800">
+                {selectedMember
+                  ? `لا توجد فواتير مفتوحة عليها متبقي للعضو (${selectedMember.name}) حالياً`
+                  : "لا توجد فواتير مفتوحة عليها متبقي حالياً."}
+              </p>
             </div>
           ) : (
             <>

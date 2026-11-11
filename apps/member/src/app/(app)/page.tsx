@@ -29,6 +29,7 @@ import {
   Bell,
   Receipt,
   CreditCard,
+  Check,
 } from "lucide-react";
 
 const FREEZE_DENIAL_MESSAGES: Record<string, string> = {
@@ -62,6 +63,7 @@ export default function MemberPortalPage() {
   const [freezeDays, setFreezeDays] = useState(7);
   const [freezeReason, setFreezeReason] = useState("ظروف سفر");
   const [freezeLoading, setFreezeLoading] = useState(false);
+  const [bookingLoadingId, setBookingLoadingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
 
   // Load data
@@ -185,6 +187,35 @@ export default function MemberPortalPage() {
       setActionMessage({ text, isError: true });
     } finally {
       setFreezeLoading(false);
+    }
+  };
+
+  const handleBookClass = async (scheduleId: string) => {
+    setBookingLoadingId(scheduleId);
+    setActionMessage(null);
+    try {
+      await memberApi.bookClass(scheduleId);
+      setActionMessage({ text: "تم تسجيلك في الحصة بنجاح! نراك في الموعد المحدد." });
+      await loadMemberData();
+    } catch (err: any) {
+      setActionMessage({ text: err.message || "تعذر التسجيل في الحصة", isError: true });
+    } finally {
+      setBookingLoadingId(null);
+    }
+  };
+
+  const handleCancelBooking = async (scheduleId: string) => {
+    if (!confirm("هل أنت متأكد من إلغاء حجزك في هذه الحصة؟")) return;
+    setBookingLoadingId(scheduleId);
+    setActionMessage(null);
+    try {
+      await memberApi.cancelClassBooking(scheduleId);
+      setActionMessage({ text: "تم إلغاء حجز الحصة بنجاح." });
+      await loadMemberData();
+    } catch (err: any) {
+      setActionMessage({ text: err.message || "تعذر إلغاء الحجز", isError: true });
+    } finally {
+      setBookingLoadingId(null);
     }
   };
 
@@ -887,36 +918,124 @@ export default function MemberPortalPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-[#14181F]">جدول الحصص الأسبوعي</h2>
-                  <p className="text-[11px] text-[#5B6470]">مواعيد حصص اللياقة الجماعية بالصالة</p>
+                  <p className="text-[11px] text-[#5B6470]">مواعيد حصص اللياقة الجماعية بالصالة وحجز الأماكن</p>
                 </div>
                 <Calendar className="h-5 w-5 text-[#14181F]" />
               </div>
 
               {/* Class Schedules List */}
               <div className="space-y-2.5">
-                {classSchedules.map((cs) => {
-                  const daysAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
-                  return (
-                    <div
-                      key={cs.id}
-                      className="bg-white border border-[#E1E5DF] rounded-2xl p-3.5 shadow-subtle flex items-center justify-between"
-                    >
-                      <div className="space-y-0.5">
-                        <b className="text-xs font-bold text-[#14181F] block">{cs.name}</b>
-                        <div className="text-[11px] text-[#5B6470] flex items-center gap-2">
-                          <span className="font-bold text-emerald-700">{daysAr[cs.dayOfWeek] || "يومياً"}</span>
-                          <span>·</span>
-                          <span className="font-mono">
-                            {cs.startTime} - {cs.endTime}
+                {classSchedules.length === 0 ? (
+                  <div className="bg-white border border-[#E1E5DF] rounded-2xl p-6 text-center text-xs text-[#5B6470]">
+                    لا توجد حصص جماعية مجدولة حالياً.
+                  </div>
+                ) : (
+                  classSchedules.map((cs) => {
+                    const daysAr = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+                    const hasActiveClassSub = subscriptions.some(
+                      (s) => s.kind === "CLASS" && s.status === "ACTIVE"
+                    );
+                    const isBooked = Boolean(
+                      cs.members?.some((m: any) => m.id === member?.id) ||
+                      subscriptions.some((s: any) =>
+                        s.classSlots?.some(
+                          (sl: any) => sl.classScheduleId === cs.id || sl.id === cs.id
+                        )
+                      )
+                    );
+                    const currentCount = cs.registeredCount ?? cs.slots?.length ?? 0;
+                    const maxCap = cs.capacity || 20;
+                    const isFull = currentCount >= maxCap;
+
+                    return (
+                      <div
+                        key={cs.id}
+                        className={`bg-white border rounded-2xl p-4 shadow-subtle space-y-3 transition-all ${
+                          isBooked ? "border-emerald-500 bg-emerald-50/20" : "border-[#E1E5DF]"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <b className="text-sm font-bold text-[#14181F] block">{cs.name}</b>
+                              {isBooked && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
+                                  <Check className="h-3 w-3" />
+                                  <span>أنت مسجل</span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-[#5B6470] flex items-center gap-2">
+                              <span className="font-bold text-emerald-700">{daysAr[cs.dayOfWeek] || "يومياً"}</span>
+                              <span>·</span>
+                              <span className="font-mono">
+                                {cs.startTime} - {cs.endTime}
+                              </span>
+                              {cs.coach?.name && (
+                                <>
+                                  <span>·</span>
+                                  <span>كابتن: {cs.coach.name}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <span
+                            className={`text-[10px] font-bold px-2 py-1 rounded-lg ${
+                              isFull && !isBooked
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : "bg-[#E3F5EA] text-[#1B7F4B]"
+                            }`}
+                          >
+                            {isFull && !isBooked ? "مكتملة العدد" : `سعة ${currentCount} / ${maxCap}`}
                           </span>
                         </div>
+
+                        {/* Booking Action */}
+                        <div className="pt-2 border-t border-[#E1E5DF]/60">
+                          {isBooked ? (
+                            <div className="flex items-center justify-between w-full">
+                              <span className="text-[11px] text-emerald-800 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>مكانك محجوز في هذه الحصة</span>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={bookingLoadingId === cs.id}
+                                onClick={() => handleCancelBooking(cs.id)}
+                                className="text-[11px] text-red-600 hover:text-red-700 hover:underline font-bold disabled:opacity-50 cursor-pointer"
+                              >
+                                {bookingLoadingId === cs.id ? "جاري الإلغاء..." : "إلغاء الحجز"}
+                              </button>
+                            </div>
+                          ) : hasActiveClassSub ? (
+                            <button
+                              type="button"
+                              disabled={isFull || bookingLoadingId === cs.id}
+                              onClick={() => handleBookClass(cs.id)}
+                              className="w-full bg-[#14181F] hover:bg-[#262D38] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-[#C6F24E] py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span>
+                                {bookingLoadingId === cs.id
+                                  ? "جاري الحجز..."
+                                  : isFull
+                                  ? "الحصة مكتملة العدد"
+                                  : "حجز الحصة الآن"}
+                              </span>
+                            </button>
+                          ) : (
+                            <div className="w-full bg-[#F2F4F1] p-2 rounded-xl text-center">
+                              <span className="text-[10px] font-bold text-[#5B6470] block">
+                                يتطلب اشتراك كلاسيس نشط لحجز هذه الحصة
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-[10px] font-bold bg-[#E3F5EA] text-[#1B7F4B] px-2 py-1 rounded-lg">
-                        سعة {cs.capacity || 20} متدرب
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           )}

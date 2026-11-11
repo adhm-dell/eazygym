@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -393,5 +394,128 @@ export class ClassesService {
     });
 
     return updated;
+  }
+
+  async bookClass(gymId: string, memberId: string, scheduleId: string) {
+    const schedule = await this.prisma.classSchedule.findFirst({
+      where: { id: scheduleId, gymId, isActive: true },
+      include: {
+        slots: true,
+      },
+    });
+
+    if (!schedule) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "SCHEDULE_NOT_FOUND",
+        message: "حصة اللياقة غير موجودة أو غير مفعلة",
+      });
+    }
+
+    if (schedule.slots.length >= schedule.capacity) {
+      throw new UnprocessableEntityException({
+        statusCode: 422,
+        code: "CLASS_FULL",
+        message: "عذراً، هذه الحصة مكتملة العدد بالكامل",
+      });
+    }
+
+    // Find active CLASS subscription for this member
+    const activeSub = await this.prisma.subscription.findFirst({
+      where: {
+        gymId,
+        memberId,
+        kind: "CLASS",
+        status: "ACTIVE",
+      },
+      include: {
+        classSlots: true,
+      },
+    });
+
+    if (!activeSub) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "NO_ACTIVE_CLASS_SUBSCRIPTION",
+        message: "لا يوجد لديك اشتراك كلاسيس نشط لحجز هذه الحصة، يرجى الاشتراك أولاً من الاستقبال",
+      });
+    }
+
+    const alreadyBooked = activeSub.classSlots.some(
+      (slot) => slot.classScheduleId === scheduleId
+    );
+    if (alreadyBooked) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: "ALREADY_BOOKED",
+        message: "أنت مسجل بالفعل في هذه الحصة",
+      });
+    }
+
+    await this.prisma.subscriptionClassSlot.create({
+      data: {
+        subscriptionId: activeSub.id,
+        classScheduleId: scheduleId,
+      },
+    });
+
+    await this.auditService.log({
+      gymId,
+      actorId: memberId,
+      action: "CLASS_SLOT_BOOKED",
+      entityType: "SubscriptionClassSlot",
+      entityId: `${activeSub.id}:${scheduleId}`,
+      after: { subscriptionId: activeSub.id, classScheduleId: scheduleId },
+    });
+
+    return {
+      success: true,
+      message: "تم تسجيلك في الحصة بنجاح!",
+      subscriptionId: activeSub.id,
+      scheduleId,
+    };
+  }
+
+  async cancelClassBooking(gymId: string, memberId: string, scheduleId: string) {
+    const slot = await this.prisma.subscriptionClassSlot.findFirst({
+      where: {
+        classScheduleId: scheduleId,
+        subscription: {
+          gymId,
+          memberId,
+        },
+      },
+    });
+
+    if (!slot) {
+      throw new NotFoundException({
+        statusCode: 404,
+        code: "BOOKING_NOT_FOUND",
+        message: "لم يتم العثور على حجز مسجل لك في هذه الحصة",
+      });
+    }
+
+    await this.prisma.subscriptionClassSlot.delete({
+      where: {
+        subscriptionId_classScheduleId: {
+          subscriptionId: slot.subscriptionId,
+          classScheduleId: scheduleId,
+        },
+      },
+    });
+
+    await this.auditService.log({
+      gymId,
+      actorId: memberId,
+      action: "CLASS_SLOT_CANCELLED",
+      entityType: "SubscriptionClassSlot",
+      entityId: `${slot.subscriptionId}:${scheduleId}`,
+    });
+
+    return {
+      success: true,
+      message: "تم إلغاء حجز الحصة بنجاح",
+      scheduleId,
+    };
   }
 }

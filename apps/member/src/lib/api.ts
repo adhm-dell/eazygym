@@ -229,6 +229,10 @@ export const memberApi = {
     ),
   getTodayClasses: () => memberRequest<any[]>("/classes/today"),
   getClassSchedules: () => memberRequest<any[]>("/class-schedules"),
+  bookClass: (scheduleId: string) =>
+    memberRequest(`/class-schedules/${scheduleId}/book`, { method: "POST" }),
+  cancelClassBooking: (scheduleId: string) =>
+    memberRequest(`/class-schedules/${scheduleId}/cancel-booking`, { method: "POST" }),
 
   freezeSubscription: (subscriptionId: string, days: number, reason: string) =>
     memberRequest(`/subscriptions/${subscriptionId}/freeze`, {

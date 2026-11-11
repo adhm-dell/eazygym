@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { DollarSign, AlertCircle, CheckCircle2, Banknote, Smartphone, CreditCard } from "lucide-react";
 import { formatMoney } from "../../../lib/money";
 import { membersApi } from "../api";
+import { useShift } from "../../../lib/shift-context";
 import type { InvoiceDetail, Member } from "@gym/contracts";
 
 interface CollectBalanceDialogProps {
@@ -21,6 +22,7 @@ export function CollectBalanceDialog({
   onClose,
   onSuccess,
 }: CollectBalanceDialogProps) {
+  const { shift: currentShift, openShiftModal } = useShift();
   const [method, setMethod] = useState<"CASH" | "INSTAPAY" | "CARD">("CASH");
   const [amountEgp, setAmountEgp] = useState<string>((invoice.remainingAmount / 100).toString());
   const [reference, setReference] = useState("");
@@ -31,6 +33,11 @@ export function CollectBalanceDialog({
 
   const handleCollect = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentShift || currentShift.status !== "OPEN") {
+      setError("لا يمكن التحصيل: لا توجد وردية مفتوحة حالياً للكاشير. يجب فتح وردية أولاً لتسجيل أي متحصلات نقدية وربطها بالمستلم والوردية.");
+      return;
+    }
+
     const piasters = Math.round(parseFloat(amountEgp || "0") * 100);
     if (isNaN(piasters) || piasters <= 0) {
       setError("المبلغ غير صالح");
@@ -91,6 +98,25 @@ export function CollectBalanceDialog({
         </div>
 
         <form onSubmit={handleCollect} className="p-6 space-y-4">
+          {(!currentShift || currentShift.status !== "OPEN") && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                <span>تنبيه: لا توجد وردية مفتوحة للكاشير.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openShiftModal();
+                }}
+                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold"
+              >
+                فتح وردية الآن
+              </button>
+            </div>
+          )}
+
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -188,8 +214,8 @@ export function CollectBalanceDialog({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+              disabled={isSubmitting || !currentShift || currentShift.status !== "OPEN"}
+              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
             >
               {isSubmitting ? (
                 <span>جاري الحفظ...</span>
