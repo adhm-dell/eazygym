@@ -19,6 +19,7 @@ import {
   ExternalLink,
   DollarSign,
   Calendar,
+  RotateCcw,
 } from "lucide-react";
 import { Button, Badge, useToast } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
@@ -808,14 +809,23 @@ export default function SubscriptionsManagementPage() {
                             </Button>
                           )}
 
-                          {/* Quick Renewal Button */}
+                          {/* Early / Quick Renewal Button */}
                           <button
                             type="button"
                             onClick={() => setSelectedSubForRenew(sub)}
-                            className="inline-flex items-center justify-center h-7 px-2.5 text-xs font-bold bg-[#C6F24E]/40 hover:bg-[#C6F24E] text-[#14181F] rounded-lg transition-colors cursor-pointer"
-                            title="تجديد سريع مباشر (يبدأ تلقائياً فور انتهاء هذا الاشتراك)"
+                            className={`inline-flex items-center justify-center h-7 px-2.5 text-xs font-bold rounded-lg transition-colors cursor-pointer gap-1 ${
+                              new Date(sub.endDate) > new Date()
+                                ? "bg-emerald-100 hover:bg-emerald-200 text-emerald-950 border border-emerald-300 shadow-xs"
+                                : "bg-[#C6F24E]/40 hover:bg-[#C6F24E] text-[#14181F]"
+                            }`}
+                            title={
+                              new Date(sub.endDate) > new Date()
+                                ? "تجديد مبكر (يبدأ تلقائياً فور انتهاء الاشتراك الحالي)"
+                                : "تجديد الاشتراك فوراً"
+                            }
                           >
-                            <span>تجديد</span>
+                            <RotateCcw className="w-3 h-3" />
+                            <span>{new Date(sub.endDate) > new Date() ? "تجديد مبكر" : "تجديد"}</span>
                           </button>
 
                           {/* Freeze / Unfreeze Button */}

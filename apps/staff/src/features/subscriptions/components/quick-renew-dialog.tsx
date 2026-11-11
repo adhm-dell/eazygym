@@ -13,6 +13,10 @@ import {
   Sparkles,
   User,
   Clock,
+  ArrowRight,
+  Layers,
+  Dumbbell,
+  Users,
 } from "lucide-react";
 import { formatMoney } from "../../../lib/money";
 import { useShift } from "../../../lib/shift-context";
@@ -34,52 +38,104 @@ export function QuickRenewDialog({
 }: QuickRenewDialogProps) {
   const { shift: currentShift, openShiftModal } = useShift();
 
+  const [plans, setPlans] = useState<any[]>([]);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "CARD" | "INSTAPAY" | "WALLET">("CASH");
   const [amountEgp, setAmountEgp] = useState<string>("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [coaches, setCoaches] = useState<Staff[]>([]);
   const [selectedCoachId, setSelectedCoachId] = useState<string>("");
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize form when subscription changes or modal opens
+  // Load available plans and coaches when modal opens
   useEffect(() => {
     if (subscription && isOpen) {
-      setAmountEgp((subscription.price / 100).toString());
+      setSelectedPlanId(subscription.planId || subscription.plan?.id || "");
       setPaymentMethod("CASH");
       setReference("");
       setNotes("");
       setError(null);
       setSelectedCoachId(subscription.currentCoach?.id || subscription.activeCoach?.id || "");
 
-      if (subscription.kind === "PT") {
-        subscriptionsApi.listCoaches().then((list) => {
-          setCoaches(list);
-          if (!selectedCoachId && list[0]) {
-            setSelectedCoachId(list[0].id);
+      setIsLoadingPlans(true);
+      Promise.all([
+        subscriptionsApi.listPlans().catch(() => []),
+        subscriptionsApi.listCoaches().catch(() => []),
+      ])
+        .then(([plansList, coachesList]) => {
+          const activePlans = (plansList || []).filter((p: any) => p.isActive !== false);
+          setPlans(activePlans);
+          setCoaches(coachesList || []);
+
+          // Find current or target plan
+          const targetPlan = activePlans.find((p: any) => p.id === subscription.planId) || subscription.plan;
+          if (targetPlan?.price) {
+            setAmountEgp((targetPlan.price / 100).toString());
+          } else {
+            setAmountEgp((subscription.price / 100).toString());
           }
-        }).catch(() => null);
-      }
+
+          if (!selectedCoachId && coachesList?.length > 0 && coachesList[0]) {
+            setSelectedCoachId(coachesList[0].id);
+          }
+        })
+        .finally(() => {
+          setIsLoadingPlans(false);
+        });
     }
   }, [subscription, isOpen]);
 
-  // Chaining date logic
-  const { isFutureChain, chainStartDateStr } = useMemo(() => {
-    if (!subscription) return { isFutureChain: false, chainStartDateStr: "" };
+  // Selected plan object
+  const currentPlan = useMemo(() => {
+    if (!subscription) return null;
+    return plans.find((p) => p.id === selectedPlanId) || subscription.plan;
+  }, [plans, selectedPlanId, subscription]);
+
+  // Handle plan change by user
+  const handlePlanChange = (planId: string) => {
+    setSelectedPlanId(planId);
+    const chosen = plans.find((p) => p.id === planId);
+    if (chosen?.price) {
+      setAmountEgp((chosen.price / 100).toString());
+    }
+  };
+
+  // Chaining dates calculation
+  const { isFutureChain, chainStartDate, chainStartDateStr, projectedEndDateStr } = useMemo(() => {
+    if (!subscription) {
+      return {
+        isFutureChain: false,
+        chainStartDate: new Date(),
+        chainStartDateStr: "",
+        projectedEndDateStr: "",
+      };
+    }
+
     const end = new Date(subscription.endDate);
     const now = new Date();
     const isFuture = end > now;
-    const targetDate = isFuture ? end : now;
-    return {
-      isFutureChain: isFuture,
-      chainStartDateStr: targetDate.toLocaleDateString("ar-EG", {
+    const startDate = isFuture ? end : now;
+
+    const durationDays = currentPlan?.durationDays || subscription.durationDays || 30;
+    const projectedEnd = new Date(startDate.getTime() + durationDays * 86400000);
+
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("ar-EG", {
         year: "numeric",
         month: "short",
         day: "numeric",
-      }),
+      });
+
+    return {
+      isFutureChain: isFuture,
+      chainStartDate: startDate,
+      chainStartDateStr: fmt(startDate),
+      projectedEndDateStr: fmt(projectedEnd),
     };
-  }, [subscription]);
+  }, [subscription, currentPlan]);
 
   if (!isOpen || !subscription) return null;
 
@@ -104,7 +160,8 @@ export function QuickRenewDialog({
 
     try {
       await subscriptionsApi.renewSubscription(subscription.id, {
-        coachId: selectedCoachId || undefined,
+        planId: selectedPlanId || undefined,
+        coachId: currentPlan?.kind === "PT" ? selectedCoachId || undefined : undefined,
         payments: [
           {
             method: paymentMethod,
@@ -138,10 +195,10 @@ export function QuickRenewDialog({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-[#14181F]">
-                تجديد الاشتراك السريع
+                {isFutureChain ? "التجديد المبكر للاشتراك" : "تجديد الاشتراك"}
               </h2>
               <p className="text-xs text-[#5B6470]">
-                {subscription.plan.name} · {subscription.member.name} (#{subscription.member.code})
+                المشترك: {subscription.member.name} (#{subscription.member.code})
               </p>
             </div>
           </div>
@@ -169,7 +226,7 @@ export function QuickRenewDialog({
                     onClose();
                     openShiftModal();
                   }}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors"
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
                 >
                   فتح وردية الآن
                 </button>
@@ -184,41 +241,82 @@ export function QuickRenewDialog({
               </div>
             )}
 
-            {/* Chaining Explanation Banner */}
-            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1">
-              <div className="flex items-center gap-2 font-bold text-emerald-800">
+            {/* Chaining Timeline Banner */}
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-black text-emerald-900 text-sm">
                 <Sparkles className="h-4 w-4 text-emerald-600 shrink-0" />
                 <span>
                   {isFutureChain
-                    ? `تجديد مبكر متسلسل يبدأ في ${chainStartDateStr}`
-                    : `تجديد فوري يبدأ من اليوم (${chainStartDateStr})`}
+                    ? "تسلسل التجديد المبكر الذكي (يبدأ فور انتهاء الحالي)"
+                    : "تجديد فوري (يبدأ من اليوم)"}
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-700 leading-relaxed">
+
+              <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] bg-white/70 p-2.5 rounded-xl border border-emerald-200/60">
+                <div>
+                  <span className="text-[#5B6470] block">تاريخ بدء الاشتراك الجديد:</span>
+                  <span className="font-bold text-emerald-800 block mt-0.5">
+                    {chainStartDateStr}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[#5B6470] block">تاريخ الانتهاء الجديد المتوقع:</span>
+                  <span className="font-bold text-[#14181F] block mt-0.5">
+                    {projectedEndDateStr}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
                 {isFutureChain
-                  ? "سيبدأ هذا الاشتراك الجديد تلقائياً فور انتهاء الاشتراك الحالي، مما يحافظ على أيام العضو المتبقية كاملة دون أي تداخل أو إهدار."
+                  ? "سيبدأ هذا الاشتراك الجديد تلقائياً في لحظة انتهاء الاشتراك الحالي، مما يحافظ على أيام العضو المتبقية كاملة دون أي تداخل أو إهدار."
                   : "سيبدأ الاشتراك الجديد فوراً اليوم ويتم تفعيل صلاحية الدخول."}
               </p>
             </div>
 
-            {/* Member & Plan Details Summary */}
-            <div className="grid grid-cols-2 gap-3 p-3.5 bg-[#F2F4F1] rounded-2xl border border-[#E1E5DF] text-xs">
-              <div>
-                <span className="text-[#5B6470] block">العضو:</span>
-                <span className="font-bold text-[#14181F] block mt-0.5">{subscription.member.name}</span>
-                <span className="text-[11px] text-[#5B6470]">{subscription.member.phone}</span>
+            {/* Plan Selector: Choose from available gym plans */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-[#14181F]">
+                  اختر باقة التجديد (الاشتراكات المتاحة بالنادي): <span className="text-red-500">*</span>
+                </label>
+                {isLoadingPlans && (
+                  <span className="text-[10px] text-gray-400 animate-pulse">جاري تحميل الباقات...</span>
+                )}
               </div>
-              <div>
-                <span className="text-[#5B6470] block">سعر الباقة المقررة:</span>
-                <span className="font-black text-sm text-[#14181F] block mt-0.5">
-                  {formatMoney(subscription.price)}
-                </span>
-                <span className="text-[11px] text-emerald-700 font-bold">{subscription.plan.name}</span>
-              </div>
+
+              <select
+                value={selectedPlanId}
+                onChange={(e) => handlePlanChange(e.target.value)}
+                className="w-full text-xs font-bold p-3 border border-[#14181F] rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#C6F24E] shadow-xs cursor-pointer"
+                required
+              >
+                {plans.length > 0 ? (
+                  plans.map((p) => {
+                    const isSamePlan = p.id === (subscription.planId || subscription.plan?.id);
+                    const kindLabel =
+                      p.kind === "PT"
+                        ? "تدريب خاص (PT)"
+                        : p.kind === "CLASS"
+                        ? "حصص جماعية (CLASS)"
+                        : "جيم عام (GYM)";
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {p.name} [{kindLabel}] - {formatMoney(p.price)} ({p.durationDays || 30} يوم)
+                        {isSamePlan ? " ★ (نفس الباقة الحالية)" : ""}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value={subscription.planId || subscription.plan?.id}>
+                    {subscription.plan?.name || "الباقة الحالية"} - {formatMoney(subscription.price)}
+                  </option>
+                )}
+              </select>
             </div>
 
             {/* Coach selection for PT subscriptions */}
-            {subscription.kind === "PT" && coaches.length > 0 && (
+            {currentPlan?.kind === "PT" && coaches.length > 0 && (
               <div>
                 <label className="block text-xs font-bold text-[#14181F] mb-1.5">
                   المدرب المعين للتدريب الخاص:
@@ -271,20 +369,27 @@ export function QuickRenewDialog({
 
             {/* Paid Amount */}
             <div>
-              <label className="block text-xs font-bold text-[#14181F] mb-1">
-                المبلغ المدفوع الآن (ج.م) <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[#14181F]">
+                  المبلغ المحصل الآن (ج.م) <span className="text-red-500">*</span>
+                </label>
+                {currentPlan?.price && (
+                  <span className="text-[11px] text-[#5B6470]">
+                    سعر الباقة الإجمالي: <b>{formatMoney(currentPlan.price)}</b>
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 step="0.5"
                 min="1"
                 value={amountEgp}
                 onChange={(e) => setAmountEgp(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#14181F] text-sm font-black focus:outline-none focus:ring-2 focus:ring-[#C6F24E] bg-white"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-[#14181F] text-sm font-black focus:outline-none focus:ring-2 focus:ring-[#C6F24E] bg-white font-mono"
                 required
               />
               <p className="text-[11px] text-[#5B6470] mt-1">
-                يمكن تحصيل المبلغ بالكامل أو تسجيل دفعة جزئية (وتسجيل الباقي كمديونية تلقائية على العضو).
+                يمكن تحصيل المبلغ بالكامل أو تسجيل دفعة جزئية (وترحيل المتبقي كمديونية تلقائية على الفاتورة).
               </p>
             </div>
 
@@ -313,7 +418,7 @@ export function QuickRenewDialog({
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="أي ملاحظات خاصة بالتجديد أو العرض..."
+                placeholder="أي ملاحظات خاصة بالتجديد المبكر أو العرض..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E1E5DF] text-xs focus:outline-none focus:ring-2 focus:ring-[#C6F24E] bg-white"
               />
             </div>

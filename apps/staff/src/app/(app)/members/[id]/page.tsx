@@ -14,6 +14,7 @@ import { ChangeCoachDialog } from "../../../../features/members/components/chang
 import { ChangeClassSlotDialog } from "../../../../features/members/components/change-class-slot-dialog";
 import { LogSessionDialog } from "../../../../features/members/components/log-session-dialog";
 import { CancelSubscriptionDialog } from "../../../../features/members/components/cancel-subscription-dialog";
+import { QuickRenewDialog } from "../../../../features/subscriptions/components/quick-renew-dialog";
 import { Button, Badge, useToast } from "@gym/ui";
 import {
   ArrowRight,
@@ -52,6 +53,7 @@ export default function MemberProfilePage() {
 
   // Selected subscription for action dialogs
   const [selectedSub, setSelectedSub] = useState<any>(null);
+  const [selectedSubForRenew, setSelectedSubForRenew] = useState<any>(null);
   const [isFreezeOpen, setIsFreezeOpen] = useState(false);
   const [isUnfreezeOpen, setIsUnfreezeOpen] = useState(false);
   const [isChangeCoachOpen, setIsChangeCoachOpen] = useState(false);
@@ -504,6 +506,36 @@ export default function MemberProfilePage() {
                         </Button>
                       ) : null}
 
+                      {/* Early Renewal Button */}
+                      {(sub.status === "ACTIVE" || new Date(sub.endDate) > now) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedSubForRenew({
+                              ...sub,
+                              price: sub.price,
+                              member: {
+                                id: member.id,
+                                name: member.name,
+                                phone: member.phone,
+                                code: member.code,
+                              },
+                              plan: {
+                                id: sub.planId,
+                                name: sub.planName,
+                                kind: sub.kind,
+                              },
+                            });
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 border-emerald-300 hover:bg-emerald-100 font-bold"
+                          title="تجديد مبكر يبدأ تلقائياً فور انتهاء هذا الاشتراك"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>تجديد مبكر</span>
+                        </Button>
+                      )}
+
                       {/* PT Specific Actions */}
                       {isPT && sub.status === "ACTIVE" && (
                         <>
@@ -681,6 +713,23 @@ export default function MemberProfilePage() {
             setIsCancelSubOpen(false);
             setSelectedSub(null);
             loadData();
+          }}
+        />
+      )}
+
+      {selectedSubForRenew && (
+        <QuickRenewDialog
+          subscription={selectedSubForRenew}
+          isOpen={Boolean(selectedSubForRenew)}
+          onClose={() => setSelectedSubForRenew(null)}
+          onSuccess={() => {
+            setSelectedSubForRenew(null);
+            loadData();
+            toast({
+              title: "تم تجديد الاشتراك بنجاح!",
+              description: `تم تسجيل التجديد وإصدار الفاتورة للعضو ${member.name}`,
+              variant: "success",
+            });
           }}
         />
       )}
