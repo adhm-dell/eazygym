@@ -850,7 +850,7 @@ export default function PosSellPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F2F4F1] text-[#14181F]">
+    <div className="flex flex-col h-full min-h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden bg-[#F2F4F1] text-[#14181F]">
       {/* Top Header / Bar */}
       <header className="bg-white border-b border-[#E1E5DF] p-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
@@ -890,9 +890,9 @@ export default function PosSellPage() {
       </header>
 
       {/* Main 2-Column POS Layout */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_440px] xl:grid-cols-[1fr_480px]">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_440px] xl:grid-cols-[1fr_480px] lg:overflow-hidden">
         {/* Left Column: Catalog & Item Selection */}
-        <main className="p-4 md:p-6 flex flex-col gap-5 border-e border-[#E1E5DF] overflow-y-auto">
+        <main className="p-4 md:p-6 flex flex-col gap-5 border-e border-[#E1E5DF] overflow-y-auto min-h-0">
           {/* Customer Selection Banner */}
           <div className="bg-white rounded-2xl border border-[#E1E5DF] p-4 shadow-subtle flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5 flex-1 w-full">
@@ -1154,7 +1154,7 @@ export default function PosSellPage() {
         </main>
 
         {/* Right Column: Cart, Discounts & Checkout Panel */}
-        <aside className="bg-white p-5 flex flex-col justify-between overflow-y-auto">
+        <aside className="bg-white p-5 flex flex-col justify-between overflow-y-auto min-h-0">
           <div className="flex flex-col gap-5">
             {/* Cart Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#E1E5DF]">

@@ -636,7 +636,7 @@ export default function ReceptionScanPage() {
       </main>
 
       {/* Right Column: Today's Classes Panel (330px) */}
-      <aside className="p-6 md:p-[26px_22px] flex flex-col gap-[14px] border-inline-start border-[#E1E5DF] bg-white">
+      <aside className="p-6 md:p-[26px_22px] flex flex-col gap-[14px] border-inline-start border-[#E1E5DF] bg-white lg:sticky lg:top-0 lg:max-h-[calc(100vh-3.5rem)] lg:overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-[#14181F]">حصص اليوم</h3>
           <span className="text-xs text-[#5B6470] font-medium">الأربعاء، 4 نوفمبر</span>

@@ -71,4 +71,20 @@
     color: hsl(var(--foreground));
     font-family: "IBM Plex Sans Arabic", system-ui, -apple-system, sans-serif;
   }
+
+  /* Sleek custom scrollbars for sidebars and scroll areas */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(140, 150, 165, 0.25);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(140, 150, 165, 0.45);
+  }
 }
