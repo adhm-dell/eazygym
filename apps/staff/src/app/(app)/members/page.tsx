@@ -333,7 +333,46 @@ export default function MembersListPage() {
 
                       {/* Plan & Coach */}
                       <td className="p-4">
-                        {member.activePlanName ? (
+                        {member.activeSubscriptions && member.activeSubscriptions.length > 0 ? (
+                          <div className="space-y-2">
+                            {member.activeSubscriptions.map((sub: any) => {
+                              const isPT = sub.kind === "PT";
+                              const isClass = sub.kind === "CLASS";
+                              const isFuture = sub.isFutureRenewal || new Date(sub.startDate) > new Date();
+
+                              return (
+                                <div key={sub.id} className="text-xs">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                        isPT
+                                          ? "bg-purple-100 text-purple-800"
+                                          : isClass
+                                          ? "bg-emerald-100 text-emerald-800"
+                                          : "bg-blue-100 text-blue-800"
+                                      }`}
+                                    >
+                                      {isPT ? "برايفت" : isClass ? "كلاس" : "جيم"}
+                                    </span>
+                                    <span className="font-semibold text-gray-800">
+                                      {sub.planName}
+                                    </span>
+                                    {isFuture && (
+                                      <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                        تجديد مسبق
+                                      </span>
+                                    )}
+                                  </div>
+                                  {sub.coachName && (
+                                    <span className="text-[10px] text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded inline-block mt-0.5 font-medium">
+                                      كابتن: {sub.coachName}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : member.activePlanName ? (
                           <div>
                             <span className="font-semibold text-gray-800 text-xs block">
                               {member.activePlanName}

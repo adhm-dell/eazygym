@@ -1,18 +1,40 @@
 const USER_KEY = "gym_active_user";
+const TOKEN_KEY = "gym_access_token";
 
-// In-memory short-lived access token as per B00_BACKEND_RULES.md
+// In-memory short-lived access token with local storage persistence
 let memoryAccessToken: string | null = null;
 let refreshPromise: Promise<string | null> | null = null;
 
 export function getStoredToken(): string | null {
-  return memoryAccessToken;
+  if (memoryAccessToken) return memoryAccessToken;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(TOKEN_KEY);
+      if (stored) {
+        memoryAccessToken = stored;
+        return stored;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
 }
 
 export function setStoredToken(token: string, user?: any) {
   memoryAccessToken = token;
-  if (typeof window !== "undefined" && user) {
+  if (typeof window !== "undefined") {
     try {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      if (token) {
+        localStorage.setItem(TOKEN_KEY, token);
+        document.cookie = `token=${token}; path=/; max-age=604800; SameSite=Lax`;
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+        document.cookie = "token=; path=/; max-age=0";
+      }
+      if (user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      }
     } catch {
       // ignore
     }
@@ -36,7 +58,13 @@ export function getStoredUser(): any | null {
 export function clearStoredAuth() {
   memoryAccessToken = null;
   if (typeof window !== "undefined") {
-    localStorage.removeItem(USER_KEY);
+    try {
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      document.cookie = "token=; path=/; max-age=0";
+    } catch {
+      // ignore
+    }
     fetch("/api/v1/auth/logout", {
       method: "POST",
       credentials: "include",
@@ -91,12 +119,11 @@ export async function refreshAccessToken(): Promise<string | null> {
       const json = await res.json();
       const token = json.accessToken || json.data?.accessToken;
       if (token) {
-        memoryAccessToken = token;
+        setStoredToken(token);
         return token;
       }
       return null;
     } catch {
-      memoryAccessToken = null;
       return null;
     } finally {
       refreshPromise = null;
@@ -107,7 +134,8 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function ensureToken(): Promise<string> {
-  if (memoryAccessToken) return memoryAccessToken;
+  const currentToken = getStoredToken();
+  if (currentToken) return currentToken;
 
   // Attempt silent refresh via httpOnly refresh cookie
   const refreshed = await refreshAccessToken();

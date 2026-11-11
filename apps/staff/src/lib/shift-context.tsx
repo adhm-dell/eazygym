@@ -39,17 +39,25 @@ export function ShiftProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         setCurrentUser(user);
         setStoredToken(getStoredToken() || "", user);
-      } else if (!getStoredUser()) {
-        setCurrentUser(null);
+      } else {
+        const fallback = getStoredUser();
+        if (fallback) {
+          setCurrentUser(fallback);
+        } else {
+          setCurrentUser(null);
+        }
       }
       if (user && user.role !== "SUPER_ADMIN" && (user as any).gymId) {
-        const current = await shiftApi.getCurrentShift();
+        const current = await shiftApi.getCurrentShift().catch(() => null);
         setShift(current);
       } else {
         setShift(null);
       }
     } catch {
-      // error handling
+      const fallback = getStoredUser();
+      if (fallback) {
+        setCurrentUser(fallback);
+      }
     } finally {
       setIsLoading(false);
     }

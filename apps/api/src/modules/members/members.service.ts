@@ -115,6 +115,10 @@ export class MembersService {
       include: {
         plan: true,
         freezes: { where: { endedAt: null } },
+        assignments: {
+          where: { toDate: null },
+          include: { coach: { select: { id: true, name: true } } },
+        },
         invoiceItem: {
           include: {
             allocations: true,
@@ -179,9 +183,20 @@ export class MembersService {
         now
       );
 
-      const activeSub = memberSubs.find(
+      const activeSubs = memberSubs.filter(
         (s) => s.status === "ACTIVE" || s.status === "FROZEN" || s.status === "PENDING_PAYMENT"
       );
+
+      const activeSubscriptions = activeSubs.map((s) => ({
+        id: s.id,
+        planName: s.plan.name,
+        kind: s.plan.kind,
+        status: s.status,
+        coachName: (s as any).assignments?.[0]?.coach?.name || null,
+        daysLeft: Math.max(0, Math.ceil((s.endDate.getTime() - now.getTime()) / 86400000)),
+      }));
+
+      const activeSub = activeSubs[0];
 
       return {
         id: member.id,
@@ -198,6 +213,8 @@ export class MembersService {
         status: decision.reason,
         activePlanName: activeSub?.plan?.name || null,
         activePlanKind: activeSub?.plan?.kind || null,
+        currentCoachName: (activeSub as any)?.assignments?.[0]?.coach?.name || null,
+        activeSubscriptions,
         daysLeft: decision.daysLeft ?? null,
         walletBalance: member.wallet ? decimalToPiasters(member.wallet.balance) : 0,
         createdAt: member.createdAt.toISOString(),

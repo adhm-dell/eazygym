@@ -786,6 +786,7 @@ export interface Member {
   activePlanName?: string;
   daysLeft?: number;
   currentCoachName?: string;
+  activeSubscriptions?: Subscription[];
 }
 
 export interface Visitor {
@@ -868,6 +869,9 @@ export interface Subscription {
   usedInvitations?: number;
   freePtSessions?: number;
   createdById?: string;
+  planName?: string;
+  coachName?: string | null;
+  isFutureRenewal?: boolean;
   plan?: Plan;
   member?: Member;
   currentCoach?: Staff | null;

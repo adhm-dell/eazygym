@@ -3,15 +3,17 @@ import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get("refresh_token")?.value;
+  const token = request.cookies.get("token")?.value;
+  const hasAuth = Boolean(refreshToken || token);
   const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
 
   // If not logged in and not on login page, redirect to /login
-  if (!refreshToken && !isLoginRoute) {
+  if (!hasAuth && !isLoginRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // If already logged in and visiting login page, redirect to /
-  if (refreshToken && isLoginRoute) {
+  if (hasAuth && isLoginRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

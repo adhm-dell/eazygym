@@ -49,13 +49,13 @@ export function ShiftsBoard() {
     setIsLoading(true);
     try {
       const [shiftsData, onShiftData, coachesList] = await Promise.all([
-        coachOpsApi.getShifts(),
-        coachOpsApi.getCoachesOnShift(),
+        coachOpsApi.getShifts().catch(() => []),
+        coachOpsApi.getCoachesOnShift().catch(() => ({ onShiftCoachIds: [], coaches: [] })),
         sellApi.listCoaches().catch(() => []),
       ]);
-      setShifts(shiftsData);
-      setOnShiftCoaches(onShiftData.onShiftCoachIds || []);
-      setAllCoaches(coachesList);
+      setShifts(shiftsData || []);
+      setOnShiftCoaches(onShiftData?.onShiftCoachIds || []);
+      setAllCoaches(coachesList || []);
 
       if (coachesList.length > 0 && !coachId) {
         setCoachId(coachesList[0]?.id || "");
