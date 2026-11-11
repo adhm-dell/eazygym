@@ -37,9 +37,9 @@ export const scanApi = {
     return http.get<any[]>("/classes/today").catch(() => []);
   },
   startClass: async (classScheduleId: string) => {
-    return http.post<any>(`/classes/${classScheduleId}/start`).catch(() => null);
+    return http.post<any>(`/classes/${classScheduleId}/start`);
   },
-  endClass: async (sessionId: string) => {
-    return http.post<any>(`/classes/${sessionId}/end`).catch(() => null);
+  endClass: async (scheduleOrSessionId: string) => {
+    return http.post<any>(`/classes/${scheduleOrSessionId}/end`);
   },
 };

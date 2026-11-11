@@ -357,6 +357,13 @@ export default function ReceptionScanPage() {
   const handleStartClass = async (classScheduleId: string) => {
     try {
       await scanApi.startClass(classScheduleId);
+      setTodayClasses((prev) =>
+        prev.map((c) =>
+          c.id === classScheduleId
+            ? { ...c, status: "IN_PROGRESS", todaySession: { id: "active", startedAt: new Date().toISOString(), endedAt: null } as any }
+            : c
+        )
+      );
       toast({
         title: "تم بدء الحصة بنجاح",
         description: "تم فتح نافذة الدخول للحصة ومسموح للمشتركين بالدخول",
@@ -366,16 +373,24 @@ export default function ReceptionScanPage() {
     } catch (err: any) {
       toast({
         title: "تعذر بدء الحصة",
-        description: err.message,
+        description: err.message || "حدث خطأ أثناء بدء الحصة",
         variant: "error",
       });
     }
   };
 
   // End Class handler from Today's Classes panel
-  const handleEndClass = async (sessionOrScheduleId: string) => {
+  const handleEndClass = async (scheduleOrSessionId: string) => {
     try {
-      await scanApi.endClass(sessionOrScheduleId);
+      await scanApi.endClass(scheduleOrSessionId);
+      // Immediately update local state so badge switches to "منتهية" and button hides
+      setTodayClasses((prev) =>
+        prev.map((c) =>
+          c.id === scheduleOrSessionId || c.todaySession?.id === scheduleOrSessionId || (c as any).session?.id === scheduleOrSessionId
+            ? { ...c, status: "ENDED", todaySession: c.todaySession ? { ...c.todaySession, endedAt: new Date().toISOString() } : null }
+            : c
+        )
+      );
       toast({
         title: "تم إنهاء الحصة بنجاح",
         description: "تم إغلاق نافذة الحضور وحفظ السجل",
@@ -385,7 +400,7 @@ export default function ReceptionScanPage() {
     } catch (err: any) {
       toast({
         title: "تعذر إنهاء الحصة",
-        description: err.message,
+        description: err.message || "حدث خطأ أثناء إنهاء الحصة",
         variant: "error",
       });
     }
@@ -845,7 +860,7 @@ export default function ReceptionScanPage() {
                       <Button
                         variant="default"
                         className="w-full mt-1 font-bold"
-                        onClick={() => handleEndClass(cls.todaySession?.id || (cls as any).session?.id || cls.id)}
+                        onClick={() => handleEndClass(cls.id)}
                       >
                         <Square className="h-4 w-4 me-1.5 fill-current" />
                         <span>إنهاء الكلاس</span>

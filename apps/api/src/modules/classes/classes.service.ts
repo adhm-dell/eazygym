@@ -355,20 +355,37 @@ export class ClassesService {
     return session;
   }
 
-  async endClass(gymId: string, actorId: string, scheduleId: string, customNow?: Date) {
+  async endClass(gymId: string, actorId: string, scheduleOrSessionId: string, customNow?: Date) {
     const now = customNow || new Date();
-    const todayDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
     const session = await this.prisma.classSession.findFirst({
       where: {
-        classScheduleId: scheduleId,
         gymId,
-        date: todayDate,
         endedAt: null,
+        OR: [
+          { id: scheduleOrSessionId },
+          { classScheduleId: scheduleOrSessionId },
+        ],
       },
+      orderBy: { startedAt: "desc" },
     });
 
     if (!session) {
+      const alreadyEnded = await this.prisma.classSession.findFirst({
+        where: {
+          gymId,
+          OR: [
+            { id: scheduleOrSessionId },
+            { classScheduleId: scheduleOrSessionId },
+          ],
+        },
+        orderBy: { endedAt: "desc" },
+      });
+
+      if (alreadyEnded && alreadyEnded.endedAt) {
+        return alreadyEnded;
+      }
+
       throw new UnprocessableEntityException({
         statusCode: 422,
         code: "NOT_RUNNING",
