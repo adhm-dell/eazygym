@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ShoppingBag,
   Plus,
@@ -79,6 +80,9 @@ export default function PosSellPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
   const { shift: currentShift, currentUser } = useShift();
+  const searchParams = useSearchParams();
+  const queryMemberId = searchParams?.get("memberId");
+  const queryMemberCode = searchParams?.get("memberCode");
 
   // Catalog data
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -198,6 +202,14 @@ export default function PosSellPage() {
       setCoaches(c);
       setClassSchedules(cs);
       setMembers(m);
+      if (queryMemberId || queryMemberCode) {
+        const match = m.find(
+          (mem) => (queryMemberId && mem.id === queryMemberId) || (queryMemberCode && mem.code === queryMemberCode)
+        );
+        if (match) {
+          handleSelectMember(match);
+        }
+      }
     } catch (err) {
       toast({
         title: "خطأ في تحميل الكتالوج",

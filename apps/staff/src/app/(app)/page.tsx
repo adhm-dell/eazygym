@@ -16,6 +16,10 @@ import {
 } from "@gym/contracts";
 import { scanApi } from "../../features/scan/api";
 import { useShift } from "../../lib/shift-context";
+import { http } from "../../lib/api";
+import { QuickSubscribeDialog } from "../../features/scan/components/quick-subscribe-dialog";
+import { CreateMemberDialog } from "../../features/members/components/create-member-dialog";
+import { CollectBalanceDialog } from "../../features/members/components/collect-balance-dialog";
 import {
   Search,
   Play,
@@ -92,6 +96,21 @@ export default function ReceptionScanPage() {
 
   // Reason modal dialog for BLOCKED member
   const [blockedReasonDialog, setBlockedReasonDialog] = useState<string | null>(null);
+
+  // Quick Subscribe Dialog state
+  const [isSubscribeDialogOpen, setIsSubscribeDialogOpen] = useState(false);
+  const [selectedMemberForSubscribe, setSelectedMemberForSubscribe] = useState<any | null>(null);
+
+  // Collect Balance Dialog state
+  const [isCollectBalanceOpen, setIsCollectBalanceOpen] = useState(false);
+  const [collectInvoice, setCollectInvoice] = useState<any | null>(null);
+  const [collectMember, setCollectMember] = useState<any | null>(null);
+
+  // Create Member Dialog state
+  const [isCreateMemberOpen, setIsCreateMemberOpen] = useState(false);
+
+  // Info Details Dialog state
+  const [infoDialog, setInfoDialog] = useState<{ title: string; message: string } | null>(null);
 
   // Data lists
   const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
@@ -250,57 +269,54 @@ export default function ReceptionScanPage() {
         break;
 
       case "collectBalance":
-        toast({
-          title: "تحصيل المتبقي المستحق",
-          description: `تم فتح شاشة سداد الأقساط للعضو: ${member?.name} (متبقي 1,500 ج.م)`,
-          variant: "warning",
-        });
-        dismissResult();
-        break;
-
       case "collectPayment":
-        toast({
-          title: "تحصيل الدفعة المقدمة",
-          description: `سداد الحد الأدنى لتفعيل باقة ${member?.name}`,
-          variant: "warning",
-        });
-        dismissResult();
+        if (member?.id) {
+          try {
+            const invoices = await http.get<any[]>(`/invoices?memberId=${member.id}`);
+            const unpaid = invoices.find(
+              (inv) => (inv.remainingAmount > 0 || inv.status === "PENDING_PAYMENT") && inv.status !== "VOID"
+            );
+            if (unpaid) {
+              setCollectInvoice(unpaid);
+              setCollectMember(member);
+              setIsCollectBalanceOpen(true);
+            } else {
+              router.push(`/pos?memberId=${member.id}`);
+            }
+          } catch {
+            router.push(`/pos?memberId=${member.id}`);
+          }
+        }
         break;
 
       case "renew":
       case "renewPt":
-        toast({
-          title: "تجديد الاشتراك",
-          description: `تم فتح نافذة تجديد الاشتراك للعضو: ${member?.name}`,
-          variant: "info",
-        });
-        dismissResult();
-        break;
-
       case "sellSubscription":
       case "sellGymSubscription":
-        toast({
-          title: "شراء اشتراك جديد",
-          description: `إضافة اشتراك جديد للعضو: ${member?.name}`,
-          variant: "info",
-        });
-        dismissResult();
+        if (activeResult.reason === "MEMBER_NOT_FOUND") {
+          setIsCreateMemberOpen(true);
+        } else if (member?.id) {
+          setSelectedMemberForSubscribe(member);
+          setIsSubscribeDialogOpen(true);
+        }
         break;
 
       case "showStartDate":
-        toast({
-          title: "تاريخ بدء الاشتراك",
-          description: "يبدأ هذا الاشتراك في 01/12/2026",
-          variant: "info",
+        setInfoDialog({
+          title: "موعد بدء سريان الاشتراك",
+          message: activeResult.subscription?.startDate
+            ? `يبدأ هذا الاشتراك رسمياً في: ${new Date(activeResult.subscription.startDate).toLocaleDateString("ar-EG", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}`
+            : "تاريخ بدء الاشتراك محدد في تاريخ لاحق.",
         });
         break;
 
       case "showClassDays":
       case "showTimes":
-        toast({
-          title: "مواعيد الحصة",
-          description: "هذه الحصة محددة يوم الجمعة 19:00 - 20:00",
-          variant: "info",
+        setInfoDialog({
+          title: "جدول ومواعيد الحصة",
+          message: (activeResult as any)?.classDetails
+            ? `مواعيد الحصة: ${(activeResult as any).classDetails}`
+            : "العضو مسجل في هذه الحصة ولكن موعدها أو يومها ليس الآن.",
         });
         break;
 
@@ -751,6 +767,101 @@ export default function ReceptionScanPage() {
               variant="default"
               onClick={() => {
                 setBlockedReasonDialog(null);
+                focusInput();
+              }}
+            >
+              إغلاق
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Quick Subscribe & Renew Dialog */}
+      <QuickSubscribeDialog
+        isOpen={isSubscribeDialogOpen}
+        onClose={() => {
+          setIsSubscribeDialogOpen(false);
+          focusInput();
+        }}
+        member={selectedMemberForSubscribe}
+        onSuccess={async () => {
+          setIsSubscribeDialogOpen(false);
+          if (selectedMemberForSubscribe?.code) {
+            await handleScanSubmit(selectedMemberForSubscribe.code);
+          }
+        }}
+        onOpenPos={(memberId) => {
+          setIsSubscribeDialogOpen(false);
+          router.push(`/pos?memberId=${memberId}`);
+        }}
+      />
+
+      {/* Collect Balance Dialog */}
+      {collectInvoice && collectMember && (
+        <CollectBalanceDialog
+          isOpen={isCollectBalanceOpen}
+          onClose={() => {
+            setIsCollectBalanceOpen(false);
+            setCollectInvoice(null);
+            setCollectMember(null);
+            focusInput();
+          }}
+          invoice={collectInvoice}
+          member={collectMember}
+          onSuccess={async () => {
+            setIsCollectBalanceOpen(false);
+            setCollectInvoice(null);
+            setCollectMember(null);
+            toast({
+              title: "تم تحصيل المبلغ بنجاح",
+              description: "تم تحديث حالة اشتراك العضو وتفعيل الدخول",
+              variant: "success",
+            });
+            if (collectMember.code) {
+              await handleScanSubmit(collectMember.code);
+            }
+          }}
+        />
+      )}
+
+      {/* Create Member Dialog */}
+      <CreateMemberDialog
+        isOpen={isCreateMemberOpen}
+        onClose={() => {
+          setIsCreateMemberOpen(false);
+          focusInput();
+        }}
+        onSuccess={(newMember) => {
+          setIsCreateMemberOpen(false);
+          toast({
+            title: "تم تسجيل العضو بنجاح",
+            description: `كود العضو الجديد: ${newMember.code}`,
+            variant: "success",
+          });
+          setSelectedMemberForSubscribe(newMember);
+          setIsSubscribeDialogOpen(true);
+        }}
+      />
+
+      {/* Info Details Dialog */}
+      <Dialog
+        isOpen={!!infoDialog}
+        onClose={() => {
+          setInfoDialog(null);
+          focusInput();
+        }}
+        title={infoDialog?.title || "تنبيه"}
+        description="تفاصيل اشتراك ومواعيد العضو"
+      >
+        <div className="space-y-4 pt-2">
+          <div className="p-4 rounded-xl bg-[#F6F8F5] text-[#14181F] border border-[#E1E5DF] text-sm font-medium">
+            {infoDialog?.message}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button
+              variant="default"
+              onClick={() => {
+                setInfoDialog(null);
                 focusInput();
               }}
             >
