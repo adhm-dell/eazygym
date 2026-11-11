@@ -391,12 +391,14 @@ export class MembersService {
     }
 
     const code = await this.numberingService.generateMemberCode(gymId);
+    const initialPasswordHash = await this.authService.hashPassword(code);
 
     const result = await this.prisma.runInTransaction(async (tx) => {
       const member = await tx.member.create({
         data: {
           gymId,
           code,
+          passwordHash: initialPasswordHash,
           name: dto.name,
           phone,
           email: dto.email || null,

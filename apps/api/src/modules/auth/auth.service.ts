@@ -296,7 +296,23 @@ export class AuthService {
       });
     }
 
-    const isValid = await this.verifyPassword(dto.password, member.passwordHash);
+    const cleanPassword = dto.password.trim();
+    let isValid = false;
+
+    if (member.passwordHash) {
+      isValid = await this.verifyPassword(cleanPassword, member.passwordHash);
+    }
+
+    // If password doesn't match hash (or hash is null), check if password matches member code/barcode
+    if (!isValid && member.code && cleanPassword.toLowerCase() === member.code.trim().toLowerCase()) {
+      isValid = true;
+      // Persist password hash so subsequent logins can verify faster and securely
+      await this.prisma.member.update({
+        where: { id: member.id },
+        data: { passwordHash: await this.hashPassword(cleanPassword) },
+      });
+    }
+
     if (!isValid) {
       this.recordFailedAttempt(dto.phone);
       this.checkBruteForce(dto.phone);

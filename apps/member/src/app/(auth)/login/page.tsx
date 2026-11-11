@@ -75,20 +75,28 @@ export default function MemberLoginPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-[#5B6470] block">
-              كلمة المرور
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#5B6470] block">
+                كلمة المرور
+              </label>
+              <span className="text-[11px] text-[#5B6470]">
+                (كود العضوية أو الباركود)
+              </span>
+            </div>
             <div className="relative">
               <Lock className="absolute right-3 top-3 h-4 w-4 text-[#5B6470]" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="أدخل كود العضوية أو الباركود"
                 required
                 className="w-full bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl pr-9 pl-3 py-2.5 text-sm font-mono text-left focus:outline-none focus:border-[#14181F]"
               />
             </div>
+            <p className="text-[11px] text-[#5B6470] pt-0.5">
+              كلمة المرور الافتراضية هي كود عضويتك / الباركود المطبوع على كارت الجيم.
+            </p>
           </div>
 
           <button
