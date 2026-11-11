@@ -38,6 +38,15 @@ export const sellApi = {
       totalRemainingDebt: m.totalRemainingDebt ?? 0,
     }));
   },
+  searchMembers: async (query: string): Promise<Member[]> => {
+    const res = await http.get<any>(`/members?search=${encodeURIComponent(query)}&limit=25`);
+    const items = Array.isArray(res) ? res : (res?.items || []);
+    return items.map((m: any) => ({
+      ...m,
+      derivedStatus: m.status || m.derivedStatus || "NO_SUBSCRIPTION",
+      totalRemainingDebt: m.totalRemainingDebt ?? 0,
+    }));
+  },
   getMember: async (id: string): Promise<Member | null> =>
     http.get<Member>(`/members/${id}`).catch(() => null),
   getMemberWallet: async (memberId: string): Promise<Wallet> => {

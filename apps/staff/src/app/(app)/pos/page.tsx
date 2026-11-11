@@ -19,11 +19,16 @@ import {
   Banknote,
   Smartphone,
   RotateCcw,
+  Barcode,
+  UserPlus,
+  X,
+  Loader2,
 } from "lucide-react";
 import {
   useToast,
   Button,
   Dialog,
+  Badge,
 } from "@gym/ui";
 import { useTranslation } from "@gym/i18n";
 import {
@@ -42,6 +47,7 @@ import {
 } from "@gym/domain";
 import { sellApi } from "../../../features/sell/api";
 import { coachOpsApi } from "../../../features/coach-ops/api";
+import { CreateMemberDialog } from "../../../features/members/components/create-member-dialog";
 import { useShift } from "../../../lib/shift-context";
 import { formatMoney } from "../../../lib/money";
 import type {
@@ -102,6 +108,16 @@ export default function PosSellPage() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [memberWallet, setMemberWallet] = useState<Wallet | null>(null);
   const [isWalkIn, setIsWalkIn] = useState(false);
+
+  // Barcode scanner & customer search state
+  const [memberBarcodeQuery, setMemberBarcodeQuery] = useState("");
+  const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
+  const [isSearchingMember, setIsSearchingMember] = useState(false);
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+  const [isCreateMemberOpen, setIsCreateMemberOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const memberSearchInputRef = React.useRef<HTMLInputElement>(null);
+  const memberDropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Cart
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -228,6 +244,9 @@ export default function PosSellPage() {
   const handleSelectMember = async (member: Member | null) => {
     setSelectedMember(member);
     setIsWalkIn(false);
+    setMemberBarcodeQuery("");
+    setShowMemberDropdown(false);
+    setHighlightedIndex(-1);
     if (member) {
       try {
         const wallet = await sellApi.getMemberWallet(member.id);
@@ -237,6 +256,174 @@ export default function PosSellPage() {
       }
     } else {
       setMemberWallet(null);
+    }
+  };
+
+  // Filtered members for dropdown: combines memory matches & API search matches
+  const displayMemberOptions = useMemo(() => {
+    const q = memberBarcodeQuery.trim().toLowerCase();
+    if (!q) {
+      return members.slice(0, 8);
+    }
+    const matched = members.filter(
+      (m) =>
+        m.code.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        (m.phone && m.phone.includes(q))
+    );
+    const all = [...matched];
+    for (const item of memberSearchResults) {
+      if (!all.some((m) => m.id === item.id)) {
+        all.push(item);
+      }
+    }
+    return all.slice(0, 10);
+  }, [members, memberSearchResults, memberBarcodeQuery]);
+
+  // Debounced live API search when typing
+  useEffect(() => {
+    const q = memberBarcodeQuery.trim();
+    if (q.length < 2) {
+      setMemberSearchResults([]);
+      setIsSearchingMember(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingMember(true);
+      try {
+        const results = await sellApi.searchMembers(q);
+        setMemberSearchResults(results);
+      } catch {
+        // ignore search network error
+      } finally {
+        setIsSearchingMember(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [memberBarcodeQuery]);
+
+  // Click outside listener to dismiss member suggestions dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        memberDropdownRef.current &&
+        !memberDropdownRef.current.contains(e.target as Node) &&
+        memberSearchInputRef.current &&
+        !memberSearchInputRef.current.contains(e.target as Node)
+      ) {
+        setShowMemberDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Handle Barcode Scan / Enter Key / Search Form Submit
+  const handleBarcodeSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const raw = memberBarcodeQuery.trim();
+    if (!raw) return;
+
+    // 1. Check exact barcode / code match in memory
+    const exactCode = members.find(
+      (m) => m.code.toLowerCase() === raw.toLowerCase()
+    );
+    if (exactCode) {
+      await handleSelectMember(exactCode);
+      toast({
+        title: "تم تحديد العضو بالباركود",
+        description: `${exactCode.name} (كود: ${exactCode.code})`,
+        variant: "success",
+      });
+      return;
+    }
+
+    // 2. Check exact phone match in memory
+    const exactPhone = members.find((m) => m.phone === raw);
+    if (exactPhone) {
+      await handleSelectMember(exactPhone);
+      toast({
+        title: "تم تحديد العضو برقم الهاتف",
+        description: `${exactPhone.name} (كود: ${exactPhone.code})`,
+        variant: "success",
+      });
+      return;
+    }
+
+    // 3. Query API for exact/matching search
+    setIsSearchingMember(true);
+    try {
+      const results = await sellApi.searchMembers(raw);
+      // Check for exact code in results
+      const exactInApi = results.find(
+        (m) => m.code.toLowerCase() === raw.toLowerCase()
+      );
+      if (exactInApi) {
+        setMembers((prev) => (prev.some((m) => m.id === exactInApi.id) ? prev : [exactInApi, ...prev]));
+        await handleSelectMember(exactInApi);
+        toast({
+          title: "تم تحديد العضو بالباركود",
+          description: `${exactInApi.name} (كود: ${exactInApi.code})`,
+          variant: "success",
+        });
+        return;
+      }
+
+      if (results.length === 1 && results[0]) {
+        const single = results[0];
+        setMembers((prev) => (prev.some((m) => m.id === single.id) ? prev : [single, ...prev]));
+        await handleSelectMember(single);
+        toast({
+          title: "تم تحديد العضو",
+          description: `${single.name} (كود: ${single.code})`,
+          variant: "success",
+        });
+        return;
+      }
+
+      if (results.length > 1) {
+        setMemberSearchResults(results);
+        setShowMemberDropdown(true);
+        setHighlightedIndex(0);
+        return;
+      }
+
+      // No results found
+      toast({
+        title: "لم يتم العثور على عضو بهذا الباركود",
+        description: `الباركود أو الكود "${raw}" غير مسجل، يمكنك إضافته كعضو جديد`,
+        variant: "warning",
+      });
+      setShowMemberDropdown(true);
+    } catch (err: any) {
+      toast({
+        title: "خطأ في البحث",
+        description: err?.message || String(err),
+        variant: "error",
+      });
+    } finally {
+      setIsSearchingMember(false);
+    }
+  };
+
+  const getMemberStatusBadge = (mem: Member) => {
+    const status = (mem as any).derivedStatus || (mem as any).status;
+    switch (status) {
+      case "ACTIVE":
+        return <Badge variant="g">نشط</Badge>;
+      case "EXPIRED":
+        return <Badge variant="r">منتهي</Badge>;
+      case "FROZEN":
+        return <Badge variant="w">مجمد</Badge>;
+      case "BLOCKED":
+        return <Badge variant="r">محظور</Badge>;
+      case "PAYMENT_OVERDUE":
+        return <Badge variant="r">متأخر الدفع</Badge>;
+      case "NO_SUBSCRIPTION":
+      default:
+        return <Badge variant="default">بدون اشتراك</Badge>;
     }
   };
 
@@ -905,69 +1092,297 @@ export default function PosSellPage() {
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_440px] xl:grid-cols-[1fr_480px] lg:overflow-hidden">
         {/* Left Column: Catalog & Item Selection */}
         <main className="p-4 md:p-6 flex flex-col gap-5 border-e border-[#E1E5DF] overflow-y-auto min-h-0">
-          {/* Customer Selection Banner */}
-          <div className="bg-white rounded-2xl border border-[#E1E5DF] p-4 shadow-subtle flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 flex-1 w-full">
-              <div className="h-11 w-11 rounded-full bg-[#F2F4F1] border border-[#E1E5DF] flex items-center justify-center text-[#14181F] font-bold shrink-0">
-                <User className="h-5 w-5" />
+          {/* Customer Selection Banner (Barcode Scanner / Live Search / Member Info) */}
+          <div className="bg-white rounded-2xl border border-[#E1E5DF] p-3.5 md:p-4 shadow-subtle">
+            {selectedMember && !isWalkIn ? (
+              /* State 1: Member Selected */
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                  <div className="h-12 w-12 rounded-full bg-[#14181F] text-[#C6F24E] flex items-center justify-center font-black text-lg shrink-0">
+                    {selectedMember.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-bold text-[#5B6470] uppercase">العميل:</span>
+                      <b className="text-[16px] font-black text-[#14181F] truncate">{selectedMember.name}</b>
+                      <span className="font-mono text-xs bg-[#14181F] text-[#C6F24E] px-2.5 py-0.5 rounded-md font-bold flex items-center gap-1.5 shrink-0">
+                        <Barcode className="h-3.5 w-3.5" />
+                        {selectedMember.code}
+                      </span>
+                      {getMemberStatusBadge(selectedMember)}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs">
+                      {selectedMember.phone && (
+                        <span className="text-[#5B6470]">الهاتف: {selectedMember.phone}</span>
+                      )}
+                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                        <WalletIcon className="h-3.5 w-3.5" />
+                        رصيد المحفظة: {formatMoney(walletBalance)}
+                      </span>
+                      {Boolean(selectedMember.totalRemainingDebt && selectedMember.totalRemainingDebt > 0) && (
+                        <span className="font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
+                          مديونية سابقة: {formatMoney(selectedMember.totalRemainingDebt || 0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMember(null);
+                      setMemberWallet(null);
+                      setTimeout(() => memberSearchInputRef.current?.focus(), 50);
+                    }}
+                    className="h-9 px-3 bg-[#F2F4F1] hover:bg-[#E1E5DF] text-[#14181F] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="تغيير العضو أو مسح باركود آخر"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>تغيير / مسح باركود</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWalkIn(true);
+                      setSelectedMember(null);
+                      setMemberWallet(null);
+                    }}
+                    className="h-9 px-3 bg-white border border-[#E1E5DF] hover:bg-[#F2F4F1] text-[#5B6470] hover:text-[#14181F] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    عميل زائر
+                  </button>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-[#5B6470] uppercase">العميل الحالي:</span>
-                  {isWalkIn ? (
-                    <span className="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold leading-normal select-none bg-slate-100 text-slate-800 border border-slate-300">
-                      عميل زائر (Walk-in)
-                    </span>
-                  ) : selectedMember ? (
+            ) : isWalkIn ? (
+              /* State 2: Walk-In Customer Selected */
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                  <div className="h-12 w-12 rounded-full bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-center font-black shrink-0">
+                    <ShoppingBag className="h-5 w-5" />
+                  </div>
+                  <div>
                     <div className="flex items-center gap-2">
-                      <b className="text-[15px] font-bold text-[#14181F]">{selectedMember.name}</b>
-                      <span className="text-[12px] bg-[#E1E5DF] px-2 py-0.5 rounded-md font-mono font-bold">
-                        كود: {selectedMember.code}
+                      <b className="text-[15px] font-black text-[#14181F]">عميل زائر (Walk-in)</b>
+                      <span className="text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full border border-slate-200 font-bold">
+                        خدمات ومنتجات فقط
                       </span>
                     </div>
-                  ) : (
-                    <span className="text-[14px] text-red-600 font-bold">لم يتم تحديد عضو</span>
+                    <p className="text-xs text-[#5B6470] mt-0.5">
+                      لا يمكن بيع باقات اشتراك لعميل زائر. لمسح أو اختيار عضو اضغط على زر المسح.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWalkIn(false);
+                      setTimeout(() => memberSearchInputRef.current?.focus(), 50);
+                    }}
+                    className="h-9 px-3.5 bg-[#14181F] text-[#C6F24E] hover:bg-black rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Barcode className="h-4 w-4" />
+                    <span>مسح باركود عضو</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* State 3: No Member Selected - Barcode Scanner & Search Active */
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                {/* Barcode Search Form */}
+                <div className="relative flex-1 min-w-0">
+                  <form onSubmit={handleBarcodeSubmit} className="relative flex items-center">
+                    <Barcode className="absolute start-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-[#14181F]" />
+                    <input
+                      ref={memberSearchInputRef}
+                      type="text"
+                      value={memberBarcodeQuery}
+                      onChange={(e) => {
+                        setMemberBarcodeQuery(e.target.value);
+                        setShowMemberDropdown(true);
+                        setHighlightedIndex(0);
+                      }}
+                      onFocus={() => setShowMemberDropdown(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setHighlightedIndex((prev) => Math.min(prev + 1, displayMemberOptions.length - 1));
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                        } else if (e.key === "Enter") {
+                          if (highlightedIndex >= 0 && displayMemberOptions[highlightedIndex]) {
+                            e.preventDefault();
+                            const pick = displayMemberOptions[highlightedIndex];
+                            handleSelectMember(pick);
+                            toast({
+                              title: "تم تحديد العضو",
+                              description: `${pick.name} (${pick.code})`,
+                              variant: "success",
+                            });
+                          } else {
+                            handleBarcodeSubmit(e);
+                          }
+                        } else if (e.key === "Escape") {
+                          setShowMemberDropdown(false);
+                        }
+                      }}
+                      placeholder="امسح الباركود بجهاز القارئ، أو اكتب الكود / الهاتف / الاسم..."
+                      className="w-full h-11 ps-11 pe-24 bg-[#F2F4F1] border-2 border-[#14181F] rounded-xl text-[13px] md:text-sm font-semibold text-[#14181F] placeholder:text-[#5B6470] focus:outline-none focus:ring-4 focus:ring-[#C6F24E]/40 focus:bg-white transition-all"
+                      autoFocus
+                      autoComplete="off"
+                    />
+
+                    {/* End actions inside input */}
+                    <div className="absolute end-1.5 flex items-center gap-1">
+                      {isSearchingMember && (
+                        <Loader2 className="h-4 w-4 text-[#5B6470] animate-spin me-1" />
+                      )}
+                      {memberBarcodeQuery && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMemberBarcodeQuery("");
+                            memberSearchInputRef.current?.focus();
+                          }}
+                          className="p-1 hover:bg-[#E1E5DF] rounded-full text-[#5B6470] transition-colors"
+                          title="مسح النص"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        className="h-8 px-3 bg-[#14181F] text-[#C6F24E] text-xs font-bold rounded-lg hover:bg-black transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        مسح
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Dropdown Live Suggestions */}
+                  {showMemberDropdown && (
+                    <div
+                      ref={memberDropdownRef}
+                      className="absolute top-full start-0 end-0 mt-1.5 bg-white border border-[#E1E5DF] rounded-xl shadow-2xl z-50 max-h-72 overflow-y-auto"
+                    >
+                      {displayMemberOptions.length > 0 ? (
+                        <div className="p-1.5">
+                          <div className="px-3 py-1 text-[11px] font-bold text-[#5B6470] bg-[#F2F4F1] rounded-lg mb-1 flex items-center justify-between">
+                            <span>امسح الباركود أو اختر العضو (Enter للتأكيد)</span>
+                            <span>{displayMemberOptions.length} عضو</span>
+                          </div>
+                          {displayMemberOptions.map((m, idx) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                handleSelectMember(m);
+                                toast({
+                                  title: "تم تحديد العضو",
+                                  description: `${m.name} (${m.code})`,
+                                  variant: "success",
+                                });
+                              }}
+                              className={`w-full text-start p-2.5 rounded-lg flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                                idx === highlightedIndex
+                                  ? "bg-[#14181F] text-white"
+                                  : "hover:bg-[#F2F4F1] text-[#14181F]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div
+                                  className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                                    idx === highlightedIndex
+                                      ? "bg-white/20 text-white"
+                                      : "bg-[#F2F4F1] text-[#14181F]"
+                                  }`}
+                                >
+                                  {m.name.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                  <b className="text-sm block truncate">{m.name}</b>
+                                  <span
+                                    className={`text-xs block ${
+                                      idx === highlightedIndex ? "text-white/80" : "text-[#5B6470]"
+                                    }`}
+                                  >
+                                    {m.phone || "بدون هاتف"}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span
+                                  className={`font-mono text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1 ${
+                                    idx === highlightedIndex
+                                      ? "bg-white/20 text-[#C6F24E]"
+                                      : "bg-[#14181F] text-[#C6F24E]"
+                                  }`}
+                                >
+                                  <Barcode className="h-3 w-3" />
+                                  {m.code}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center">
+                          <p className="text-sm text-[#5B6470] mb-2.5 font-medium">
+                            لم يتم العثور على عضو بهذا الباركود أو الكود
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowMemberDropdown(false);
+                              setIsCreateMemberOpen(true);
+                            }}
+                            className="text-xs font-bold"
+                          >
+                            <UserPlus className="h-3.5 w-3.5 me-1" />
+                            تسجيل عضو جديد بالباركود
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {selectedMember && !isWalkIn && (
-                  <div className="flex items-center gap-4 mt-1 text-[13px]">
-                    <span className="text-[#5B6470]">الهاتف: {selectedMember.phone}</span>
-                    <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                      <WalletIcon className="h-3.5 w-3.5" />
-                      رصيد المحفظة: {formatMoney(walletBalance)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+                {/* Quick actions alongside search */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWalkIn(true);
+                      setSelectedMember(null);
+                      setMemberWallet(null);
+                      setShowMemberDropdown(false);
+                    }}
+                    className="h-11 px-3.5 bg-white border border-[#E1E5DF] hover:bg-[#F2F4F1] rounded-xl text-xs font-bold text-[#14181F] flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer"
+                    title="مبيعات سريعة للمنتجات والخدمات لعميل غير مشترك"
+                  >
+                    <ShoppingBag className="h-4 w-4 text-[#5B6470]" />
+                    <span>عميل زائر (Walk-in)</span>
+                  </button>
 
-            {/* Member search & Quick selector */}
-            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
-              <select
-                className="h-10 px-3 bg-[#F2F4F1] border border-[#E1E5DF] rounded-xl text-[13px] font-semibold text-[#14181F] focus:outline-none focus:ring-2 focus:ring-[#C6F24E]"
-                value={selectedMember?.id || (isWalkIn ? "walkin" : "")}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "walkin") {
-                    setIsWalkIn(true);
-                    setSelectedMember(null);
-                    setMemberWallet(null);
-                  } else {
-                    const m = members.find((x) => x.id === val);
-                    handleSelectMember(m || null);
-                  }
-                }}
-              >
-                <option value="">-- اختر العضو من القائمة --</option>
-                <option value="walkin">عميل زائر (Walk-in - خدمات ومنتجات فقط)</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.code})
-                  </option>
-                ))}
-              </select>
-            </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateMemberOpen(true)}
+                    className="h-11 px-3.5 bg-[#C6F24E] hover:bg-[#b5e23d] text-[#14181F] border border-[#14181F]/20 rounded-xl text-xs font-black flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-sm"
+                    title="تسجيل عضو جديد وإصدار باركود له"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    <span>+ عضو جديد</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Catalog Tabs & Search */}
@@ -2128,6 +2543,22 @@ export default function PosSellPage() {
           )}
         </div>
       </Dialog>
+
+      {/* Create Member Modal */}
+      <CreateMemberDialog
+        isOpen={isCreateMemberOpen}
+        onClose={() => setIsCreateMemberOpen(false)}
+        onSuccess={(newMember) => {
+          setMembers((prev) => [newMember, ...prev]);
+          handleSelectMember(newMember);
+          setIsCreateMemberOpen(false);
+          toast({
+            title: "تم تسجيل العضو واختياره بنجاح",
+            description: `${newMember.name} (كود: ${newMember.code})`,
+            variant: "success",
+          });
+        }}
+      />
     </div>
   );
 }
