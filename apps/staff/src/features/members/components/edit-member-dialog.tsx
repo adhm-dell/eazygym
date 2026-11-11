@@ -58,12 +58,12 @@ export function EditMemberDialog({ member, isOpen, onClose, onSuccess }: EditMem
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-lg my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
         dir="rtl"
       >
-        <div className="p-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-gray-100 bg-gray-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-gray-900 text-white flex items-center justify-center font-bold">
               <Edit3 className="h-5 w-5 text-[#C6F24E]" />
@@ -81,7 +81,8 @@ export function EditMemberDialog({ member, isOpen, onClose, onSuccess }: EditMem
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
@@ -177,7 +178,9 @@ export function EditMemberDialog({ member, isOpen, onClose, onSuccess }: EditMem
             />
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          </div>
+
+          <div className="p-4 sm:p-5 border-t border-gray-100 flex items-center justify-end gap-3 bg-white shrink-0">
             <button
               type="button"
               onClick={onClose}

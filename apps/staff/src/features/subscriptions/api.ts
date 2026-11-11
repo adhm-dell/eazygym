@@ -142,5 +142,15 @@ export const subscriptionsApi = {
     invoiceId: string,
     dto: { payments: { method: "CASH" | "INSTAPAY" | "CARD"; amount: number; reference?: string | null }[] }
   ) => http.post<any>(`/invoices/${invoiceId}/payments`, dto),
+
+  renewSubscription: (
+    subscriptionId: string,
+    dto?: {
+      planId?: string;
+      coachId?: string;
+      payments?: { method: "CASH" | "CARD" | "INSTAPAY" | "WALLET"; amount: number; reference?: string | null }[];
+      notes?: string;
+    }
+  ) => http.post<any>(`/subscriptions/${subscriptionId}/renew`, dto || {}),
 };
 

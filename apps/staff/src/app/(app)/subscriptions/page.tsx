@@ -35,6 +35,7 @@ import { ChangeCoachDialog } from "../../../features/members/components/change-c
 import { LogSessionDialog } from "../../../features/members/components/log-session-dialog";
 import { CollectBalanceDialog } from "../../../features/members/components/collect-balance-dialog";
 import { ChangeClassSlotDialog } from "../../../features/members/components/change-class-slot-dialog";
+import { QuickRenewDialog } from "../../../features/subscriptions/components/quick-renew-dialog";
 import { useShift } from "../../../lib/shift-context";
 
 export default function SubscriptionsManagementPage() {
@@ -66,6 +67,7 @@ export default function SubscriptionsManagementPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Dialog Selection State
+  const [selectedSubForRenew, setSelectedSubForRenew] = useState<SubscriptionItem | null>(null);
   const [selectedSubForFreeze, setSelectedSubForFreeze] = useState<SubscriptionItem | null>(null);
   const [selectedSubForUnfreeze, setSelectedSubForUnfreeze] = useState<SubscriptionItem | null>(null);
   const [selectedSubForCancel, setSelectedSubForCancel] = useState<SubscriptionItem | null>(null);
@@ -806,14 +808,15 @@ export default function SubscriptionsManagementPage() {
                             </Button>
                           )}
 
-                          {/* Early Renewal Button */}
-                          <Link
-                            href={`/pos?memberId=${sub.member.id}&planId=${sub.planId}&startDate=${sub.endDate}`}
-                            className="inline-flex items-center justify-center h-7 px-2 text-xs font-bold bg-[#C6F24E]/40 hover:bg-[#C6F24E] text-[#14181F] rounded-lg transition-colors"
-                            title="تجديد مبكر يبدأ تلقائياً فور انتهاء هذا الاشتراك"
+                          {/* Quick Renewal Button */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSubForRenew(sub)}
+                            className="inline-flex items-center justify-center h-7 px-2.5 text-xs font-bold bg-[#C6F24E]/40 hover:bg-[#C6F24E] text-[#14181F] rounded-lg transition-colors cursor-pointer"
+                            title="تجديد سريع مباشر (يبدأ تلقائياً فور انتهاء هذا الاشتراك)"
                           >
                             <span>تجديد</span>
-                          </Link>
+                          </button>
 
                           {/* Freeze / Unfreeze Button */}
                           <button
@@ -930,6 +933,23 @@ export default function SubscriptionsManagementPage() {
       </div>
 
       {/* DIALOGS REUSED DIRECTLY AS REQUESTED */}
+      {selectedSubForRenew && (
+        <QuickRenewDialog
+          subscription={selectedSubForRenew}
+          isOpen={Boolean(selectedSubForRenew)}
+          onClose={() => setSelectedSubForRenew(null)}
+          onSuccess={() => {
+            setSelectedSubForRenew(null);
+            fetchData();
+            toast({
+              title: "تم تجديد الاشتراك بنجاح!",
+              description: `تم تمديد اشتراك ${selectedSubForRenew.member.name} وإصدار الفاتورة`,
+              variant: "success",
+            });
+          }}
+        />
+      )}
+
       {selectedSubForFreeze && (
         <FreezeDialog
           subscription={selectedSubForFreeze as any}

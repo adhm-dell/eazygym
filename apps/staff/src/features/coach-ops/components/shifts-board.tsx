@@ -350,9 +350,10 @@ export function ShiftsBoard() {
 
       {/* Add / Stamp Weekly Shift Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl space-y-5 text-start animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-[#E1E5DF] pb-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-[#E1E5DF] overflow-hidden flex flex-col text-start animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-[#E1E5DF] p-4 sm:p-5 shrink-0 bg-white">
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-[#14181F] text-[#C6F24E] flex items-center justify-center font-bold">
                   <Sparkles className="h-5 w-5" />
@@ -375,181 +376,183 @@ export function ShiftsBoard() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateWeeklySchedule} className="space-y-4">
-              {/* Coach Select */}
-              <div>
-                <label className="text-xs font-bold text-[#14181F] block mb-1.5">
-                  اختر المدرب:
-                </label>
-                <select
-                  value={coachId}
-                  onChange={(e) => setCoachId(e.target.value)}
-                  className="w-full text-xs font-bold p-2.5 border border-[#14181F] rounded-xl bg-[#F2F4F1] focus:outline-none focus:ring-2 focus:ring-[#C6F24E]"
-                  required
-                >
-                  <option value="">-- اختر المدرب من القائمة --</option>
-                  {coachesToDisplay.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      كابتن {c.name} {c.email ? `(${c.email})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Working Hours & Presets */}
-              <div className="space-y-2 bg-[#F2F4F1] p-3.5 rounded-2xl border border-[#E1E5DF]">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
-                    <Clock className="h-4 w-4 text-[#5B6470]" />
-                    <span>ساعات العمل اليومية:</span>
-                  </span>
-                  <span className="text-[11px] text-[#5B6470]">قوالب أوقات جاهزة</span>
-                </div>
-
-                {/* Hour Presets */}
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { label: "صباحي (09:00 - 17:00)", start: "09:00", end: "17:00" },
-                    { label: "مسائي (14:00 - 22:00)", start: "14:00", end: "22:00" },
-                    { label: "ليلي (18:00 - 02:00)", start: "18:00", end: "02:00" },
-                    { label: "يوم كامل (10:00 - 20:00)", start: "10:00", end: "20:00" },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => handleApplyShiftPreset(preset.start, preset.end)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold transition-colors cursor-pointer ${
-                        startTime === preset.start && endTime === preset.end
-                          ? "bg-[#14181F] text-[#C6F24E] border-[#14181F]"
-                          : "bg-white text-[#14181F] border-[#E1E5DF] hover:bg-[#E1E5DF]"
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <Input
-                    label="وقت البداية (من)"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    placeholder="10:00"
-                    required
-                    className="font-mono font-bold"
-                  />
-                  <Input
-                    label="وقت النهاية (إلى)"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    placeholder="18:00"
-                    required
-                    className="font-mono font-bold"
-                  />
-                </div>
-
-                {startTime > endTime && (
-                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    <span>وردية ليلية تعبر منتصف الليل وتنتهي في اليوم التالي.</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Working Days & Stamps */}
-              <div className="space-y-2.5 bg-[#F2F4F1] p-3.5 rounded-2xl border border-[#E1E5DF]">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-[#5B6470]" />
-                    <span>أيام العمل الأسبوعية:</span>
-                  </span>
-                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    {selectedDays.length} أيام عمل مختارة
-                  </span>
-                </div>
-
-                {/* Quick Days Stamps */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 6])}
-                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
-                  >
-                    طوال الأسبوع (إجازة الجمعة)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 5])}
-                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
-                  >
-                    طوال الأسبوع (إجازة السبت)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 5, 6])}
-                    className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
-                  >
-                    كل الأيام (7 أيام)
-                  </button>
-                </div>
-
-                {/* Dropdown to easily pick day off */}
-                <div className="flex items-center gap-2 pt-1 text-xs">
-                  <span className="text-[#5B6470] font-bold shrink-0">أو حدد يوم الإجازة:</span>
+            <form onSubmit={handleCreateWeeklySchedule} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                {/* Coach Select */}
+                <div>
+                  <label className="text-xs font-bold text-[#14181F] block mb-1.5">
+                    اختر المدرب:
+                  </label>
                   <select
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      if (!isNaN(val)) handleSetDayOff(val);
-                    }}
-                    className="w-full text-xs font-bold p-1.5 bg-white border border-[#E1E5DF] rounded-lg"
+                    value={coachId}
+                    onChange={(e) => setCoachId(e.target.value)}
+                    className="w-full text-xs font-bold p-2.5 border border-[#14181F] rounded-xl bg-[#F2F4F1] focus:outline-none focus:ring-2 focus:ring-[#C6F24E]"
+                    required
                   >
-                    <option value="">اختر يوم الإجازة لاستثناءه...</option>
-                    {DAYS_OF_WEEK.map((d, idx) => (
-                      <option key={idx} value={idx}>
-                        يوم {d}
+                    <option value="">-- اختر المدرب من القائمة --</option>
+                    {coachesToDisplay.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        كابتن {c.name} {c.email ? `(${c.email})` : ""}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Day Buttons Grid */}
-                <div className="grid grid-cols-7 gap-1 pt-1">
-                  {DAYS_OF_WEEK.map((dayName, dayIndex) => {
-                    const isSelected = selectedDays.includes(dayIndex);
-                    return (
+                {/* Working Hours & Presets */}
+                <div className="space-y-2 bg-[#F2F4F1] p-3.5 rounded-2xl border border-[#E1E5DF]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                      <Clock className="h-4 w-4 text-[#5B6470]" />
+                      <span>ساعات العمل اليومية:</span>
+                    </span>
+                    <span className="text-[11px] text-[#5B6470]">قوالب أوقات جاهزة</span>
+                  </div>
+
+                  {/* Hour Presets */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { label: "صباحي (09:00 - 17:00)", start: "09:00", end: "17:00" },
+                      { label: "مسائي (14:00 - 22:00)", start: "14:00", end: "22:00" },
+                      { label: "ليلي (18:00 - 02:00)", start: "18:00", end: "02:00" },
+                      { label: "يوم كامل (10:00 - 20:00)", start: "10:00", end: "20:00" },
+                    ].map((preset) => (
                       <button
-                        key={dayIndex}
+                        key={preset.label}
                         type="button"
-                        onClick={() => toggleDay(dayIndex)}
-                        className={`py-2 rounded-xl text-center text-xs font-bold border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
-                            : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-100"
+                        onClick={() => handleApplyShiftPreset(preset.start, preset.end)}
+                        className={`text-[11px] px-2.5 py-1 rounded-lg border font-bold transition-colors cursor-pointer ${
+                          startTime === preset.start && endTime === preset.end
+                            ? "bg-[#14181F] text-[#C6F24E] border-[#14181F]"
+                            : "bg-white text-[#14181F] border-[#E1E5DF] hover:bg-[#E1E5DF]"
                         }`}
                       >
-                        <span className="block text-[11px]">{dayName}</span>
-                        <span className="block text-[9px] mt-0.5">
-                          {isSelected ? "عمل" : "إجازة"}
-                        </span>
+                        {preset.label}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <Input
+                      label="وقت البداية (من)"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      placeholder="10:00"
+                      required
+                      className="font-mono font-bold"
+                    />
+                    <Input
+                      label="وقت النهاية (إلى)"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      placeholder="18:00"
+                      required
+                      className="font-mono font-bold"
+                    />
+                  </div>
+
+                  {startTime > endTime && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>وردية ليلية تعبر منتصف الليل وتنتهي في اليوم التالي.</span>
+                    </div>
+                  )}
                 </div>
+
+                {/* Working Days & Stamps */}
+                <div className="space-y-2.5 bg-[#F2F4F1] p-3.5 rounded-2xl border border-[#E1E5DF]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#14181F] flex items-center gap-1.5">
+                      <Calendar className="h-4 w-4 text-[#5B6470]" />
+                      <span>أيام العمل الأسبوعية:</span>
+                    </span>
+                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      {selectedDays.length} أيام عمل مختارة
+                    </span>
+                  </div>
+
+                  {/* Quick Days Stamps */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 6])}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
+                    >
+                      طوال الأسبوع (إجازة الجمعة)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 5])}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
+                    >
+                      طوال الأسبوع (إجازة السبت)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyDaysPreset([0, 1, 2, 3, 4, 5, 6])}
+                      className="text-[11px] px-2.5 py-1 rounded-lg border border-[#E1E5DF] bg-white hover:bg-[#14181F] hover:text-white font-bold transition-colors cursor-pointer"
+                    >
+                      كل الأيام (7 أيام)
+                    </button>
+                  </div>
+
+                  {/* Dropdown to easily pick day off */}
+                  <div className="flex items-center gap-2 pt-1 text-xs">
+                    <span className="text-[#5B6470] font-bold shrink-0">أو حدد يوم الإجازة:</span>
+                    <select
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val)) handleSetDayOff(val);
+                      }}
+                      className="w-full text-xs font-bold p-1.5 bg-white border border-[#E1E5DF] rounded-lg"
+                    >
+                      <option value="">اختر يوم الإجازة لاستثناءه...</option>
+                      {DAYS_OF_WEEK.map((d, idx) => (
+                        <option key={idx} value={idx}>
+                          يوم {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Day Buttons Grid */}
+                  <div className="grid grid-cols-7 gap-1 pt-1">
+                    {DAYS_OF_WEEK.map((dayName, dayIndex) => {
+                      const isSelected = selectedDays.includes(dayIndex);
+                      return (
+                        <button
+                          key={dayIndex}
+                          type="button"
+                          onClick={() => toggleDay(dayIndex)}
+                          className={`py-2 rounded-xl text-center text-xs font-bold border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-[#14181F] text-[#C6F24E] border-[#14181F] shadow-sm"
+                              : "bg-white text-[#5B6470] border-[#E1E5DF] hover:bg-gray-100"
+                          }`}
+                        >
+                          <span className="block text-[11px]">{dayName}</span>
+                          <span className="block text-[9px] mt-0.5">
+                            {isSelected ? "عمل" : "إجازة"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Replace Existing Checkbox */}
+                <label className="flex items-center gap-2 text-xs font-bold text-[#14181F] cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={replaceExisting}
+                    onChange={(e) => setReplaceExisting(e.target.checked)}
+                    className="rounded border-[#E1E5DF]"
+                  />
+                  <span>تحديث واستبدال أي ورديات سابقة مسجلة لنفس المدرب في هذه الأيام</span>
+                </label>
               </div>
 
-              {/* Replace Existing Checkbox */}
-              <label className="flex items-center gap-2 text-xs font-bold text-[#14181F] cursor-pointer pt-1">
-                <input
-                  type="checkbox"
-                  checked={replaceExisting}
-                  onChange={(e) => setReplaceExisting(e.target.checked)}
-                  className="rounded border-[#E1E5DF]"
-                />
-                <span>تحديث واستبدال أي ورديات سابقة مسجلة لنفس المدرب في هذه الأيام</span>
-              </label>
-
               {/* Actions */}
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-[#E1E5DF]">
+              <div className="flex justify-end gap-2.5 p-4 sm:p-5 border-t border-[#E1E5DF] shrink-0 bg-white">
                 <Button
                   type="button"
                   variant="outline"

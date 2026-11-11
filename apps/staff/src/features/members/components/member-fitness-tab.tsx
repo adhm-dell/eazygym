@@ -405,73 +405,84 @@ export function MemberFitnessTab({ memberId }: MemberFitnessTabProps) {
 
       {/* New Assessment Modal */}
       {isNewAssessOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start">
-            <h3 className="font-bold text-base text-[#14181F]">تسجيل فحص InBody جديد</h3>
-            <form onSubmit={handleCreateAssessment} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-md my-auto max-h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col text-start">
+            <div className="p-4 sm:p-5 border-b border-[#E1E5DF] shrink-0 bg-white flex items-center justify-between">
+              <h3 className="font-bold text-base text-[#14181F]">تسجيل فحص InBody جديد</h3>
+              <button
+                type="button"
+                onClick={() => setIsNewAssessOpen(false)}
+                className="text-gray-400 hover:text-gray-700 font-bold p-1 rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateAssessment} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="الوزن (كجم)"
+                    type="number"
+                    step="0.1"
+                    value={weight}
+                    onChange={(e) => setWeight(e.target.value)}
+                    required
+                  />
+                  <Input
+                    label="نسبة الدهون (%)"
+                    type="number"
+                    step="0.1"
+                    value={bodyFatPercent}
+                    onChange={(e) => setBodyFatPercent(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="الكتلة العضلية (كجم)"
+                    type="number"
+                    step="0.1"
+                    value={muscleMass}
+                    onChange={(e) => setMuscleMass(e.target.value)}
+                    required
+                  />
+                  <Input
+                    label="نسبة الماء (%)"
+                    type="number"
+                    step="0.1"
+                    value={waterPercent}
+                    onChange={(e) => setWaterPercent(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="الدهون الحشوية (Level)"
+                    type="number"
+                    value={visceralFatLevel}
+                    onChange={(e) => setVisceralFatLevel(e.target.value)}
+                    required
+                  />
+                  <Input
+                    label="معدل الحرق (BMR)"
+                    type="number"
+                    value={bmr}
+                    onChange={(e) => setBmr(e.target.value)}
+                    required
+                  />
+                </div>
+
                 <Input
-                  label="الوزن (كجم)"
-                  type="number"
-                  step="0.1"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  required
-                />
-                <Input
-                  label="نسبة الدهون (%)"
-                  type="number"
-                  step="0.1"
-                  value={bodyFatPercent}
-                  onChange={(e) => setBodyFatPercent(e.target.value)}
-                  required
+                  label="ملاحظات القياس"
+                  value={assessNotes}
+                  onChange={(e) => setAssessNotes(e.target.value)}
+                  placeholder="ملاحظات إضافية على الفحص"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="الكتلة العضلية (كجم)"
-                  type="number"
-                  step="0.1"
-                  value={muscleMass}
-                  onChange={(e) => setMuscleMass(e.target.value)}
-                  required
-                />
-                <Input
-                  label="نسبة الماء (%)"
-                  type="number"
-                  step="0.1"
-                  value={waterPercent}
-                  onChange={(e) => setWaterPercent(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  label="الدهون الحشوية (Level)"
-                  type="number"
-                  value={visceralFatLevel}
-                  onChange={(e) => setVisceralFatLevel(e.target.value)}
-                  required
-                />
-                <Input
-                  label="معدل الحرق (BMR)"
-                  type="number"
-                  value={bmr}
-                  onChange={(e) => setBmr(e.target.value)}
-                  required
-                />
-              </div>
-
-              <Input
-                label="ملاحظات القياس"
-                value={assessNotes}
-                onChange={(e) => setAssessNotes(e.target.value)}
-                placeholder="ملاحظات إضافية على الفحص"
-              />
-
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex justify-end gap-2 p-4 border-t border-[#E1E5DF] shrink-0 bg-white">
                 <Button
                   type="button"
                   variant="outline"

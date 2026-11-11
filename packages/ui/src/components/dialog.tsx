@@ -52,7 +52,7 @@ export function Dialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
@@ -64,7 +64,7 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative w-full max-h-[90vh] flex flex-col rounded-2xl border border-border bg-card p-5 sm:p-6 text-card-foreground shadow-modal transition-all animate-in fade-in-0 zoom-in-95 duration-150 text-start overflow-hidden",
+          "relative w-full my-auto max-h-[90vh] flex flex-col rounded-2xl border border-border bg-card p-5 sm:p-6 text-card-foreground shadow-modal transition-all animate-in fade-in-0 zoom-in-95 duration-150 text-start overflow-hidden",
           maxWidthStyles[maxWidth],
           className
         )}

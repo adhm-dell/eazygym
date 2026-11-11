@@ -345,49 +345,60 @@ export function RotationQueueBoard() {
 
       {/* Manual Assign Modal */}
       {selectedAssignment && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start">
-            <div className="flex items-center justify-between pb-2 border-b border-[#E1E5DF]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-md my-auto max-h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col text-start">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#E1E5DF] shrink-0 bg-white">
               <h3 className="font-bold text-sm text-[#14181F] flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-amber-500" />
                 <span>تعيين مدرب يدوياً للعضو</span>
               </h3>
-              <span className="text-xs font-semibold text-[#5B6470]">
-                {selectedAssignment.profile?.member?.name || "عضو"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[#5B6470]">
+                  {selectedAssignment.profile?.member?.name || "عضو"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAssignment(null)}
+                  className="text-gray-400 hover:text-gray-700 font-bold p-1 rounded-lg"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
-            <p className="text-xs text-[#5B6470] leading-relaxed">
-              سيؤدي التعيين اليدوي إلى استبدال أي ترشيح سابق (SUPERSEDED) وتكليف المدرب
-              المختار ومنحه حصص التوجيه المجانية مباشرة.
-            </p>
+            <form onSubmit={handleManualAssign} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                <p className="text-xs text-[#5B6470] leading-relaxed">
+                  سيؤدي التعيين اليدوي إلى استبدال أي ترشيح سابق (SUPERSEDED) وتكليف المدرب
+                  المختار ومنحه حصص التوجيه المجانية مباشرة.
+                </p>
 
-            <form onSubmit={handleManualAssign} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-[#14181F] block mb-1">
-                  اختر المدرب المطلوب
-                </label>
-                <select
-                  value={selectedCoachId}
-                  onChange={(e) => setSelectedCoachId(e.target.value)}
-                  className="w-full text-xs p-2.5 border rounded-lg bg-white border-[#E1E5DF] focus:outline-none focus:border-[#14181F]"
-                  required
-                >
-                  <option value="">اختر المدرب...</option>
-                  {queue.map((q) => {
-                    const hasRejected = rejectedCoachIdsForSelected.has(q.coachId);
-                    return (
-                      <option key={q.coachId} value={q.coachId}>
-                        {q.coach?.name || q.coachId}
-                        {hasRejected ? " ⚠️ (اعتذر عن هذا العضو مسبقاً)" : ""}
-                        {q.onShift ? " [على الوردية]" : " [خارج الوردية]"}
-                      </option>
-                    );
-                  })}
-                </select>
+                <div>
+                  <label className="text-xs font-bold text-[#14181F] block mb-1">
+                    اختر المدرب المطلوب
+                  </label>
+                  <select
+                    value={selectedCoachId}
+                    onChange={(e) => setSelectedCoachId(e.target.value)}
+                    className="w-full text-xs p-2.5 border rounded-lg bg-white border-[#E1E5DF] focus:outline-none focus:border-[#14181F]"
+                    required
+                  >
+                    <option value="">اختر المدرب...</option>
+                    {queue.map((q) => {
+                      const hasRejected = rejectedCoachIdsForSelected.has(q.coachId);
+                      return (
+                        <option key={q.coachId} value={q.coachId}>
+                          {q.coach?.name || q.coachId}
+                          {hasRejected ? " ⚠️ (اعتذر عن هذا العضو مسبقاً)" : ""}
+                          {q.onShift ? " [على الوردية]" : " [خارج الوردية]"}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E1E5DF]">
+              <div className="flex justify-end gap-2 p-4 border-t border-[#E1E5DF] shrink-0 bg-white">
                 <Button
                   type="button"
                   variant="outline"

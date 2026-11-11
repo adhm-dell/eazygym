@@ -99,12 +99,12 @@ export function ChangeCoachDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-2xl my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
         dir="rtl"
       >
-        <div className="p-5 border-b border-purple-100 bg-purple-50/50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-purple-100 bg-purple-50/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold">
               <ArrowRightLeft className="h-5 w-5" />
@@ -124,113 +124,115 @@ export function ChangeCoachDialog({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                المدرب الجديد المختار <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedCoachId}
-                onChange={(e) => setSelectedCoachId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-600 bg-white"
-                required
-              >
-                {coaches.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  المدرب الجديد المختار <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedCoachId}
+                  onChange={(e) => setSelectedCoachId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-600 bg-white"
+                  required
+                >
+                  {coaches.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  تاريخ سريان التحويل <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={effectiveDate}
+                  onChange={(e) => setEffectiveDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-600 bg-white"
+                  required
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                تاريخ سريان التحويل <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">سبب التحويل</label>
               <input
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="رغبة العضو، تغيير الجدول الأسبوعي، إجازة المدرب..."
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-600 bg-white"
-                required
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">سبب التحويل</label>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="رغبة العضو، تغيير الجدول الأسبوعي، إجازة المدرب..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-600 bg-white"
-            />
-          </div>
+            {/* Real-time Milestone Split Visualization */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-800">
+                  تقسيم استحقاقات العمولات حسب الأيام المنقضية (توزيع 100%)
+                </span>
+                {isLoadingPreview && (
+                  <span className="text-xs text-purple-600 animate-pulse">جاري الحساب...</span>
+                )}
+              </div>
 
-          {/* Real-time Milestone Split Visualization */}
-          <div className="pt-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-gray-800">
-                تقسيم استحقاقات العمولات حسب الأيام المنقضية (توزيع 100%)
-              </span>
-              {isLoadingPreview && (
-                <span className="text-xs text-purple-600 animate-pulse">جاري الحساب...</span>
-              )}
-            </div>
-
-            <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-              <table className="w-full text-start text-xs">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold">
-                  <tr>
-                    <th className="p-3">الشهر / المرحلة</th>
-                    <th className="p-3">الفترة الزمنية</th>
-                    <th className="p-3">قيمة الشريحة</th>
-                    <th className="p-3 text-purple-700">حصة المدرب السابق ({currentCoach?.name?.split(" ")[1] || "السابق"})</th>
-                    <th className="p-3 text-emerald-700">حصة المدرب الجديد</th>
-                    <th className="p-3 text-center">المجموع</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {previewData?.map((m) => (
-                    <tr key={m.index} className="hover:bg-purple-50/30 transition-colors">
-                      <td className="p-3 font-bold text-gray-800">المرحلة {m.index}</td>
-                      <td className="p-3 text-gray-500">
-                        {new Date(m.periodStart).toLocaleDateString("ar-EG")} ←{" "}
-                        {new Date(m.dueDate).toLocaleDateString("ar-EG")}
-                      </td>
-                      <td className="p-3 font-semibold text-gray-900">{formatMoney(m.base)}</td>
-                      <td className="p-3 font-bold text-purple-700">
-                        {m.oldCoachPercent}%{" "}
-                        <span className="text-[10px] text-gray-400 font-normal">({m.oldCoachShareBps} bps)</span>
-                      </td>
-                      <td className="p-3 font-bold text-emerald-700">
-                        {m.newCoachPercent}%{" "}
-                        <span className="text-[10px] text-gray-400 font-normal">({m.newCoachShareBps} bps)</span>
-                      </td>
-                      <td className="p-3 text-center font-black text-gray-900 bg-gray-50/50">
-                        {m.oldCoachPercent + m.newCoachPercent}%
-                      </td>
+              <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <table className="w-full text-start text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-bold">
+                    <tr>
+                      <th className="p-3">الشهر / المرحلة</th>
+                      <th className="p-3">الفترة الزمنية</th>
+                      <th className="p-3">قيمة الشريحة</th>
+                      <th className="p-3 text-purple-700">حصة المدرب السابق ({currentCoach?.name?.split(" ")[1] || "السابق"})</th>
+                      <th className="p-3 text-emerald-700">حصة المدرب الجديد</th>
+                      <th className="p-3 text-center">المجموع</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {previewData?.map((m) => (
+                      <tr key={m.index} className="hover:bg-purple-50/30 transition-colors">
+                        <td className="p-3 font-bold text-gray-800">المرحلة {m.index}</td>
+                        <td className="p-3 text-gray-500">
+                          {new Date(m.periodStart).toLocaleDateString("ar-EG")} ←{" "}
+                          {new Date(m.dueDate).toLocaleDateString("ar-EG")}
+                        </td>
+                        <td className="p-3 font-semibold text-gray-900">{formatMoney(m.base)}</td>
+                        <td className="p-3 font-bold text-purple-700">
+                          {m.oldCoachPercent}%{" "}
+                          <span className="text-[10px] text-gray-400 font-normal">({m.oldCoachShareBps} bps)</span>
+                        </td>
+                        <td className="p-3 font-bold text-emerald-700">
+                          {m.newCoachPercent}%{" "}
+                          <span className="text-[10px] text-gray-400 font-normal">({m.newCoachShareBps} bps)</span>
+                        </td>
+                        <td className="p-3 text-center font-black text-gray-900 bg-gray-50/50">
+                          {m.oldCoachPercent + m.newCoachPercent}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-            <p className="text-[11px] text-gray-400 mt-2">
-              وفقاً لقواعد النظام: يحتفظ المدرب السابق بحصته عن الأيام المنقضية، ويبدأ استحقاق المدرب الجديد من تاريخ التحويل بدقة 100%.
-            </p>
+              <p className="text-[11px] text-gray-400 mt-2">
+                وفقاً لقواعد النظام: يحتفظ المدرب السابق بحصته عن الأيام المنقضية، ويبدأ استحقاق المدرب الجديد من تاريخ التحويل بدقة 100%.
+              </p>
+            </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <div className="p-4 sm:p-5 border-t border-gray-100 flex items-center justify-end gap-3 bg-white shrink-0">
             <button
               type="button"
               onClick={onClose}

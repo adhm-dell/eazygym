@@ -397,19 +397,21 @@ export function BreaksBoard() {
 
       {/* Reject Modal */}
       {rejectingBreakId && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start">
-            <h3 className="font-bold text-sm text-[#14181F]">سبب رفض الاستراحة</h3>
-            <p className="text-xs text-[#5B6470]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-sm my-auto max-h-[90vh] bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start overflow-hidden flex flex-col">
+            <h3 className="font-bold text-sm text-[#14181F] shrink-0">سبب رفض الاستراحة</h3>
+            <p className="text-xs text-[#5B6470] shrink-0">
               يرجى إدخال سبب الرفض؛ وسيتم إخطار المدرب فوراً (لن تحتسب الاستراحة المرفوضة من الحد اليومي).
             </p>
-            <Input
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="مثال: ضغط عمل أو وقت ذروة"
-              required
-            />
-            <div className="flex justify-end gap-2 pt-2 border-t">
+            <div className="overflow-y-auto flex-1 min-h-0 py-1">
+              <Input
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="مثال: ضغط عمل أو وقت ذروة"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t shrink-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -432,35 +434,37 @@ export function BreaksBoard() {
 
       {/* Start Break Direct Modal */}
       {isStartModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start">
-            <h3 className="font-bold text-sm text-[#14181F]">بدء استراحة مباشرة لمدرب</h3>
-            <p className="text-xs text-[#5B6470]">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative w-full max-w-sm my-auto max-h-[90vh] bg-white rounded-2xl p-6 shadow-xl space-y-4 text-start overflow-hidden flex flex-col">
+            <h3 className="font-bold text-sm text-[#14181F] shrink-0">بدء استراحة مباشرة لمدرب</h3>
+            <p className="text-xs text-[#5B6470] shrink-0">
               سيتم بدء الاستراحة مباشرة بدون انتظار الموافقة.
             </p>
-            <form onSubmit={handleStartBreak} className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-[#14181F] block mb-1">
-                  معرّف المدرب (Staff ID)
-                </label>
-                <Input
-                  value={targetCoachId}
-                  onChange={(e) => setTargetCoachId(e.target.value)}
-                  placeholder="staff_coach"
-                  required
-                />
+            <form onSubmit={handleStartBreak} className="space-y-3 overflow-y-auto flex-1 min-h-0 py-1 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-[#14181F] block mb-1">
+                    معرّف المدرب (Staff ID)
+                  </label>
+                  <Input
+                    value={targetCoachId}
+                    onChange={(e) => setTargetCoachId(e.target.value)}
+                    placeholder="staff_coach"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-[#14181F] block mb-1">
+                    السبب
+                  </label>
+                  <Input
+                    value={startReason}
+                    onChange={(e) => setStartReason(e.target.value)}
+                    placeholder="غداء أو صلاة"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-bold text-[#14181F] block mb-1">
-                  السبب
-                </label>
-                <Input
-                  value={startReason}
-                  onChange={(e) => setStartReason(e.target.value)}
-                  placeholder="غداء أو صلاة"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex justify-end gap-2 pt-2 border-t shrink-0">
                 <Button
                   type="button"
                   variant="outline"

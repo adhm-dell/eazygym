@@ -51,12 +51,12 @@ export function CancelSubscriptionDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+        className="relative w-full max-w-md my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
         dir="rtl"
       >
-        <div className="p-5 border-b border-red-100 bg-red-50/50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-red-100 bg-red-50/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold">
               <XCircle className="h-5 w-5" />
@@ -76,33 +76,35 @@ export function CancelSubscriptionDialog({
           </button>
         </div>
 
-        <form onSubmit={handleCancel} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
+        <form onSubmit={handleCancel} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <p className="text-sm text-gray-600">
+              إلغاء الاشتراك يوقف صلاحية دخول العضو على هذا الاشتراك فوراً، ويقوم بإلغاء أي استحقاقات عمولة متبقية غير مكتسبة للمدرب.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                سبب الإلغاء <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="طلب العضو، ظرف صحي، استرداد نقدي..."
+                rows={3}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-600 bg-white"
+                required
+              />
             </div>
-          )}
-
-          <p className="text-sm text-gray-600">
-            إلغاء الاشتراك يوقف صلاحية دخول العضو على هذا الاشتراك فوراً، ويقوم بإلغاء أي استحقاقات عمولة متبقية غير مكتسبة للمدرب.
-          </p>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              سبب الإلغاء <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="طلب العضو، ظرف صحي، استرداد نقدي..."
-              rows={3}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-600 bg-white"
-              required
-            />
           </div>
 
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <div className="p-4 sm:p-5 border-t border-gray-100 flex items-center justify-end gap-3 bg-white shrink-0">
             <button
               type="button"
               onClick={onClose}

@@ -56,12 +56,12 @@ export function LogSessionDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+        className="relative w-full max-w-md my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
         dir="rtl"
       >
-        <div className="p-5 border-b border-indigo-100 bg-indigo-50/50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-indigo-100 bg-indigo-50/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
               <Dumbbell className="h-5 w-5" />
@@ -81,45 +81,47 @@ export function LogSessionDialog({
           </button>
         </div>
 
-        <form onSubmit={handleLog} className="p-6 space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
+        <form onSubmit={handleLog} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          {/* Session Counter Card */}
-          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
-            <div>
-              <span className="text-xs text-gray-500 block">الجلسات المتبقية في الاشتراك</span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className={`text-2xl font-black ${sessionsLeft > 0 ? "text-indigo-600" : "text-red-600"}`}>
-                  {sessionsLeft}
-                </span>
-                <span className="text-xs text-gray-400">/ من إجمالي {totalSessions} جلسة</span>
+            {/* Session Counter Card */}
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-gray-500 block">الجلسات المتبقية في الاشتراك</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className={`text-2xl font-black ${sessionsLeft > 0 ? "text-indigo-600" : "text-red-600"}`}>
+                    {sessionsLeft}
+                  </span>
+                  <span className="text-xs text-gray-400">/ من إجمالي {totalSessions} جلسة</span>
+                </div>
+              </div>
+              <div className="text-end">
+                <span className="text-xs text-gray-500 block">الجلسات المنفذة</span>
+                <span className="text-lg font-bold text-gray-800">{usedSessions}</span>
               </div>
             </div>
-            <div className="text-end">
-              <span className="text-xs text-gray-500 block">الجلسات المنفذة</span>
-              <span className="text-lg font-bold text-gray-800">{usedSessions}</span>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                ملاحظات عن الجلسة (اختياري)
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="تمارين الظهر والأكتاف، تقييم الأداء..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 bg-white"
+              />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              ملاحظات عن الجلسة (اختياري)
-            </label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="تمارين الظهر والأكتاف، تقييم الأداء..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 bg-white"
-            />
-          </div>
-
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <div className="p-4 sm:p-5 border-t border-gray-100 flex items-center justify-end gap-3 bg-white shrink-0">
             <button
               type="button"
               onClick={onClose}

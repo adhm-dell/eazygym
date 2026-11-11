@@ -80,13 +80,13 @@ export function FreezeDialog({ subscription, member, isOpen, onClose, onSuccess 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150">
       <div
-        className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
+        className="relative w-full max-w-lg my-auto max-h-[90vh] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col"
         dir="rtl"
       >
         {/* Header */}
-        <div className="p-5 border-b border-blue-100 bg-blue-50/50 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-blue-100 bg-blue-50/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
               <Snowflake className="h-5 w-5" />
@@ -106,105 +106,107 @@ export function FreezeDialog({ subscription, member, isOpen, onClose, onSuccess 
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Live Freeze Allowance Badge */}
-          <div className="grid grid-cols-2 gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-200">
-            <div>
-              <span className="text-xs text-gray-500 block">مرات التجميد المتاحة</span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-black text-gray-900">{decision.remainingCount}</span>
-                <span className="text-xs text-gray-400">/ متبقي من {maxCount}</span>
-              </div>
-              <span className="text-[11px] text-gray-500 block mt-0.5">مستهلك: {usedCount} مرة</span>
-            </div>
-
-            <div>
-              <span className="text-xs text-gray-500 block">رصيد الأيام المتبقي</span>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-xl font-black text-blue-600">{decision.remainingDays}</span>
-                <span className="text-xs text-gray-400">/ متبقي من {maxTotalDays} يوم</span>
-              </div>
-              <span className="text-[11px] text-gray-500 block mt-0.5">مستهلك: {usedDays} يوم</span>
-            </div>
-          </div>
-
-          {/* Validation Denial Alert */}
-          {!decision.ok && decision.reason && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2.5 animate-in fade-in">
-              <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            {/* Live Freeze Allowance Badge */}
+            <div className="grid grid-cols-2 gap-3 p-3.5 bg-gray-50 rounded-xl border border-gray-200">
               <div>
-                <p className="font-bold">{DENIAL_MESSAGES[decision.reason]}</p>
-                {decision.reason === "REQUEST_EXCEEDS_REMAINING" && (
-                  <p className="text-xs mt-1 text-red-600">
-                    يمكنك طلب {decision.remainingDays} يوماً كحد أقصى أو تركه مفتوحاً لإنهائه يدوياً.
-                  </p>
-                )}
-                {decision.reason === "PAYMENT_OVERDUE" && (
-                  <p className="text-xs mt-1 text-red-600">
-                    وفقاً للائحة النظام، لا يُسمح بتجميد الاشتراك للمشتركين المتأخرين عن السداد.
-                  </p>
-                )}
+                <span className="text-xs text-gray-500 block">مرات التجميد المتاحة</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xl font-black text-gray-900">{decision.remainingCount}</span>
+                  <span className="text-xs text-gray-400">/ متبقي من {maxCount}</span>
+                </div>
+                <span className="text-[11px] text-gray-500 block mt-0.5">مستهلك: {usedCount} مرة</span>
+              </div>
+
+              <div>
+                <span className="text-xs text-gray-500 block">رصيد الأيام المتبقي</span>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xl font-black text-blue-600">{decision.remainingDays}</span>
+                  <span className="text-xs text-gray-400">/ متبقي من {maxTotalDays} يوم</span>
+                </div>
+                <span className="text-[11px] text-gray-500 block mt-0.5">مستهلك: {usedDays} يوم</span>
               </div>
             </div>
-          )}
 
-          {submitError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{submitError}</span>
-            </div>
-          )}
+            {/* Validation Denial Alert */}
+            {!decision.ok && decision.reason && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2.5 animate-in fade-in">
+                <AlertCircle className="h-5 w-5 shrink-0 text-red-600 mt-0.5" />
+                <div>
+                  <p className="font-bold">{DENIAL_MESSAGES[decision.reason]}</p>
+                  {decision.reason === "REQUEST_EXCEEDS_REMAINING" && (
+                    <p className="text-xs mt-1 text-red-600">
+                      يمكنك طلب {decision.remainingDays} يوماً كحد أقصى أو تركه مفتوحاً لإنهائه يدوياً.
+                    </p>
+                  )}
+                  {decision.reason === "PAYMENT_OVERDUE" && (
+                    <p className="text-xs mt-1 text-red-600">
+                      وفقاً للائحة النظام، لا يُسمح بتجميد الاشتراك للمشتركين المتأخرين عن السداد.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                تاريخ بدء التجميد <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
+            {submitError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{submitError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  تاريخ بدء التجميد <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={startsAt}
+                    onChange={(e) => setStartsAt(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  عدد أيام التجميد (اختياري)
+                </label>
                 <input
-                  type="date"
-                  value={startsAt}
-                  onChange={(e) => setStartsAt(e.target.value)}
+                  type="number"
+                  min="1"
+                  max={decision.remainingDays}
+                  value={daysInput}
+                  onChange={(e) => setDaysInput(e.target.value)}
+                  placeholder={`الحد الأقصى ${decision.remainingDays} يوم`}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
-                  required
                 />
+                <p className="text-[11px] text-gray-400 mt-1">اتركه فارغاً للتجميد المفتوح حتى عودة العضو</p>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                عدد أيام التجميد (اختياري)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max={decision.remainingDays}
-                value={daysInput}
-                onChange={(e) => setDaysInput(e.target.value)}
-                placeholder={`الحد الأقصى ${decision.remainingDays} يوم`}
+              <label className="block text-xs font-semibold text-gray-700 mb-1">سبب التجميد</label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="سفر، ظروف عمل، إجازة دراسية، تقرير طبي..."
+                rows={2}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
               />
-              <p className="text-[11px] text-gray-400 mt-1">اتركه فارغاً للتجميد المفتوح حتى عودة العضو</p>
+            </div>
+
+            <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 leading-relaxed">
+              <span className="font-bold block mb-0.5">معلومة هامة:</span>
+              عند إلغاء التجميد، تُحسب الأيام الفعلية المنقضية وتُضاف تلقائياً إلى تاريخ انتهاء الاشتراك، ولا يُحسب أي يوم إضافي بعد استنفاد الرصيد.
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">سبب التجميد</label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="سفر، ظروف عمل، إجازة دراسية، تقرير طبي..."
-              rows={2}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-600"
-            />
-          </div>
-
-          <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 leading-relaxed">
-            <span className="font-bold block mb-0.5">معلومة هامة:</span>
-            عند إلغاء التجميد، تُحسب الأيام الفعلية المنقضية وتُضاف تلقائياً إلى تاريخ انتهاء الاشتراك، ولا يُحسب أي يوم إضافي بعد استنفاد الرصيد.
-          </div>
-
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+          <div className="p-4 sm:p-5 border-t border-gray-100 flex items-center justify-end gap-3 bg-white shrink-0">
             <button
               type="button"
               onClick={onClose}
