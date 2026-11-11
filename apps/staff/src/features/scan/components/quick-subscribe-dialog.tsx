@@ -21,6 +21,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { sellApi } from "../../sell/api";
+import { coachOpsApi } from "../../coach-ops/api";
+import {
+  FitnessProfileIntakeDialog,
+  type IntakeData,
+} from "../../coach-ops/components/fitness-profile-intake-dialog";
 import { formatMoney } from "../../../lib/money";
 import type { Plan, Staff, ClassScheduleWithDetails } from "@gym/contracts";
 
@@ -65,6 +70,7 @@ export function QuickSubscribeDialog({
   const [payFull, setPayFull] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isIntakeModalOpen, setIsIntakeModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isOpen || !member) return;
@@ -117,6 +123,48 @@ export function QuickSubscribeDialog({
   const minUpfrontPiasters = Math.round((planPrice * minUpfrontPercent) / 100);
   const amountToPayPiasters = payFull ? planPrice : minUpfrontPiasters;
 
+  const executeSubscriptionCheckout = async () => {
+    if (!selectedPlan) throw new Error("يرجى اختيار باقة اشتراك");
+
+    const invoice = await sellApi.createInvoice({
+      memberId: member.id,
+      items: [
+        {
+          kind: "SUBSCRIPTION",
+          planId: selectedPlan.id,
+          quantity: 1,
+          unitPrice: selectedPlan.price,
+          subscription: {
+            startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
+            coachId: selectedCoachId || undefined,
+            classSlotIds: selectedClassSlotId ? [selectedClassSlotId] : undefined,
+          },
+        },
+      ],
+      payments:
+        amountToPayPiasters > 0 && paymentMethod !== "WALLET"
+          ? [
+              {
+                method: paymentMethod as "CASH" | "INSTAPAY" | "CARD",
+                amount: amountToPayPiasters,
+                reference: paymentRef.trim() || null,
+              },
+            ]
+          : [],
+      useWallet: paymentMethod === "WALLET",
+    });
+
+    toast({
+      title: "تم إصدار الاشتراك بنجاح",
+      description: `تم تفعيل باقة "${selectedPlan.name}" للعضو ${member.name}`,
+      variant: "success",
+    });
+
+    onSuccess(invoice);
+    onClose();
+    return invoice;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlan) {
@@ -134,51 +182,61 @@ export function QuickSubscribeDialog({
       return;
     }
 
+    // Check if this is member's first subscription ever
     setIsSubmitting(true);
     setError(null);
+    try {
+      const existingProfile = await coachOpsApi.getFitnessProfile(member.id);
+      if (!existingProfile || !existingProfile.id) {
+        setIsIntakeModalOpen(true);
+        setIsSubmitting(false);
+        return;
+      }
+    } catch {
+      setIsIntakeModalOpen(true);
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      const invoice = await sellApi.createInvoice({
-        memberId: member.id,
-        items: [
-          {
-            kind: "SUBSCRIPTION",
-            planId: selectedPlan.id,
-            quantity: 1,
-            unitPrice: selectedPlan.price,
-            subscription: {
-              startDate: startDate ? new Date(startDate).toISOString() : new Date().toISOString(),
-              coachId: selectedCoachId || undefined,
-              classSlotIds: selectedClassSlotId ? [selectedClassSlotId] : undefined,
-            },
-          },
-        ],
-        payments:
-          amountToPayPiasters > 0 && paymentMethod !== "WALLET"
-            ? [
-                {
-                  method: paymentMethod as "CASH" | "INSTAPAY" | "CARD",
-                  amount: amountToPayPiasters,
-                  reference: paymentRef.trim() || null,
-                },
-              ]
-            : [],
-        useWallet: paymentMethod === "WALLET",
-      });
-
-      toast({
-        title: "تم إصدار الاشتراك بنجاح",
-        description: `تم تفعيل باقة "${selectedPlan.name}" للعضو ${member.name}`,
-        variant: "success",
-      });
-
-      onSuccess(invoice);
-      onClose();
+      await executeSubscriptionCheckout();
     } catch (err: any) {
       setError(err?.message || "تعذر إتمام عملية الاشتراك");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConfirmIntakeAndSubscribe = async (intakeData: IntakeData) => {
+    // 1. Update fitness profile
+    await coachOpsApi.updateFitnessProfile(member.id, {
+      previousGymExperience: intakeData.previousGymExperience,
+      medicalConditions: intakeData.medicalConditions,
+      injuries: intakeData.injuries,
+      goals: intakeData.goals,
+      notes: [intakeData.jobNature ? `طبيعة العمل: ${intakeData.jobNature}` : "", intakeData.notes]
+        .filter(Boolean)
+        .join(" · "),
+    });
+
+    // 2. Execute subscription checkout
+    await executeSubscriptionCheckout();
+
+    // 3. If Manual Override chosen, assign coach
+    if (intakeData.assignmentMode === "MANUAL" && intakeData.manualCoachId) {
+      const profile = await coachOpsApi.getFitnessProfile(member.id);
+      if (profile?.id) {
+        await coachOpsApi.assignManually(profile.id, { coachId: intakeData.manualCoachId });
+        const coachObj = coaches.find((c) => c.id === intakeData.manualCoachId);
+        toast({
+          title: "تم تعيين الكابتن يدوياً",
+          description: `تم تعيين الكابتن ${coachObj?.name || ""} للمتدرب الجديد بنجاح`,
+          variant: "success",
+        });
+      }
+    }
+
+    setIsIntakeModalOpen(false);
   };
 
   return (
@@ -456,6 +514,16 @@ export function QuickSubscribeDialog({
           </div>
         </div>
       </form>
+
+      {/* Fitness Profile Intake Modal for First-time Subscriber */}
+      <FitnessProfileIntakeDialog
+        isOpen={isIntakeModalOpen}
+        onClose={() => setIsIntakeModalOpen(false)}
+        member={member as any}
+        planName={selectedPlan?.name}
+        coaches={coaches}
+        onConfirm={handleConfirmIntakeAndSubscribe}
+      />
     </Dialog>
   );
 }

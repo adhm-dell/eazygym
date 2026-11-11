@@ -48,6 +48,10 @@ import {
 import { sellApi } from "../../../features/sell/api";
 import { coachOpsApi } from "../../../features/coach-ops/api";
 import { CreateMemberDialog } from "../../../features/members/components/create-member-dialog";
+import {
+  FitnessProfileIntakeDialog,
+  type IntakeData,
+} from "../../../features/coach-ops/components/fitness-profile-intake-dialog";
 import { useShift } from "../../../lib/shift-context";
 import { formatMoney } from "../../../lib/money";
 import type {
@@ -158,6 +162,10 @@ export default function PosSellPage() {
   const [collectBalanceModalOpen, setCollectBalanceModalOpen] = useState(false);
   const [vouchersModalOpen, setVouchersModalOpen] = useState(false);
   const [recentInvoicesList, setRecentInvoicesList] = useState<InvoiceDetail[]>([]);
+
+  // Fitness Profile Intake Dialog for first-time subscriber
+  const [isIntakeModalOpen, setIsIntakeModalOpen] = useState<boolean>(false);
+  const [intakePlanName, setIntakePlanName] = useState<string>("");
 
   // Manual coach assignment from rotation result
   const [manualAssignProfileId, setManualAssignProfileId] = useState<string | null>(null);
@@ -840,7 +848,80 @@ export default function PosSellPage() {
     };
   }, [cart, discountCalculation, totalCollected]);
 
-  // Checkout Handler
+  // Core Invoice Checkout Execution
+  const executeInvoiceCheckout = async (): Promise<InvoiceDetail> => {
+    const paymentRows: { method: "CASH" | "INSTAPAY" | "CARD"; amount: Minor; reference?: string }[] = [];
+    if (cashPiasters > 0) paymentRows.push({ method: "CASH", amount: cashPiasters });
+    if (instapayPiasters > 0)
+      paymentRows.push({ method: "INSTAPAY", amount: instapayPiasters, reference: instapayRef });
+    if (cardPiasters > 0) paymentRows.push({ method: "CARD", amount: cardPiasters });
+
+    const invoice = await sellApi.createInvoice({
+      memberId: selectedMember?.id || null,
+      items: cart.map((i) => ({
+        kind: i.kind,
+        planId: i.planId,
+        serviceId: i.serviceId,
+        productId: i.productId,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        subscription:
+          i.kind === "SUBSCRIPTION"
+            ? {
+                startDate: i.startDate,
+                coachId: i.coachId,
+                classSlotIds: i.classSlotId ? [i.classSlotId] : undefined,
+                freezeMaxCount: i.freezeMaxCount,
+                freezeMaxTotalDays: i.freezeMaxTotalDays,
+              }
+            : undefined,
+      })),
+      promotionId: appliedPromo?.id,
+      promotionCode: appliedPromo?.code,
+      manualDiscount: manualDiscountActive
+        ? {
+            amount: discount,
+            note: manualDiscountNote,
+          }
+        : null,
+      payments: paymentRows,
+      useWallet,
+      note: invoiceNote || null,
+    });
+
+    setCompletedInvoice(invoice);
+    setPrintModalOpen(true);
+    clearCart();
+    if (selectedMember) {
+      handleSelectMember(selectedMember);
+    }
+
+    toast({
+      title: "تم إصدار الفاتورة بنجاح!",
+      description: `فاتورة رقم #${invoice.number} · تم تحصيل ${formatMoney(invoice.collectedAmount)}`,
+      variant: "success",
+    });
+
+    if (invoice.rotation) {
+      if (invoice.rotation.status === "PENDING") {
+        toast({
+          title: "ترشيح المدرب في الدور",
+          description: `تم ترشيح الكابتن ${invoice.rotation.coachName} للمتدرب الجديد، بانتظار موافقته`,
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "تنبيه: لا يوجد مدرب متاح على الوردية",
+          description: "تعذر ترشيح كابتن في الدور، يرجى التعيين اليدوي للمتدرب الجديد",
+          variant: "warning",
+        });
+      }
+    }
+
+    return invoice;
+  };
+
+  // Checkout Handler (intercepts first-time subscription to take fitness intake & coach assignment)
   const handleCheckout = async () => {
     if (!currentShift || currentShift.status !== "OPEN") {
       toast({
@@ -894,74 +975,26 @@ export default function PosSellPage() {
       }
     }
 
-    try {
-      const paymentRows: { method: "CASH" | "INSTAPAY" | "CARD"; amount: Minor; reference?: string }[] = [];
-      if (cashPiasters > 0) paymentRows.push({ method: "CASH", amount: cashPiasters });
-      if (instapayPiasters > 0)
-        paymentRows.push({ method: "INSTAPAY", amount: instapayPiasters, reference: instapayRef });
-      if (cardPiasters > 0) paymentRows.push({ method: "CARD", amount: cardPiasters });
-
-      const invoice = await sellApi.createInvoice({
-        memberId: selectedMember?.id || null,
-        items: cart.map((i) => ({
-          kind: i.kind,
-          planId: i.planId,
-          serviceId: i.serviceId,
-          productId: i.productId,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          subscription:
-            i.kind === "SUBSCRIPTION"
-              ? {
-                  startDate: i.startDate,
-                  coachId: i.coachId,
-                  classSlotIds: i.classSlotId ? [i.classSlotId] : undefined,
-                  freezeMaxCount: i.freezeMaxCount,
-                  freezeMaxTotalDays: i.freezeMaxTotalDays,
-                }
-              : undefined,
-        })),
-        promotionId: appliedPromo?.id,
-        promotionCode: appliedPromo?.code,
-        manualDiscount: manualDiscountActive
-          ? {
-              amount: discount,
-              note: manualDiscountNote,
-            }
-          : null,
-        payments: paymentRows,
-        useWallet,
-        note: invoiceNote || null,
-      });
-
-      setCompletedInvoice(invoice);
-      setPrintModalOpen(true);
-      clearCart();
-      if (selectedMember) {
-        handleSelectMember(selectedMember);
-      }
-
-      toast({
-        title: "تم إصدار الفاتورة بنجاح!",
-        description: `فاتورة رقم #${invoice.number} · تم تحصيل ${formatMoney(invoice.collectedAmount)}`,
-        variant: "success",
-      });
-
-      if (invoice.rotation) {
-        if (invoice.rotation.status === "PENDING") {
-          toast({
-            title: "ترشيح المدرب في الدور",
-            description: `تم ترشيح الكابتن ${invoice.rotation.coachName} للمتدرب الجديد، بانتظار موافقته`,
-            variant: "success",
-          });
-        } else {
-          toast({
-            title: "تنبيه: لا يوجد مدرب متاح على الوردية",
-            description: "تعذر ترشيح كابتن في الدور، يرجى التعيين اليدوي للمتدرب الجديد",
-            variant: "warning",
-          });
+    // Intercept: If buying a subscription for the first time, open Fitness Profile Intake Dialog
+    if (hasSub && selectedMember) {
+      try {
+        const profile = await coachOpsApi.getFitnessProfile(selectedMember.id);
+        if (!profile || !profile.id) {
+          const subItem = cart.find((i) => i.kind === "SUBSCRIPTION");
+          setIntakePlanName(subItem?.title || "اشتراك جديد");
+          setIsIntakeModalOpen(true);
+          return;
         }
+      } catch {
+        const subItem = cart.find((i) => i.kind === "SUBSCRIPTION");
+        setIntakePlanName(subItem?.title || "اشتراك جديد");
+        setIsIntakeModalOpen(true);
+        return;
       }
+    }
+
+    try {
+      await executeInvoiceCheckout();
     } catch (err: any) {
       const errCode = err?.code;
       const desc = errCode && t(`errors.${errCode}`) !== `errors.${errCode}`
@@ -972,6 +1005,53 @@ export default function PosSellPage() {
         description: desc,
         variant: "error",
       });
+    }
+  };
+
+  // Handler for Confirming Fitness Profile Intake and proceeding to Checkout
+  const handleConfirmIntakeAndCheckout = async (intakeData: IntakeData) => {
+    if (!selectedMember) return;
+    try {
+      // 1. Save fitness profile intake info
+      await coachOpsApi.updateFitnessProfile(selectedMember.id, {
+        previousGymExperience: intakeData.previousGymExperience,
+        medicalConditions: intakeData.medicalConditions,
+        injuries: intakeData.injuries,
+        goals: intakeData.goals,
+        notes: [intakeData.jobNature ? `طبيعة العمل: ${intakeData.jobNature}` : "", intakeData.notes]
+          .filter(Boolean)
+          .join(" · "),
+      });
+
+      // 2. Execute Checkout
+      await executeInvoiceCheckout();
+
+      // 3. If Manual Override was chosen, immediately assign the chosen coach
+      if (intakeData.assignmentMode === "MANUAL" && intakeData.manualCoachId) {
+        const profile = await coachOpsApi.getFitnessProfile(selectedMember.id);
+        if (profile?.id) {
+          await coachOpsApi.assignManually(profile.id, { coachId: intakeData.manualCoachId });
+          const coachObj = coaches.find((c) => c.id === intakeData.manualCoachId);
+          toast({
+            title: "تم تعيين الكابتن يدوياً",
+            description: `تم تعيين الكابتن ${coachObj?.name || ""} للمتدرب الجديد بنجاح`,
+            variant: "success",
+          });
+        }
+      }
+
+      setIsIntakeModalOpen(false);
+    } catch (err: any) {
+      const errCode = err?.code;
+      const desc = errCode && t(`errors.${errCode}`) !== `errors.${errCode}`
+        ? t(`errors.${errCode}`)
+        : (err?.message || String(err));
+      toast({
+        title: "فشل إتمام البيع والملف البدني",
+        description: desc,
+        variant: "error",
+      });
+      throw err;
     }
   };
 
@@ -2559,6 +2639,18 @@ export default function PosSellPage() {
           });
         }}
       />
+
+      {/* Fitness Profile Intake Modal for First-time Subscriber */}
+      {selectedMember && (
+        <FitnessProfileIntakeDialog
+          isOpen={isIntakeModalOpen}
+          onClose={() => setIsIntakeModalOpen(false)}
+          member={selectedMember}
+          planName={intakePlanName}
+          coaches={coaches}
+          onConfirm={handleConfirmIntakeAndCheckout}
+        />
+      )}
     </div>
   );
 }

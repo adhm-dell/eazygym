@@ -222,7 +222,7 @@ export class SubscriptionsService {
     }
 
     // First-time subscription: trigger fitness profile & coach rotation
-    const existingProfile = await tx.fitnessProfile.findUnique({
+    let existingProfile = await tx.fitnessProfile.findUnique({
       where: { memberId: params.memberId },
     });
 
@@ -244,6 +244,34 @@ export class SubscriptionsService {
         params.now
       );
       rotationResult = fitRes.rotation;
+    } else {
+      // Profile exists (e.g. created during intake before invoice)
+      if (!existingProfile.createdBySubscriptionId) {
+        existingProfile = await tx.fitnessProfile.update({
+          where: { id: existingProfile.id },
+          data: { createdBySubscriptionId: sub.id },
+        });
+      }
+      const existingAssignment = await tx.fitnessProfileAssignment.findFirst({
+        where: { profileId: existingProfile.id },
+      });
+      if (!existingAssignment) {
+        const member = await tx.member.findUnique({
+          where: { id: params.memberId },
+          select: { name: true },
+        });
+        const rot = await this.fitnessProfilesService.triggerRotation(
+          params.gymId,
+          existingProfile.id,
+          params.now,
+          tx,
+          {
+            memberName: member?.name,
+            planName: params.plan.name,
+          }
+        );
+        rotationResult = rot;
+      }
     }
 
     (sub as any).rotation = rotationResult;

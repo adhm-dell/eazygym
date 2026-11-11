@@ -201,7 +201,7 @@ export const coachOpsApi = {
 
   // Fitness Profiles & Assessments
   getFitnessProfile: (memberId: string) => {
-    return http.get<any>(`/members/${memberId}/fitness-profile`);
+    return http.get<any>(`/members/${memberId}/fitness-profile`).catch(() => null);
   },
 
   updateFitnessProfile: (memberId: string, dto: UpdateFitnessProfileDto) => {
