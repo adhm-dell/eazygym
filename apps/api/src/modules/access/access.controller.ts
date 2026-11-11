@@ -27,7 +27,7 @@ export class AccessController {
     @Body(new ZodValidationPipe(ScanRequestSchema)) body: ScanRequest
   ) {
     const customNow = body.timestamp ? new Date(body.timestamp) : undefined;
-    return this.accessService.scan(user.gymId, user.sub, body.code, customNow);
+    return this.accessService.scan(user.gymId, user.sub, body.code, customNow, body.subscriptionId);
   }
 
   @Get("logs")

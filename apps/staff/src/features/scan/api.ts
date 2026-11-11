@@ -1,11 +1,12 @@
 import { http } from "../../lib/api";
 
 export const scanApi = {
-  evaluateDoorScan: async (code: string, now?: Date) => {
+  evaluateDoorScan: async (code: string, opts?: { now?: Date; subscriptionId?: string }) => {
     return http
       .post<any>("/access/scan", {
         code,
-        timestamp: now ? now.toISOString() : undefined,
+        timestamp: opts?.now ? opts.now.toISOString() : undefined,
+        subscriptionId: opts?.subscriptionId,
       })
       .catch((err) => {
         if (

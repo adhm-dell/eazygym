@@ -248,6 +248,7 @@ export type VisitorDto = z.infer<typeof VisitorDtoSchema>;
 export const ScanRequestSchema = z.object({
   code: z.string().min(1),
   timestamp: z.string().optional(),
+  subscriptionId: z.string().optional(),
 });
 export type ScanRequest = z.infer<typeof ScanRequestSchema>;
 
@@ -258,6 +259,8 @@ export const ScanResponseSchema = z.object({
   planName: z.string().optional(),
   daysLeft: z.number().optional(),
   expiringSoon: z.boolean().optional(),
+  hasMultipleSubscriptions: z.boolean().optional(),
+  activeSubscriptions: z.array(z.any()).optional(),
 });
 export type ScanResponse = z.infer<typeof ScanResponseSchema>;
 
@@ -1133,15 +1136,33 @@ export interface ScanResult {
     phone?: string;
     isBlocked?: boolean;
     blockedReason?: string | null;
+    remainingDebt?: number;
+    walletBalance?: number;
   };
   subscription?: any;
   subscriptionId?: string;
   planName?: string;
+  planKind?: string;
   daysLeft?: number;
   sessionsLeft?: number | null;
+  totalSessions?: number | null;
+  coachName?: string | null;
+  className?: string | null;
+  classTime?: string | null;
   expiringSoon?: boolean;
   nextAction?: string | null;
   duplicate?: boolean;
+  hasMultipleSubscriptions?: boolean;
+  activeSubscriptions?: Array<{
+    id: string;
+    kind: string;
+    planName: string;
+    daysLeft?: number;
+    sessionsLeft?: number | null;
+    className?: string | null;
+    classTime?: string | null;
+    coachName?: string | null;
+  }>;
 }
 
 

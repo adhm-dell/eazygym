@@ -30,6 +30,12 @@ import {
   XCircle,
   Lock,
   QrCode,
+  Dumbbell,
+  Users,
+  Target,
+  Clock,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 // Table of exact Arabic messages & next action mappings per Phase 2 specification
@@ -94,6 +100,9 @@ export default function ReceptionScanPage() {
   const [activeResult, setActiveResult] = useState<ScanResult | null>(null);
   const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Multi-subscription disambiguation modal
+  const [disambiguationData, setDisambiguationData] = useState<{ query: string; result: ScanResult } | null>(null);
+
   // Reason modal dialog for BLOCKED member
   const [blockedReasonDialog, setBlockedReasonDialog] = useState<string | null>(null);
 
@@ -149,7 +158,7 @@ export default function ReceptionScanPage() {
   }, [loadData]);
 
   // Handle Door Scan
-  const handleScanSubmit = async (queryToScan?: string) => {
+  const handleScanSubmit = async (queryToScan?: string, specificSubId?: string) => {
     const raw = queryToScan || scanQuery;
     const query = raw.trim();
     if (!query) return;
@@ -171,7 +180,21 @@ export default function ReceptionScanPage() {
     }
 
     try {
-      const result = await scanApi.evaluateDoorScan(query);
+      const result = await scanApi.evaluateDoorScan(query, { subscriptionId: specificSubId });
+
+      // If member has multiple active subscriptions and none chosen yet: prompt receptionist!
+      if (
+        !specificSubId &&
+        result.allowed &&
+        result.hasMultipleSubscriptions &&
+        result.activeSubscriptions &&
+        result.activeSubscriptions.length > 1
+      ) {
+        setDisambiguationData({ query, result });
+        setIsEvaluating(false);
+        return;
+      }
+
       setActiveResult(result);
       setScanQuery("");
 
@@ -196,6 +219,11 @@ export default function ReceptionScanPage() {
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  const handleSelectSubscription = async (query: string, subscriptionId: string) => {
+    setDisambiguationData(null);
+    await handleScanSubmit(query, subscriptionId);
   };
 
   const dismissResult = () => {
@@ -490,18 +518,75 @@ export default function ReceptionScanPage() {
                 )}
               </div>
 
+              {/* Debt Alert on Banner if member owes debt */}
+              {(activeResult.member?.remainingDebt ?? 0) > 0 && (
+                <div className="col-span-full bg-black/35 border border-white/20 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-bold text-white shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0" />
+                    <span>
+                      تنبيه: مديونية مستحقة على العضو قدرها {((activeResult.member?.remainingDebt || 0) / 100).toFixed(2)} ج.م
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/pos?memberId=${activeResult.member?.id}`)}
+                    className="px-3 py-1.5 bg-white text-[#B3261E] hover:bg-white/90 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    تحصيل المتبقي الآن
+                  </button>
+                </div>
+              )}
+
               {/* Subscription details */}
-              <div className="mt-1">
-                <p className="text-sm font-semibold">
-                  {activeResult.planName || "بدون باقة نشطة"}
-                  {activeResult.daysLeft !== undefined && ` · متبقي ${activeResult.daysLeft} يوم`}
-                  {activeResult.sessionsLeft !== undefined && activeResult.sessionsLeft !== null && ` · متبقي ${activeResult.sessionsLeft} جلسة`}
-                </p>
+              <div className="mt-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-white/20 text-white">
+                    {activeResult.planKind === "CLASS" || activeResult.subscription?.kind === "CLASS"
+                      ? "حصة كلاس جماعي"
+                      : activeResult.planKind === "PT" || activeResult.subscription?.kind === "PT"
+                      ? "تدريب خاص PT"
+                      : "اشتراك جيم عام"}
+                  </span>
+                  <span className="text-base font-bold text-white">
+                    {activeResult.planName || activeResult.subscription?.planName || "بدون باقة نشطة"}
+                  </span>
+                </div>
+
+                <div className="text-xs text-white/90 font-medium space-y-0.5">
+                  {(activeResult.className || activeResult.subscription?.className) && (
+                    <p className="font-bold text-[#C6F24E]">
+                      الحصة: {activeResult.className || activeResult.subscription?.className} ({activeResult.classTime || activeResult.subscription?.classTime})
+                    </p>
+                  )}
+                  {(activeResult.coachName || activeResult.subscription?.coachName) && (
+                    <p>الكابتن: {activeResult.coachName || activeResult.subscription?.coachName}</p>
+                  )}
+                  <p>
+                    {activeResult.daysLeft !== undefined || activeResult.subscription?.daysLeft !== undefined
+                      ? `متبقي ${activeResult.daysLeft ?? activeResult.subscription?.daysLeft} يوم`
+                      : ""}
+                    {(activeResult.sessionsLeft !== undefined && activeResult.sessionsLeft !== null) ||
+                    (activeResult.subscription?.sessionsLeft !== undefined && activeResult.subscription?.sessionsLeft !== null)
+                      ? ` · متبقي ${activeResult.sessionsLeft ?? activeResult.subscription?.sessionsLeft} جلسة`
+                      : ""}
+                    {activeResult.subscription?.endDate && (
+                      <span className="opacity-75 ps-2">
+                        (ينتهي: {new Date(activeResult.subscription.endDate).toLocaleDateString("ar-EG")})
+                      </span>
+                    )}
+                  </p>
+                </div>
+
                 {activeResult.allowed && (
                   <div className="h-[10px] bg-white/25 rounded-full mt-2 overflow-hidden">
                     <div
                       className="h-full bg-white rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.max(15, (activeResult.daysLeft || 1) * 3))}%` }}
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.max(15, (activeResult.daysLeft ?? activeResult.subscription?.daysLeft ?? 1) * 3)
+                        )}%`,
+                      }}
                     />
                   </div>
                 )}
@@ -519,6 +604,24 @@ export default function ReceptionScanPage() {
                   </p>
                 )}
               </div>
+
+              {/* Other Active Subscriptions Chips */}
+              {activeResult.activeSubscriptions && activeResult.activeSubscriptions.length > 1 && (
+                <div className="col-span-full pt-2.5 border-t border-white/20 flex flex-wrap items-center gap-1.5 text-xs">
+                  <span className="text-[11px] opacity-80">عضويات أخرى نشطة للعضو:</span>
+                  {activeResult.activeSubscriptions
+                    .filter((s) => s.id !== (activeResult.subscriptionId || activeResult.subscription?.id))
+                    .map((s) => (
+                      <span
+                        key={s.id}
+                        className="px-2.5 py-1 rounded-full bg-white/15 border border-white/25 text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <span>{s.kind === "CLASS" ? "🥊 كلاس:" : s.kind === "PT" ? "🎯 برايفت:" : "🏋️‍♂️ جيم:"}</span>
+                        <span>{s.className || s.planName}</span>
+                      </span>
+                    ))}
+                </div>
+              )}
 
               {/* Expiring Soon Banner */}
               {activeResult.expiringSoon && (
@@ -585,18 +688,27 @@ export default function ReceptionScanPage() {
                 minute: "2-digit",
               });
 
+              const memberName = log.memberName || (log as any).member?.name || "عضو غير مسجل";
+              const memberCode = (log as any).memberCode || (log as any).member?.code;
+              const planName = log.planName || (log as any).subscription?.plan?.name;
+
               return (
                 <div
                   key={log.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 py-3 border-t border-[#E1E5DF]"
                 >
-                  <div className="flex items-center gap-3 flex-1">
+                  <div className="flex items-center gap-2 flex-1">
                     <span className="font-bold text-[#14181F] text-sm">
-                      {log.memberName || "عضو غير معروف"}
+                      {memberName}
                     </span>
-                    {log.planName && (
+                    {memberCode && (
+                      <span className="text-[11px] text-[#5B6470] font-mono">
+                        (كود: {memberCode})
+                      </span>
+                    )}
+                    {planName && (
                       <span className="text-xs text-[#5B6470] hidden sm:inline">
-                        ({log.planName})
+                        · {planName}
                       </span>
                     )}
                   </div>
@@ -870,6 +982,133 @@ export default function ReceptionScanPage() {
           </div>
         </div>
       </Dialog>
+
+      {/* Multi-Subscription Selection Disambiguation Dialog */}
+      {disambiguationData && (
+        <Dialog
+          isOpen={Boolean(disambiguationData)}
+          onClose={() => {
+            const r = disambiguationData.result;
+            setDisambiguationData(null);
+            setActiveResult(r);
+            setScanQuery("");
+          }}
+          title={`تسجيل الدخول: ${disambiguationData.result.member?.name || "العضو"}`}
+          description="العضو لديه أكثر من اشتراك ساري الآن. اختر نوع الحضور لتسجيله في تقرير الوردية:"
+        >
+          <div className="space-y-3 pt-2">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-xs text-amber-900 font-medium">
+              <Sparkles className="h-5 w-5 text-amber-600 shrink-0" />
+              <span>
+                يمتلك العضو عضويات متعددة نشطة في نفس الوقت (مثل الجيم والكلاس). يرجى الضغط على النشاط المطلوب لتسجيل الحضور به:
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {disambiguationData.result.activeSubscriptions?.map((sub) => {
+                const isClass = sub.kind === "CLASS";
+                const isPt = sub.kind === "PT";
+
+                return (
+                  <button
+                    key={sub.id}
+                    type="button"
+                    onClick={() => handleSelectSubscription(disambiguationData.query, sub.id)}
+                    className={`w-full text-right p-4 rounded-2xl border-2 transition-all flex items-center justify-between group cursor-pointer ${
+                      isClass
+                        ? "border-emerald-200 bg-emerald-50/30 hover:border-emerald-500 hover:bg-emerald-50"
+                        : isPt
+                        ? "border-blue-200 bg-blue-50/30 hover:border-blue-500 hover:bg-blue-50"
+                        : "border-[#E1E5DF] bg-white hover:border-[#14181F] hover:bg-[#F2F4F1]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold shrink-0 ${
+                          isClass
+                            ? "bg-emerald-600 text-white"
+                            : isPt
+                            ? "bg-blue-600 text-white"
+                            : "bg-[#14181F] text-[#C6F24E]"
+                        }`}
+                      >
+                        {isClass ? (
+                          <Users className="h-5 w-5" />
+                        ) : isPt ? (
+                          <Target className="h-5 w-5" />
+                        ) : (
+                          <Dumbbell className="h-5 w-5" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-[#14181F]">
+                            {isClass
+                              ? `حضور كلاس: ${sub.className || sub.planName}`
+                              : isPt
+                              ? `جلسة تدريب خاص (PT)`
+                              : `دخول صالة الجيم (عام)`}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isClass
+                                ? "bg-emerald-100 text-emerald-800"
+                                : isPt
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {sub.planName}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-[#5B6470] mt-1 flex flex-wrap items-center gap-2">
+                          {isClass && sub.classTime && (
+                            <span className="font-bold text-emerald-700 flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>الموعد: {sub.classTime}</span>
+                            </span>
+                          )}
+                          {sub.coachName && <span>الكابتن: {sub.coachName}</span>}
+                          {sub.sessionsLeft !== undefined && sub.sessionsLeft !== null && (
+                            <span>متبقي {sub.sessionsLeft} جلسة</span>
+                          )}
+                          {sub.daysLeft !== undefined && (
+                            <span>متبقي {sub.daysLeft} يوم</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 shrink-0">
+                      <span>تسجيل</span>
+                      <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-[#E1E5DF]">
+              <span className="text-xs text-[#5B6470]">
+                أو المتابعة بالحساب الافتراضي التلقائي:
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const r = disambiguationData.result;
+                  setDisambiguationData(null);
+                  setActiveResult(r);
+                  setScanQuery("");
+                }}
+              >
+                الدخول التلقائي
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }
